@@ -58,16 +58,22 @@ export async function loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>,
     await mountEmbedBox(el, box, $renderedContent);
 }
 
+interface EmbeddedAttachmentOptions {
+    /** Saves the changes that the content makes to the attachment, such as a canvas drawing. */
+    attachmentEditor?: AttachmentEditor;
+    /** Whether the content takes the focus once the box is mounted. */
+    isFocused?: boolean;
+}
+
 /**
  * Fills an embed box with an embedded attachment, under a title linking to it. Without a box
- * size of its own, the box takes the one of its embed. `attachmentEditor` saves the changes that
- * the content makes to the attachment, such as a canvas drawing.
+ * size of its own, the box takes the one of its embed.
  */
 export async function loadEmbeddedAttachment(
     attachmentId: string,
     $el: JQuery<HTMLElement>,
     boxSize?: string,
-    attachmentEditor?: AttachmentEditor
+    { attachmentEditor, isFocused }: EmbeddedAttachmentOptions = {}
 ) {
     const attachment = await froca.getAttachment(attachmentId, true);
     if (!attachment) return;
@@ -109,7 +115,8 @@ export async function loadEmbeddedAttachment(
         content: $renderedContent[0],
         contentType: type,
         notePath: attachment.ownerId,
-        viewScope
+        viewScope,
+        ...(isFocused ? { isFocusedOnMount: true } : {})
     });
     await mountEmbedBox(el, box, $renderedContent);
 }

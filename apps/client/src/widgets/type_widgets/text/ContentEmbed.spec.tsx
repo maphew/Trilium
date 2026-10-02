@@ -350,6 +350,27 @@ describe("ContentEmbed", () => {
     });
 });
 
+describe("ContentEmbed focused on mount", () => {
+    it("gives the focus to the first focusable element of its content, or to the box", () => {
+        const content = element(
+            `<div class="rendered-content"><p>body</p><div tabindex="0"></div></div>`
+        );
+        renderBox({ content, isFocusedOnMount: true });
+        expect(document.activeElement).toBe(content.querySelector("[tabindex]"));
+        expect(contentBox().parentElement?.classList.contains("active")).toBe(true);
+
+        act(() => render(null, container));
+        renderBox({ isFocusedOnMount: true });
+        expect(document.activeElement).toBe(contentBox());
+    });
+
+    it("leaves the focus where it is by default", () => {
+        const content = element(`<div class="rendered-content"><div tabindex="0"></div></div>`);
+        renderBox({ content });
+        expect(document.activeElement).toBe(document.body);
+    });
+});
+
 describe("TinyContentEmbed", () => {
     it("lays out a single row: icon, title and description, actions, menu", () => {
         const run = vi.fn();

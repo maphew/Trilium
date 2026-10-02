@@ -17,7 +17,7 @@ import { createTestEditor } from "../../../test/editor-kit.js";
 import { installGlobMock } from "../../../test/globals-test-kit.js";
 import ContentEmbed from "../content_embed/content_embed.js";
 import { isUploadAsLink } from "../uploadimage.js";
-import FileUploadCommand, { isQuietUpload } from "./fileuploadcommand.js";
+import FileUploadCommand, { isFocusUpload, isQuietUpload } from "./fileuploadcommand.js";
 
 /**
  * Minimal plugin that registers the 'reference' model schema AND the downcast
@@ -202,16 +202,18 @@ describe("FileUploadCommand", () => {
         expect(getEmbedBoxSize).not.toHaveBeenCalled();
     });
 
-    it("marks the loaders of a quiet upload, and only those", () => {
+    it("marks the loaders of a quiet upload and of a focus upload, and only those", () => {
         installGlobMock({ getComponentByEl: () => ({}) });
         setModelData(editor.model, "<paragraph>[]</paragraph>");
         const createLoaderSpy = vi.spyOn(editor.plugins.get(FileRepository), "createLoader");
 
         editor.execute("fileUpload", { file: [ new File(["1"], "one.txt") ] });
         editor.execute("fileUpload", { file: [ new File(["2"], "two.txt") ], quiet: true });
+        editor.execute("fileUpload", { file: [ new File(["3"], "three.txt") ], focusEmbed: true });
 
-        expect(createLoaderSpy.mock.results.map(({ value }) => isQuietUpload(value as FileLoader)))
-            .toEqual([ false, true ]);
+        const loaders = createLoaderSpy.mock.results.map(({ value }) => value as FileLoader);
+        expect(loaders.map(isQuietUpload)).toEqual([ false, true, false ]);
+        expect(loaders.map(isFocusUpload)).toEqual([ false, false, true ]);
     });
 
     it("marks the loader of every file to upload as a link, for an embed too", () => {

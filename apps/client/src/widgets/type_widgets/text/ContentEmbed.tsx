@@ -28,6 +28,8 @@ export interface ContentEmbedProps {
     /** The note opened by the buttons in the title row. */
     notePath: string;
     viewScope?: ViewScope;
+    /** Gives the focus to the content once mounted, as for a canvas drawing just added. */
+    isFocusedOnMount?: boolean;
 }
 
 export interface TinyContentEmbedProps {
@@ -45,7 +47,7 @@ export interface TinyContentEmbedProps {
 
 /** The title row and the content of an embedded note or attachment. */
 export default function ContentEmbed({
-    boxSize, title, content, contentType, notePath, viewScope
+    boxSize, title, content, contentType, notePath, viewScope, isFocusedOnMount
 }: ContentEmbedProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const isContentActive = useFocusWithin(contentRef);
@@ -60,6 +62,12 @@ export default function ContentEmbed({
             content.remove();
         };
     }, [ content ]);
+
+    useLayoutEffect(() => {
+        if (isFocusedOnMount) {
+            (content.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? contentRef.current)?.focus();
+        }
+    }, []);
 
     return (
         <>

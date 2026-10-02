@@ -2,6 +2,7 @@ import "ckeditor5";
 
 declare global {
     interface Component {
+        componentId: string;
         triggerCommand(command: string): void;
     }
 
@@ -64,6 +65,11 @@ declare global {
          */
         openContentEmbedMenu?(embed: HTMLElement, anchor: HTMLElement): void;
         /**
+         * Gives the focus to what the embed of the attachment shows, once it renders. Hosts
+         * without embeds leave it out.
+         */
+        focusContentEmbed?(attachmentId: string): void;
+        /**
          * Reads a page's preview metadata through the host. Never rejects: any failure — network
          * error, HTTP error, unparseable page — resolves as `{ unresolved: true }` with
          * hostname-derived placeholders, so callers branch on `unresolved` instead of catching.
@@ -79,7 +85,8 @@ declare global {
         getActiveContextNote(): {
             noteId: string;
         };
-        getHeaders(): Promise<Record<string, string>>;
+        /** The headers of a request to the server, with `headers` added to them. */
+        getHeaders(headers?: Record<string, string | undefined>): Promise<Record<string, string>>;
         getReferenceLinkTitle(href: string): Promise<string>;
         getReferenceLinkTitleSync(href: string): string;
     };

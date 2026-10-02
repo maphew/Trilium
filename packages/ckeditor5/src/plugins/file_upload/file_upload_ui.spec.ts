@@ -150,7 +150,7 @@ describe("FileUploadUI", () => {
             return button;
         }
 
-        it("embeds an empty canvas drawing, medium and without a title, quietly", async () => {
+        it("embeds an empty canvas drawing, medium, untitled and focused, quietly", async () => {
             const button = createCanvasButton();
             const execute = vi.spyOn(editor, "execute").mockImplementation(() => undefined);
             const focus = vi.spyOn(editor.editing.view, "focus");
@@ -165,7 +165,8 @@ describe("FileUploadUI", () => {
                 asEmbed: true,
                 boxSize: "medium",
                 hideTitle: true,
-                quiet: true
+                quiet: true,
+                focusEmbed: true
             });
             const [ file ] = (execute.mock.calls[0][1] as { file: File[] }).file;
             expect([ file.name, file.type ])

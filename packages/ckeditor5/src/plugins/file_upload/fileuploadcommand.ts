@@ -20,13 +20,21 @@ export interface FileUploadOptions {
     hideTitle?: boolean;
     /** Skips the `upload` event, for a file that the editor created itself. */
     quiet?: boolean;
+    /** Gives the focus to what the embeds show, once the upload ends. */
+    focusEmbed?: boolean;
 }
 
 const quietLoaders = new WeakSet<FileLoader>();
+const focusLoaders = new WeakSet<FileLoader>();
 
 /** Whether the upload of `loader` is left out of the `upload` event. */
 export function isQuietUpload(loader: FileLoader) {
     return quietLoaders.has(loader);
+}
+
+/** Whether the embed of the upload of `loader` takes the focus once the upload ends. */
+export function isFocusUpload(loader: FileLoader) {
+    return focusLoaders.has(loader);
 }
 
 /**
@@ -42,7 +50,8 @@ export default class FileUploadCommand extends Command {
         this.isEnabled = !!position && model.schema.checkChild(position, "reference");
     }
 
-    override execute({ file: files, asEmbed, boxSize, hideTitle, quiet }: FileUploadOptions) {
+    override execute(options: FileUploadOptions) {
+        const { file: files, asEmbed, boxSize, hideTitle, quiet, focusEmbed } = options;
         const model = this.editor.model;
         const fileRepository = this.editor.plugins.get(FileRepository);
 
@@ -57,6 +66,9 @@ export default class FileUploadCommand extends Command {
                 uploadAsLink(loader);
                 if (quiet) {
                     quietLoaders.add(loader);
+                }
+                if (focusEmbed) {
+                    focusLoaders.add(loader);
                 }
 
                 if (asEmbed) {

@@ -33,6 +33,7 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
         colorScheme
     );
     const isToolbarOverPanel = useIsToolbarOverPanel(rootRef);
+    useFocusFromEmbedBox(rootRef);
 
     return (
         <div
@@ -67,6 +68,35 @@ export async function renderCanvasDrawingPicture(entity: FNote | FAttachment) {
     });
     svg.classList.add("canvas-drawing-picture");
     return svg;
+}
+
+/**
+ * Moves the focus into Excalidraw when the embed box around the drawing holds it. Excalidraw
+ * renders its container only once its language loads, after the box may have taken the focus.
+ */
+function useFocusFromEmbedBox(rootRef: RefObject<HTMLElement>) {
+    useEffect(() => {
+        const root = rootRef.current;
+        if (!root) return;
+
+        // Returns whether the container exists, after which there is nothing left to wait for.
+        const forwardFocus = () => {
+            const container = root.querySelector<HTMLElement>(".excalidraw");
+            if (container && document.activeElement === container.closest(".include-note-content")) {
+                container.focus();
+            }
+            return !!container;
+        };
+        if (forwardFocus()) return;
+
+        const observer = new MutationObserver(() => {
+            if (forwardFocus()) {
+                observer.disconnect();
+            }
+        });
+        observer.observe(root, { childList: true, subtree: true });
+        return () => observer.disconnect();
+    }, [ rootRef ]);
 }
 
 /**

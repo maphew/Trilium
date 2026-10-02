@@ -603,10 +603,12 @@ class ReferenceSchema extends Plugin {
 describe("FileUploadEditing with embeds", () => {
     it("completes an embed placeholder with the attachment it uploaded", async () => {
         const loadEmbeddedAttachment = vi.fn();
+        const focusContentEmbed = vi.fn();
         installGlobMock({
             getComponentByEl: () => ({
                 getEmbedBoxSize: () => "small",
-                loadEmbeddedAttachment
+                loadEmbeddedAttachment,
+                focusContentEmbed
             })
         });
         const editor = await createTestEditor([
@@ -628,5 +630,30 @@ describe("FileUploadEditing with embeds", () => {
         );
         editor.editing.view.getDomRoot()?.querySelectorAll("div.include-note-wrapper");
         expect(loadEmbeddedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
+        expect(focusContentEmbed).not.toHaveBeenCalled();
+    });
+
+    it("asks the host to focus the embed of a focus upload, before it renders", async () => {
+        const calls: string[] = [];
+        installGlobMock({
+            getComponentByEl: () => ({
+                loadEmbeddedAttachment: (id: string) => calls.push(`load ${id}`),
+                focusContentEmbed: (id: string) => calls.push(`focus ${id}`)
+            })
+        });
+        const editor = await createTestEditor([
+            Essentials, Paragraph, FileRepository, Notification, Clipboard, ReferenceSchema,
+            ContentEmbed, FileUploadEditing
+        ]);
+        const controls = installUploadAdapter(editor);
+        setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+        const file = new File(["{}"], "canvas.json");
+        editor.execute("fileUpload", { file: [ file ], asEmbed: true, focusEmbed: true });
+        await waitFor(() => controls.uploadCalled());
+        controls.resolveUpload({ default: "#root/owner?viewMode=attachments&attachmentId=att1" });
+        await waitFor(() => !getModelData(editor.model).includes("uploadId"));
+
+        expect(calls).toEqual([ "focus att1", "load att1" ]);
     });
 });

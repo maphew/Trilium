@@ -104,7 +104,8 @@ export default class FileUploadUI extends Plugin {
                     asEmbed: true,
                     boxSize: "medium",
                     hideTitle: true,
-                    quiet: true
+                    quiet: true,
+                    focusEmbed: true
                 });
                 editor.editing.view.focus();
             });

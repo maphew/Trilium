@@ -58,6 +58,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     /** The note `contentRef` holds the content of, so a restarted editor can be marked as holding it. */
     const contentNoteIdRef = useRef<string>();
     const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
+    /** The attachment whose embed takes the focus when it renders next. */
+    const focusedAttachmentIdRef = useRef<string>();
     const watchdogRef = useRef<EditorWatchdog>(null);
     const stopWatchingEmbedsRef = useRef<() => void>();
     const editorApiRef = useRef<CKEditorApi>(null);
@@ -201,7 +203,17 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         },
         loadEmbeddedNote,
         loadEmbeddedAttachment(attachmentId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
-            return loadEmbeddedAttachment(attachmentId, $el, boxSize, attachmentSaves);
+            const isFocused = focusedAttachmentIdRef.current === attachmentId;
+            if (isFocused) {
+                focusedAttachmentIdRef.current = undefined;
+            }
+            return loadEmbeddedAttachment(attachmentId, $el, boxSize, {
+                attachmentEditor: attachmentSaves,
+                isFocused
+            });
+        },
+        focusContentEmbed(attachmentId: string) {
+            focusedAttachmentIdRef.current = attachmentId;
         },
         getAttachmentHref,
         getNoteId() {

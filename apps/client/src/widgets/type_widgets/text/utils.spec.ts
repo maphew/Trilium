@@ -200,6 +200,22 @@ describe("loadEmbeddedAttachment", () => {
         });
     });
 
+    it("passes the attachment editor to the renderer, and the focus to the box", async () => {
+        const attachmentEditor = { canEdit: vi.fn() } as never;
+
+        await loadEmbeddedAttachment("att1", $(createWrapper()), "medium", {
+            attachmentEditor,
+            isFocused: true
+        });
+
+        expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(attachment, {
+            interactive: true,
+            mediaEnvironment: "embedded",
+            attachmentEditor
+        });
+        expect(lastMount().props).toMatchObject({ isFocusedOnMount: true });
+    });
+
     it("leaves the box alone for a deleted attachment", async () => {
         vi.mocked(froca.getAttachment).mockResolvedValue(null);
 
