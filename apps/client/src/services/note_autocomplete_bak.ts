@@ -12,24 +12,9 @@ const SELECTED_NOTE_PATH_KEY = "data-note-path";
 const SELECTED_EXTERNAL_LINK_KEY = "data-external-link";
 
 async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void, options: Options = {}) {
-    const fastSearch = options.fastSearch !== false;
-    if (fastSearch === false) {
-        if (term.trim().length === 0) {
-            return;
-        }
-        cb([
-            {
-                noteTitle: term,
-                highlightedNotePathTitle: t("quick-search.searching")
-            }
-        ]);
-    }
-
     const length = term.trim().length;
 
-    let results = await getNoteSuggestions(term, { allowCreatingNotes: options.allowCreatingNotes, fastSearch });
-
-    options.fastSearch = true;
+    let results = await getNoteSuggestions(term, { allowCreatingNotes: options.allowCreatingNotes });
 
     if (length >= 1 && options.allowJumpToSearchNotes) {
         results = results.concat([
@@ -52,27 +37,6 @@ async function autocompleteSource(term: string, cb: (rows: Suggestion[]) => void
     }
 
     cb(results);
-}
-
-// `autocomplete("val", ...)` does not dispatch a native "input" event, so each function below
-// fires one to keep consumers bound to it, such as NoteAutocomplete's onTextChange, in sync.
-
-function clearText($el: JQuery<HTMLElement>) {
-    $el.setSelectedNotePath("");
-    $el.autocomplete("val", "").trigger("change");
-    $el.trigger("input");
-}
-
-function fullTextSearch($el: JQuery<HTMLElement>, options: Options) {
-    const searchString = $el.autocomplete("val") as unknown as string;
-    if (options.fastSearch === false || searchString?.trim().length === 0) {
-        return;
-    }
-    $el.trigger("focus");
-    options.fastSearch = false;
-    $el.autocomplete("val", "");
-    $el.setSelectedNotePath("");
-    $el.autocomplete("val", searchString);
 }
 
 function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
@@ -101,29 +65,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
 
     $el.addClass("note-autocomplete-input");
 
-    const $clearTextButton = $("<a>").addClass("input-group-text input-clearer-button bx bxs-tag-x").prop("title", t("note_autocomplete.clear-text-field"));
-
-    const $fullTextSearchButton = $("<a>")
-        .addClass("input-group-text full-text-search-button bx bx-search")
-        .prop("title", `${t("note_autocomplete.full-text-search")} (Shift+Enter)`);
-
-    const $goToSelectedNoteButton = $("<a>").addClass("input-group-text go-to-selected-note-button bx bx-arrow-to-right");
-
-    if (!options.hideAllButtons) {
-        $el.after($clearTextButton).after($fullTextSearchButton);
-    }
-
-    if (!options.hideGoToSelectedNoteButton && !options.hideAllButtons) {
-        $el.after($goToSelectedNoteButton);
-    }
-
-    $clearTextButton.on("click", () => clearText($el));
-
-    $fullTextSearchButton.on("click", (e) => {
-        fullTextSearch($el, options);
-        return false;
-    });
-
     if (options.allowJumpToSearchNotes) {
         $el.on("keydown", (event) => {
             if (event.ctrlKey && event.key === "Enter") {
@@ -134,14 +75,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
             }
         });
     }
-    $el.on("keydown", async (event) => {
-        if (event.shiftKey && event.key === "Enter") {
-            // Prevent Enter from triggering autoComplete.
-            event.stopImmediatePropagation();
-            event.preventDefault();
-            fullTextSearch($el, options);
-        }
-    });
     $el.on("keydown", (event) => {
         const isPlainEnter = event.key === "Enter"
             && !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
@@ -238,12 +171,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
         $el.autocomplete("close");
 
         $el.trigger("autocomplete:noteselected", [suggestion]);
-    });
-
-    $el.on("autocomplete:closed", () => {
-        if (!String($el.val())?.trim()) {
-            clearText($el);
-        }
     });
 
     // clear any event listener added in previous invocation of this function

@@ -54,10 +54,27 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     const [ value, setValue ] = useState("");
     const [ notePath, setNotePath ] = useState("");
 
+    // Counts the full-text searches asked for since the last keystroke, which resets it, so that each
+    // one changes `source` and so searches again.
+    const [ fullTextSearchCount, setFullTextSearchCount ] = useState(0);
+    const [ isSearchingFullText, setSearchingFullText ] = useState(false);
+
     const isCommandPalette = !!opts?.isCommandPalette;
-    const source = useCallback(async (query: string) => (isCommandPalette && query.startsWith(">")
-        ? getCommandSuggestions(query)
-        : getNoteSuggestions(query)), [ isCommandPalette ]);
+    const source = useCallback(async (query: string) => {
+        if (isCommandPalette && query.startsWith(">")) {
+            return getCommandSuggestions(query);
+        }
+        if (!fullTextSearchCount) {
+            return getNoteSuggestions(query);
+        }
+
+        setSearchingFullText(true);
+        try {
+            return await getNoteSuggestions(query, { fastSearch: false });
+        } finally {
+            setSearchingFullText(false);
+        }
+    }, [ isCommandPalette, fullTextSearchCount ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
     const pickSuggestion = useCallback((suggestion: Suggestion) => {
@@ -86,8 +103,34 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         schedule
     });
 
+    /** Drops the selected note, and reports that to the host. */
+    function clearSelection() {
+        setNotePath("");
+        onChange?.(null);
+        // The callers tell a cleared selection by `undefined` (`noteId ?? "root"`), which the prop's
+        // type does not admit.
+        noteIdChanged?.(undefined as unknown as string);
+    }
+
+    function clearText() {
+        setValue("");
+        setFullTextSearchCount(0);
+        onTextChange?.("");
+        clearSelection();
+    }
+
+    /** Searches the content of the notes as well as their titles, for the text in the field. */
+    function fullTextSearch() {
+        if (!value.trim()) return;
+        setNotePath("");
+        setFullTextSearchCount((count) => count + 1);
+        autocomplete.open();
+        inputRef.current?.focus();
+    }
+
     /** Puts `query` in the field with `selectedPath` as its selection, and lists the suggestions. */
     function showSuggestionsFor(query: string, selectedPath = "") {
+        setFullTextSearchCount(0);
         setNotePath(selectedPath);
         setValue(query);
         // Written at once as well, so a caller can select the text right after the call.
@@ -146,19 +189,28 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 onInput={(e) => {
                     const newValue = e.currentTarget.value;
                     setValue(newValue);
+                    setFullTextSearchCount(0);
                     autocomplete.handleInput();
                     onTextChange?.(newValue);
                 }}
                 onChange={(e) => {
                     // Emptying the field clears the selection.
-                    if (e.currentTarget.value) return;
-                    setNotePath("");
-                    onChange?.(null);
-                    // The callers tell a cleared selection by `undefined` (`noteId ?? "root"`),
-                    // which the prop's type does not admit.
-                    noteIdChanged?.(undefined as unknown as string);
+                    if (!e.currentTarget.value) clearSelection();
                 }}
                 onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.shiftKey) {
+                        // Kept from the host and the list, as the jQuery plugin did.
+                        e.preventDefault();
+                        e.stopPropagation();
+                        fullTextSearch();
+                        return;
+                    }
+                    // The rows of the fast search stay behind the row saying it is searching, so Enter
+                    // waits for the full-text results instead of taking one of them.
+                    if (e.key === "Enter" && isSearchingFullText) {
+                        e.preventDefault();
+                        return;
+                    }
                     // A list in the host's container stays until a pick, so the keys that close a
                     // popup are left to the host, such as a dialog closing on Escape.
                     if (!container || (e.key !== "Escape" && e.key !== "Tab")) {
@@ -184,6 +236,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 <a
                     className="input-group-text full-text-search-button bx bx-search"
                     title={`${t("note_autocomplete.full-text-search")} (Shift+Enter)`}
+                    // Keeps the focus in the input, which the list closes without.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={fullTextSearch}
                 />
                 <a
                     className="input-group-text show-recent-notes-button bx bx-time"
@@ -195,12 +250,13 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 <a
                     className="input-group-text input-clearer-button bx bxs-tag-x"
                     title={t("note_autocomplete.clear-text-field")}
+                    onClick={clearText}
                 />
             </>}
 
-            {autocomplete.isShown && (container
+            {(autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText)) && (container
                 ? container.current && createPortal(
-                    <NoteSuggestionList autocomplete={autocomplete} />,
+                    <NoteSuggestionList autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />,
                     container.current)
                 : groupRef.current && (
                     <Popup
@@ -213,15 +269,21 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         escapeDismisses={false}
                         onDismiss={autocomplete.close}
                     >
-                        <NoteSuggestionList autocomplete={autocomplete} />
+                        <NoteSuggestionList autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />
                     </Popup>
                 ))}
         </div>
     );
 }
 
-/** The list of suggestions, in the markup of `autocomplete.js`. */
-function NoteSuggestionList({ autocomplete }: { autocomplete: ReturnType<typeof useAutocomplete<Suggestion>> }) {
+/**
+ * The list of suggestions, in the markup of `autocomplete.js`. With `searchingFor`, the query of a
+ * search in progress, it shows a row saying so in place of the suggestions.
+ */
+function NoteSuggestionList({ autocomplete, searchingFor }: {
+    autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
+    searchingFor?: string;
+}) {
     return (
         <span
             className="aa-dropdown-menu"
@@ -232,7 +294,12 @@ function NoteSuggestionList({ autocomplete }: { autocomplete: ReturnType<typeof 
         >
             <div className="aa-dataset-0">
                 <span className="aa-suggestions">
-                    {autocomplete.items.map((suggestion, index) => (
+                    {searchingFor !== undefined && (
+                        <div className="aa-suggestion">
+                            <NoteSuggestion suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
+                        </div>
+                    )}
+                    {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
                         <div
                             key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}
                             id={autocomplete.itemId(index)}

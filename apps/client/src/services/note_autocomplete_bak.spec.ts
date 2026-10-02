@@ -144,36 +144,6 @@ describe("autocompleteSource (via dataset)", () => {
         noteAutocomplete.init();
     });
 
-    it("does the slow-search placeholder branch when fastSearch is false", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "R" }]) as typeof server.get;
-        const cbRows: any[][] = [];
-        const { dataset } = initAndGetSource({ fastSearch: false });
-        await new Promise<void>((resolve) => {
-            let count = 0;
-            dataset.source("hi", (rows) => {
-                cbRows.push(rows);
-                if (++count === 2) resolve();
-            });
-        });
-        // first cb: searching placeholder, second cb: actual results
-        expect(cbRows[0][0].noteTitle).toBe("hi");
-        expect("highlightedNotePathTitle" in cbRows[0][0]).toBe(true);
-        expect(cbRows[1]).toEqual([{ noteTitle: "R" }]);
-        expect(server.get).toHaveBeenCalledWith(
-            expect.stringContaining("fastSearch=false")
-        );
-    });
-
-    it("returns early on blank term when fastSearch is false", async () => {
-        server.get = vi.fn(async () => [{ noteTitle: "R" }]) as typeof server.get;
-        const { dataset } = initAndGetSource({ fastSearch: false });
-        const cb = vi.fn();
-        // blank term -> autocompleteSource returns before touching the server / cb
-        await runSourceRaw(dataset, "   ", cb);
-        expect(cb).not.toHaveBeenCalled();
-        expect(server.get).not.toHaveBeenCalled();
-    });
-
     it("appends a search-notes suggestion when allowJumpToSearchNotes", async () => {
         server.get = vi.fn(async () => [{ noteTitle: "A", notePath: "root/a" }]) as typeof server.get;
         const { dataset } = initAndGetSource({ allowJumpToSearchNotes: true });
@@ -327,50 +297,6 @@ describe("initNoteAutocomplete wiring", () => {
         expect(result).toBe($el);
     });
 
-    it("adds all buttons and wires their click handlers", () => {
-        const $group = $(`<div class="input-group"></div>`);
-        const $el = makeEl();
-        $group.append($el);
-        noteAutocomplete.initNoteAutocomplete($el);
-
-        expect($el.hasClass("note-autocomplete-input")).toBe(true);
-        expect($group.find(".input-clearer-button").length).toBe(1);
-        expect($group.find(".full-text-search-button").length).toBe(1);
-        expect($group.find(".go-to-selected-note-button").length).toBe(1);
-
-        const onInput = vi.fn();
-        $el.on("input", onInput);
-
-        // clear button -> autocomplete("val", "") + change trigger. Also re-triggers "input" so
-        // consumers tracking the live query (e.g. jump_to_note.tsx's actualText ref) don't go
-        // stale when the value is cleared programmatically instead of by typing.
-        $group.find(".input-clearer-button").trigger("click");
-        expect(autocompleteCalls.some((c) => c[0] === "val" && c[1] === "")).toBe(true);
-        expect(onInput).toHaveBeenCalled();
-
-        // full text search button click
-        $el.autocomplete("val", "search me");
-        $group.find(".full-text-search-button").trigger("click");
-    });
-
-    it("hides the go-to button only when hideGoToSelectedNoteButton is set", () => {
-        const $group = $(`<div class="input-group"></div>`);
-        const $el = makeEl();
-        $group.append($el);
-        noteAutocomplete.initNoteAutocomplete($el, { hideGoToSelectedNoteButton: true });
-        expect($group.find(".go-to-selected-note-button").length).toBe(0);
-        expect($group.find(".full-text-search-button").length).toBe(1);
-    });
-
-    it("hides all buttons when hideAllButtons is set", () => {
-        const $group = $(`<div class="input-group"></div>`);
-        const $el = makeEl();
-        $group.append($el);
-        noteAutocomplete.initNoteAutocomplete($el, { hideAllButtons: true });
-        expect($group.find(".input-clearer-button").length).toBe(0);
-        expect($group.find(".go-to-selected-note-button").length).toBe(0);
-    });
-
     it("Ctrl+Enter triggers a search-notes selection when allowJumpToSearchNotes", () => {
         const $el = makeEl();
         const selected = vi.fn();
@@ -385,30 +311,7 @@ describe("initNoteAutocomplete wiring", () => {
         expect(payload.action).toBe("search-notes");
     });
 
-    it("Shift+Enter performs a full text search", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.autocomplete("val", "some text");
-        const callsBefore = autocompleteCalls.length;
-        const ev = $.Event("keydown", { shiftKey: true, key: "Enter" });
-        $el.trigger(ev);
-        // fullTextSearch re-runs the search: it clears val ("val", "") and then
-        // re-sets it to the captured search string ("val", "some text"). Assert
-        // BOTH setter calls happened after the Shift+Enter, proving the body after
-        // the blank-string guard actually ran (not merely the getter read).
-        const setterCallsAfter = autocompleteCalls
-            .slice(callsBefore)
-            .filter((c) => c[0] === "val" && c[1] !== undefined)
-            .map((c) => c[1]);
-        expect(setterCallsAfter).toContain("");
-        expect(setterCallsAfter).toContain("some text");
-        // the clear ("val", "") must precede the re-set ("val", "some text")
-        expect(setterCallsAfter.indexOf("")).toBeLessThan(setterCallsAfter.indexOf("some text"));
-        // and the input ends up re-populated with the search string
-        expect($el.autocomplete("val")).toBe("some text");
-    });
-
-    it("ignores keydowns that are not Ctrl+Enter / Shift+Enter", () => {
+    it("ignores keydowns that are not Ctrl+Enter", () => {
         const $el = makeEl();
         const selected = vi.fn();
         ($el as any).on("autocomplete:selected", selected);
@@ -416,9 +319,8 @@ describe("initNoteAutocomplete wiring", () => {
 
         // a plain key press -> neither handler fires its body
         $el.trigger($.Event("keydown", { key: "a" }));
-        // Ctrl without Enter, Shift without Enter
+        // Ctrl without Enter
         $el.trigger($.Event("keydown", { ctrlKey: true, key: "a" }));
-        $el.trigger($.Event("keydown", { shiftKey: true, key: "b" }));
         expect(selected).not.toHaveBeenCalled();
     });
 
@@ -481,23 +383,6 @@ describe("initNoteAutocomplete wiring", () => {
         expect($el.autocomplete("val")).toBe("composed");
     });
 
-    it("autocomplete:closed clears text when the input is blank", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.val("");
-        $el.trigger("autocomplete:closed");
-        // clearText sets the path to ""
-        expect($el.attr("data-note-path")).toBe("");
-    });
-
-    it("autocomplete:closed leaves a non-blank input untouched", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.val("keep me");
-        $el.attr("data-note-path", "root/keep");
-        $el.trigger("autocomplete:closed");
-        expect($el.attr("data-note-path")).toBe("root/keep");
-    });
 });
 
 describe("autocomplete:selected handler", () => {
@@ -596,34 +481,5 @@ describe("autocomplete:selected handler", () => {
         await fireSelected($el, { action: undefined, notePath: "root/n", noteTitle: "N" });
         expect($el.attr("data-note-path")).toBe("root/n");
         expect(handlers["autocomplete:noteselected"]).toBeDefined();
-    });
-});
-
-describe("public helpers", () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        registerAutocompleteStub();
-        server.get = vi.fn(async () => []) as typeof server.get;
-        noteAutocomplete.init();
-    });
-
-    it("returns early when the search string is blank (Shift+Enter on empty input)", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.autocomplete("val", "   ");
-        const callsBefore = autocompleteCalls.length;
-        const ev = $.Event("keydown", { shiftKey: true, key: "Enter" });
-        $el.trigger(ev);
-        // `fullTextSearch` bails out at the blank-string guard, so the only autocomplete call it
-        // can make is the getter read on its first line. Running on would have written
-        // ["val", ""] and then ["val", "   "], so the absence of any setter call is what
-        // separates the two paths.
-        const callsAfter = autocompleteCalls.slice(callsBefore);
-        const setterCalls = callsAfter.filter((c) => c[0] === "val" && c[1] !== undefined);
-        expect(setterCalls).toEqual([]);
-        // every autocomplete call after Shift+Enter is at most the guard's getter read
-        expect(callsAfter.every((c) => c[0] === "val" && c[1] === undefined)).toBe(true);
-        // setSelectedNotePath (which runs only on the non-early path) was not called
-        expect($el.attr("data-note-path") ?? "").toBe("");
     });
 });

@@ -412,6 +412,82 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.activeElement).not.toBe(input);
     });
 
+    function button(selector: string) {
+        const found = document.querySelector<HTMLElement>(selector);
+        if (!found) throw new Error(`no ${selector} rendered`);
+        return found;
+    }
+
+    it("empties the field and reports a cleared selection from the clear button", async () => {
+        const onChange = vi.fn();
+        const noteIdChanged = vi.fn();
+        const onTextChange = vi.fn();
+        const input = await mount({ onChange, noteIdChanged, onTextChange });
+        await type(input, "a");
+        await press(input, "Enter");
+
+        await act(async () => { button(".input-clearer-button").click(); });
+
+        expect(input.value).toBe("");
+        expect(input.dataset.notePath).toBe("");
+        expect(onTextChange).toHaveBeenLastCalledWith("");
+        expect(onChange).toHaveBeenLastCalledWith(null);
+        expect(noteIdChanged).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it("searches the content from the full-text button, saying so until the results come", async () => {
+        let finish: (rows: Suggestion[]) => void = () => {};
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "al");
+        getNoteSuggestions.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+
+        const mouseDown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        button(".full-text-search-button").dispatchEvent(mouseDown);
+        await act(async () => { button(".full-text-search-button").click(); });
+        await settle();
+
+        expect(mouseDown.defaultPrevented).toBe(true);
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { fastSearch: false });
+        expect(rows()).toHaveLength(1);
+        expect(rows()[0].querySelector(".search-result-title")).not.toBeNull();
+        expect(rows()[0].getAttribute("role")).toBeNull();
+
+        // Enter waits for the results rather than taking a row of the fast search.
+        await press(input, "Enter");
+        expect(input.dataset.notePath).toBe("");
+
+        await act(async () => { finish([ notes[1] ]); });
+        await settle();
+        expect(rows()).toHaveLength(1);
+        expect(rows()[0].querySelector(".search-result-title")?.textContent).toBe("X / Beta");
+        expect(onChange).not.toHaveBeenCalled();
+
+        // The next keystroke searches the titles again.
+        await type(input, "alp");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp");
+    });
+
+    it("searches the content on Shift+Enter, keeping the key from the host", async () => {
+        const onKeyDown = vi.fn();
+        const input = await mount({ onKeyDown });
+
+        // Nothing to search for in an empty field.
+        const empty = new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true, cancelable: true });
+        await act(async () => { input.dispatchEvent(empty); });
+        await settle();
+        expect(getNoteSuggestions).not.toHaveBeenCalled();
+
+        await type(input, "al");
+        const shiftEnter = new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true, cancelable: true });
+        await act(async () => { input.dispatchEvent(shiftEnter); });
+        await settle();
+
+        expect(shiftEnter.defaultPrevented).toBe(true);
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { fastSearch: false });
+        expect(onKeyDown).not.toHaveBeenCalledWith(shiftEnter);
+    });
+
     it("spans the whole field, the buttons included", async () => {
         const input = await mount();
         const group = input.closest(".input-group");
