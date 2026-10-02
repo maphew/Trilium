@@ -644,8 +644,8 @@ importers:
   apps/server:
     dependencies:
       '@agentclientprotocol/codex-acp':
-        specifier: 1.13.1
-        version: 1.13.1
+        specifier: 2.0.0
+        version: 2.0.0
       '@ai-sdk/anthropic':
         specifier: 4.0.65
         version: 4.0.65(zod@4.6.5)
@@ -1580,8 +1580,8 @@ packages:
   '@adobe/css-tools@4.5.0':
     resolution: {integrity: sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==}
 
-  '@agentclientprotocol/codex-acp@1.13.1':
-    resolution: {integrity: sha512-NAbXTb6GRReox7B+8RN9VRB+sKUqFJh5Vg7Ex7RskYCO8EsYPJKN1WJvN7mOqjCKKK9lVDrNxtP7Bp/OUKPyAg==}
+  '@agentclientprotocol/codex-acp@2.0.0':
+    resolution: {integrity: sha512-dho7RRXP+7Ur813qKgPVoAKjr4x3A8IcOoBOTYJRkcCNgcGraP5x3/5lPcZ0QgcVm0ErdYXRPYjwdSzvZHaKqw==}
     hasBin: true
 
   '@agentclientprotocol/sdk@1.5.0':
@@ -11853,7 +11853,7 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@agentclientprotocol/codex-acp@1.13.1':
+  '@agentclientprotocol/codex-acp@2.0.0':
     dependencies:
       '@agentclientprotocol/sdk': 1.5.0(zod@4.6.5)
       diff: 9.0.0
