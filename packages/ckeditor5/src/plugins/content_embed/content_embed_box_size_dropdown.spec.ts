@@ -1,30 +1,30 @@
 import { ClassicEditor, Essentials, Paragraph, Widget, _setModelData as setModelData } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createTestEditor } from "../../test/editor-kit.js";
-import { installGlobMock } from "../../test/globals-test-kit.js";
-import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
-import IncludeNote, { BOX_SIZE_COMMAND_NAME, BOX_SIZES } from "./includenote.js";
+import { createTestEditor } from "../../../test/editor-kit.js";
+import { installGlobMock } from "../../../test/globals-test-kit.js";
+import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
+import ContentEmbed, { BOX_SIZE_COMMAND_NAME, BOX_SIZES } from "./content_embed.js";
 
-describe("IncludeNoteBoxSizeDropdown", () => {
+describe("ContentEmbedBoxSizeDropdown", () => {
     let editor: ClassicEditor;
 
     beforeEach(async () => {
-        const loadIncludedNote = vi.fn();
+        const loadEmbeddedNote = vi.fn();
         installGlobMock({
-            getComponentByEl: () => ({ loadIncludedNote })
+            getComponentByEl: () => ({ loadEmbeddedNote })
         });
 
-        editor = await createTestEditor([Essentials, Paragraph, Widget, IncludeNote, IncludeNoteBoxSizeDropdown]);
+        editor = await createTestEditor([Essentials, Paragraph, Widget, ContentEmbed, ContentEmbedBoxSizeDropdown]);
     });
 
     it("loads the plugin and registers the dropdown component", () => {
-        expect(editor.plugins.get(IncludeNoteBoxSizeDropdown)).toBeInstanceOf(IncludeNoteBoxSizeDropdown);
-        expect(editor.ui.componentFactory.has("includeNoteBoxSizeDropdown")).toBe(true);
+        expect(editor.plugins.get(ContentEmbedBoxSizeDropdown)).toBeInstanceOf(ContentEmbedBoxSizeDropdown);
+        expect(editor.ui.componentFactory.has("contentEmbedBoxSizeDropdown")).toBe(true);
     });
 
     it("dropdown has all BOX_SIZES as list items with correct labels", () => {
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as {
             listView?: { items: Iterable<{ children?: Iterable<{ label?: string }> }> };
             panelView?: { children: Iterable<{ items: Iterable<{ children?: Iterable<{ label?: string }> }> }> };
         };
@@ -40,32 +40,32 @@ describe("IncludeNoteBoxSizeDropdown", () => {
     });
 
     it("button label shows 'Box size' when command value is null", () => {
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as unknown as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as unknown as {
             buttonView: { label: string };
         };
 
         const command = editor.commands.get(BOX_SIZE_COMMAND_NAME) as { value: string | null; isEnabled: boolean };
-        // No include note selected -> value is null
+        // No embed selected -> value is null
         expect(command.value).toBeNull();
         expect(dropdownView.buttonView.label).toBe("Box size");
     });
 
     it("button label updates to the size label when a value is set", () => {
-        // Insert an includeNote element so the command can find something to bind to
+        // Insert an contentEmbed element so the command can find something to bind to
         editor.model.change((writer) => {
             const root = editor.model.document.getRoot();
             if (!root) {
                 throw new Error("No root");
             }
-            const includeNote = writer.createElement("includeNote", {
+            const contentEmbed = writer.createElement("contentEmbed", {
                 noteId: "test-note",
                 boxSize: "small"
             });
-            writer.insert(includeNote, root, 0);
-            writer.setSelection(includeNote, "on");
+            writer.insert(contentEmbed, root, 0);
+            writer.setSelection(contentEmbed, "on");
         });
 
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as unknown as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as unknown as {
             buttonView: { label: string };
         };
 
@@ -76,7 +76,7 @@ describe("IncludeNoteBoxSizeDropdown", () => {
     });
 
     it("button label falls back to raw value for an unknown size", () => {
-        // Insert an includeNote with a size value not in BOX_SIZES
+        // Insert an contentEmbed with a size value not in BOX_SIZES
         editor.model.change((writer) => {
             const root = editor.model.document.getRoot();
             if (!root) {
@@ -84,15 +84,15 @@ describe("IncludeNoteBoxSizeDropdown", () => {
             }
 
             // Extend schema temporarily by bypassing schema checks for test
-            const includeNote = writer.createElement("includeNote", {
+            const contentEmbed = writer.createElement("contentEmbed", {
                 noteId: "test-note",
                 boxSize: "huge"
             });
-            writer.insert(includeNote, root, 0);
-            writer.setSelection(includeNote, "on");
+            writer.insert(contentEmbed, root, 0);
+            writer.setSelection(contentEmbed, "on");
         });
 
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as unknown as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as unknown as {
             buttonView: { label: string };
         };
 
@@ -107,31 +107,31 @@ describe("IncludeNoteBoxSizeDropdown", () => {
     });
 
     it("dropdown is bound to command isEnabled", () => {
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as unknown as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as unknown as {
             isEnabled: boolean;
         };
 
         const command = editor.commands.get(BOX_SIZE_COMMAND_NAME) as { isEnabled: boolean };
-        // With no include note selected the command should be disabled
+        // With no embed selected the command should be disabled
         expect(dropdownView.isEnabled).toBe(command.isEnabled);
         expect(dropdownView.isEnabled).toBe(false);
     });
 
-    it("dropdown is enabled when an include note element is selected", () => {
+    it("dropdown is enabled when an embed element is selected", () => {
         editor.model.change((writer) => {
             const root = editor.model.document.getRoot();
             if (!root) {
                 throw new Error("No root");
             }
-            const includeNote = writer.createElement("includeNote", {
+            const contentEmbed = writer.createElement("contentEmbed", {
                 noteId: "test-note-2",
                 boxSize: "medium"
             });
-            writer.insert(includeNote, root, 0);
-            writer.setSelection(includeNote, "on");
+            writer.insert(contentEmbed, root, 0);
+            writer.setSelection(contentEmbed, "on");
         });
 
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as unknown as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as unknown as {
             isEnabled: boolean;
         };
 
@@ -144,18 +144,18 @@ describe("IncludeNoteBoxSizeDropdown", () => {
             if (!root) {
                 throw new Error("No root");
             }
-            const includeNote = writer.createElement("includeNote", {
+            const contentEmbed = writer.createElement("contentEmbed", {
                 noteId: "test-note-3",
                 boxSize: "small"
             });
-            writer.insert(includeNote, root, 0);
-            writer.setSelection(includeNote, "on");
+            writer.insert(contentEmbed, root, 0);
+            writer.setSelection(contentEmbed, "on");
         });
 
         const spy = vi.spyOn(editor, "execute");
 
         // Create the dropdown (which calls addListToDropdown and registers the "execute" listener)
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown");
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown");
 
         // In CKEditor, when a dropdown list item is activated the dropdown fires "execute"
         // with evt.source being the button model of the chosen item.  We simulate that by
@@ -218,16 +218,16 @@ describe("IncludeNoteBoxSizeDropdown", () => {
             if (!root) {
                 throw new Error("No root");
             }
-            const includeNote = writer.createElement("includeNote", {
+            const contentEmbed = writer.createElement("contentEmbed", {
                 noteId: "test-note-4",
                 boxSize: "medium"
             });
-            writer.insert(includeNote, root, 0);
-            writer.setSelection(includeNote, "on");
+            writer.insert(contentEmbed, root, 0);
+            writer.setSelection(contentEmbed, "on");
         });
 
         // Create a fresh dropdown which builds the itemDefinitions for the current command state
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown") as unknown as {
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown") as unknown as {
             panelView: {
                 children: {
                     get(index: number): {
@@ -255,7 +255,7 @@ describe("IncludeNoteBoxSizeDropdown", () => {
 
     it("_getBoxSizeListItemDefinitions returns one item per BOX_SIZES entry", () => {
         // Indirect test: verify the dropdown panel eventually has as many items as BOX_SIZES
-        const dropdownView = editor.ui.componentFactory.create("includeNoteBoxSizeDropdown");
+        const dropdownView = editor.ui.componentFactory.create("contentEmbedBoxSizeDropdown");
 
         // Force the dropdown to render its panel
         (dropdownView as unknown as { render(): void }).render?.();
@@ -266,7 +266,7 @@ describe("IncludeNoteBoxSizeDropdown", () => {
         expect(panel).toBeDefined();
     });
 
-    it("initialises with IncludeNote in its requires list", () => {
-        expect(IncludeNoteBoxSizeDropdown.requires).toContain(IncludeNote);
+    it("initialises with ContentEmbed in its requires list", () => {
+        expect(ContentEmbedBoxSizeDropdown.requires).toContain(ContentEmbed);
     });
 });

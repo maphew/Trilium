@@ -92,7 +92,7 @@ export class ReferenceLinkEditing extends Plugin {
 				let attachmentId: unknown;
 				if ( item.is( 'element', 'reference' ) ) {
 					attachmentId = getAttachmentId( item.getAttribute( 'href' ) );
-				} else if ( item.is( 'element', 'includeNote' ) ) {
+				} else if ( item.is( 'element', 'contentEmbed' ) ) {
 					attachmentId = item.getAttribute( 'attachmentId' );
 				} else {
 					continue;

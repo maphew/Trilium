@@ -18,9 +18,9 @@ vi.mock("../../../services/content_renderer", () => ({
         mountInteractiveWidget: vi.fn()
     }
 }));
-vi.mock("./IncludeNote", () => ({
+vi.mock("./ContentEmbed", () => ({
     default: () => null,
-    TinyIncludeNote: () => null,
+    TinyContentEmbed: () => null,
     getNoteActions: vi.fn()
 }));
 vi.mock("../../../services/attachment_actions", () => ({
@@ -39,20 +39,20 @@ import { getDownloadAction, getOpenExternallyAction } from "../../../services/at
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
-import IncludeNote, {
+import ContentEmbed, {
     getNoteActions,
-    type IncludeNoteAction,
-    type IncludeNoteProps,
-    TinyIncludeNote,
-    type TinyIncludeNoteProps
-} from "./IncludeNote";
+    type ContentEmbedAction,
+    type ContentEmbedProps,
+    TinyContentEmbed,
+    type TinyContentEmbedProps
+} from "./ContentEmbed";
 import {
     getAttachmentHref,
-    loadIncludedAttachment,
-    loadIncludedNote,
-    openIncludeNoteMenu,
-    refreshIncludedNote,
-    watchIncludedNotes
+    loadEmbeddedAttachment,
+    loadEmbeddedNote,
+    openContentEmbedMenu,
+    refreshEmbeddedNote,
+    watchContentEmbeds
 } from "./utils";
 
 const note = { noteId: "noteY", getIcon: () => "bx bx-note" } as unknown as FNote;
@@ -79,17 +79,17 @@ beforeEach(() => {
         .mockResolvedValue({ $renderedContent: $(content), type: "pdf" } as never);
 });
 
-function action(title: string): IncludeNoteAction {
+function action(title: string): ContentEmbedAction {
     return { title, icon: `bx bx-${title}`, run: vi.fn() };
 }
 
-/** The include box mounted last, and the element it was mounted in. */
+/** The embed box mounted last, and the element it was mounted in. */
 function lastMount() {
     const call = vi.mocked(content_renderer.mountInteractiveWidget).mock.lastCall;
     if (!call) {
-        throw new Error("Expected a mounted include box.");
+        throw new Error("Expected a mounted embed box.");
     }
-    const vnode = call[0] as VNode<IncludeNoteProps & TinyIncludeNoteProps>;
+    const vnode = call[0] as VNode<ContentEmbedProps & TinyContentEmbedProps>;
     return { type: vnode.type, props: vnode.props, container: call[1] };
 }
 
@@ -97,7 +97,7 @@ afterEach(() => {
     document.body.replaceChildren();
 });
 
-/** Puts `element` in the page, where the includes that load are. */
+/** Puts `element` in the page, where the embeds that load are. */
 function inPage<T extends HTMLElement>(element: T) {
     document.body.append(element);
     return element;
@@ -109,11 +109,11 @@ function createWrapper() {
     return wrapper;
 }
 
-describe("loadIncludedNote", () => {
-    it("mounts a box with the note, its own includes reduced to reference links", async () => {
+describe("loadEmbeddedNote", () => {
+    it("mounts a box with the note, its own embeds reduced to reference links", async () => {
         const wrapper = createWrapper();
 
-        await loadIncludedNote("noteY", $(wrapper), "medium");
+        await loadEmbeddedNote("noteY", $(wrapper), "medium");
 
         expect(link.createLink).toHaveBeenCalledWith("noteY", {
             showTooltip: false,
@@ -121,11 +121,11 @@ describe("loadIncludedNote", () => {
         });
         expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(note, {
             interactive: true,
-            includesAsReferenceLinks: true,
+            embedsAsReferenceLinks: true,
             mediaEnvironment: "embedded"
         });
         const mount = lastMount();
-        expect(mount.type).toBe(IncludeNote);
+        expect(mount.type).toBe(ContentEmbed);
         expect(mount.container).toBe(wrapper);
         expect(mount.props).toEqual({
             boxSize: "medium",
@@ -139,7 +139,7 @@ describe("loadIncludedNote", () => {
     it("leaves the box alone for a note that no longer exists", async () => {
         vi.mocked(froca.getNote).mockResolvedValue(null);
 
-        await loadIncludedNote("noteY", $(createWrapper()), "small");
+        await loadEmbeddedNote("noteY", $(createWrapper()), "small");
 
         expect(link.createLink).not.toHaveBeenCalled();
         expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe("loadIncludedNote", () => {
         figure.dataset.boxSize = "tiny";
         figure.innerHTML = "<figcaption>Caption</figcaption>";
 
-        await loadIncludedNote("noteY", $(figure));
+        await loadEmbeddedNote("noteY", $(figure));
 
         expect(link.createLink).toHaveBeenCalledWith("noteY", {
             showTooltip: false,
@@ -162,7 +162,7 @@ describe("loadIncludedNote", () => {
         expect(content_renderer.getRenderedContent).not.toHaveBeenCalled();
         expect(getNoteActions).toHaveBeenCalledWith("noteY");
         const mount = lastMount();
-        expect(mount.type).toBe(TinyIncludeNote);
+        expect(mount.type).toBe(TinyContentEmbed);
         expect([ ...figure.childNodes ]).toEqual([ mount.container ]);
         expect(mount.props).toEqual({
             icon: "bx bx-note",
@@ -173,11 +173,11 @@ describe("loadIncludedNote", () => {
     });
 });
 
-describe("loadIncludedAttachment", () => {
+describe("loadEmbeddedAttachment", () => {
     it("mounts a box with the attachment, opened in its note", async () => {
         const wrapper = createWrapper();
 
-        await loadIncludedAttachment("att1", $(wrapper), "full");
+        await loadEmbeddedAttachment("att1", $(wrapper), "full");
 
         expect(froca.getAttachment).toHaveBeenCalledWith("att1", true);
         expect(link.createLink).toHaveBeenCalledWith("owner", {
@@ -188,7 +188,7 @@ describe("loadIncludedAttachment", () => {
         expect(content_renderer.getRenderedContent)
             .toHaveBeenCalledWith(attachment, { interactive: true, mediaEnvironment: "embedded" });
         const mount = lastMount();
-        expect(mount.type).toBe(IncludeNote);
+        expect(mount.type).toBe(ContentEmbed);
         expect(mount.container).toBe(wrapper);
         expect(mount.props).toEqual({
             boxSize: "full",
@@ -203,7 +203,7 @@ describe("loadIncludedAttachment", () => {
     it("leaves the box alone for a deleted attachment", async () => {
         vi.mocked(froca.getAttachment).mockResolvedValue(null);
 
-        await loadIncludedAttachment("att1", $(createWrapper()), "small");
+        await loadEmbeddedAttachment("att1", $(createWrapper()), "small");
 
         expect(link.createLink).not.toHaveBeenCalled();
         expect(content_renderer.mountInteractiveWidget).not.toHaveBeenCalled();
@@ -215,7 +215,7 @@ describe("loadIncludedAttachment", () => {
         vi.mocked(getDownloadAction).mockReturnValue(download);
         const wrapper = createWrapper();
 
-        await loadIncludedAttachment("att1", $(wrapper), "tiny");
+        await loadEmbeddedAttachment("att1", $(wrapper), "tiny");
 
         expect(link.createLink).toHaveBeenCalledWith("owner", {
             showTooltip: false,
@@ -225,7 +225,7 @@ describe("loadIncludedAttachment", () => {
         expect(getOpenExternallyAction).toHaveBeenCalledWith(attachment);
         expect(getDownloadAction).toHaveBeenCalledWith(attachment);
         const mount = lastMount();
-        expect(mount.type).toBe(TinyIncludeNote);
+        expect(mount.type).toBe(TinyContentEmbed);
         expect(mount.container).toBe(wrapper);
         expect(mount.props).toEqual({
             icon: attachmentIcon("file", "application/pdf"),
@@ -238,15 +238,15 @@ describe("loadIncludedAttachment", () => {
     });
 });
 
-describe("the element an include box is mounted in", () => {
-    it("is a wrapper created in a read-only include ahead of its caption", async () => {
+describe("the element an embed box is mounted in", () => {
+    it("is a wrapper created in a read-only embed ahead of its caption", async () => {
         const figure = inPage(document.createElement("figure"));
         figure.className = "include-note";
         figure.dataset.boxSize = "expandable";
         figure.innerHTML = "&nbsp;<figcaption>Caption</figcaption>";
         const caption = figure.querySelector("figcaption");
 
-        await loadIncludedNote("noteY", $(figure));
+        await loadEmbeddedNote("noteY", $(figure));
 
         const { container, props } = lastMount();
         expect(caption).not.toBeNull();
@@ -255,23 +255,23 @@ describe("the element an include box is mounted in", () => {
         expect(props.boxSize).toBe("expandable");
 
         // Loading again, as a refresh does, reuses the wrapper.
-        await loadIncludedNote("noteY", $(figure), "small");
+        await loadEmbeddedNote("noteY", $(figure), "small");
         expect(lastMount().container).toBe(container);
         expect(lastMount().props.boxSize).toBe("small");
     });
 
-    it("is a wrapper created in a legacy <section> include", async () => {
+    it("is a wrapper created in a legacy <section> embed", async () => {
         const section = inPage(document.createElement("section"));
         section.className = "include-note";
         section.dataset.boxSize = "medium";
 
-        await loadIncludedNote("noteY", $(section));
+        await loadEmbeddedNote("noteY", $(section));
 
         expect([ ...section.childNodes ]).toEqual([ lastMount().container ]);
         expect(lastMount().props.boxSize).toBe("medium");
     });
 
-    it("is the wrapper an editor include holds, leaving the editor's own elements", async () => {
+    it("is the wrapper an editor embed holds, leaving the editor's own elements", async () => {
         const figure = inPage(document.createElement("figure"));
         figure.className = "include-note ck-widget";
         figure.dataset.boxSize = "full";
@@ -280,7 +280,7 @@ describe("the element an include box is mounted in", () => {
         const typeAround = document.createElement("div");
         figure.append(wrapper, caption, typeAround);
 
-        await loadIncludedAttachment("att1", $(figure));
+        await loadEmbeddedAttachment("att1", $(figure));
 
         expect(lastMount().container).toBe(wrapper);
         expect(lastMount().props.boxSize).toBe("full");
@@ -288,13 +288,13 @@ describe("the element an include box is mounted in", () => {
     });
 });
 
-describe("an include that leaves the page while it loads", () => {
+describe("an embed that leaves the page while it loads", () => {
     it("gets no box, and the content rendered for it is disposed", async () => {
         const loads: [ (wrapper: HTMLElement) => Promise<void>, boolean ][] = [
-            [ (wrapper) => loadIncludedNote("noteY", $(wrapper), "medium"), true ],
-            [ (wrapper) => loadIncludedNote("noteY", $(wrapper), "tiny"), false ],
-            [ (wrapper) => loadIncludedAttachment("att1", $(wrapper), "full"), true ],
-            [ (wrapper) => loadIncludedAttachment("att1", $(wrapper), "tiny"), false ]
+            [ (wrapper) => loadEmbeddedNote("noteY", $(wrapper), "medium"), true ],
+            [ (wrapper) => loadEmbeddedNote("noteY", $(wrapper), "tiny"), false ],
+            [ (wrapper) => loadEmbeddedAttachment("att1", $(wrapper), "full"), true ],
+            [ (wrapper) => loadEmbeddedAttachment("att1", $(wrapper), "tiny"), false ]
         ];
 
         for (const [ load, rendersContent ] of loads) {
@@ -315,15 +315,15 @@ describe("an include that leaves the page while it loads", () => {
     });
 });
 
-describe("refreshIncludedNote", () => {
-    it("reloads every include of the note, of either element", async () => {
+describe("refreshEmbeddedNote", () => {
+    it("reloads every embed of the note, of either element", async () => {
         const container = inPage(document.createElement("div"));
         container.innerHTML = `<figure class="include-note" data-note-id="noteY"></figure>`
             + `<section class="include-note" data-note-id="noteY"></section>`
             + `<figure class="include-note" data-note-id="other"></figure>`;
         const [ figure, section ] = [ ...container.children ];
 
-        refreshIncludedNote(container, "noteY");
+        refreshEmbeddedNote(container, "noteY");
 
         await vi.waitFor(() => {
             expect(content_renderer.mountInteractiveWidget).toHaveBeenCalledTimes(2);
@@ -334,7 +334,7 @@ describe("refreshIncludedNote", () => {
     });
 });
 
-describe("watchIncludedNotes", () => {
+describe("watchContentEmbeds", () => {
     let container: HTMLElement;
 
     beforeEach(() => {
@@ -358,26 +358,26 @@ describe("watchIncludedNotes", () => {
     }
 
     it("unmounts what is removed from the container, but not what is moved within it", async () => {
-        const stop = watchIncludedNotes(container);
-        const [ paragraph, include, quote ] = [ ...container.children ];
+        const stop = watchContentEmbeds(container);
+        const [ paragraph, embed, quote ] = [ ...container.children ];
 
-        include.remove();
+        embed.remove();
         quote.remove();
         container.append(quote);
         paragraph.firstChild?.remove();
         await flush();
 
-        expect(disposed()).toEqual([ include ]);
+        expect(disposed()).toEqual([ embed ]);
         stop();
     });
 
     it("unmounts what is left on stop, and stops watching", async () => {
-        const stop = watchIncludedNotes(container);
-        const include = container.querySelector("figure");
-        include?.remove();
+        const stop = watchContentEmbeds(container);
+        const embed = container.querySelector("figure");
+        embed?.remove();
 
         stop();
-        expect(disposed()).toEqual([ include, container ]);
+        expect(disposed()).toEqual([ embed, container ]);
 
         container.querySelector("blockquote")?.remove();
         await flush();
@@ -385,30 +385,30 @@ describe("watchIncludedNotes", () => {
     });
 });
 
-describe("openIncludeNoteMenu", () => {
-    it("opens the menu of the note or attachment an include shows, below the anchor", async () => {
+describe("openContentEmbedMenu", () => {
+    it("opens the menu of the note or attachment an embed shows, below the anchor", async () => {
         const anchor = document.createElement("button");
-        const noteInclude = inPage(document.createElement("figure"));
-        noteInclude.dataset.noteId = "noteY";
+        const noteEmbed = inPage(document.createElement("figure"));
+        noteEmbed.dataset.noteId = "noteY";
         const embed = inPage(document.createElement("figure"));
         embed.dataset.attachmentId = "att1";
 
-        await openIncludeNoteMenu(noteInclude, anchor);
-        await openIncludeNoteMenu(embed, anchor);
+        await openContentEmbedMenu(noteEmbed, anchor);
+        await openContentEmbedMenu(embed, anchor);
 
         expect(vi.mocked(linkContextMenu.openContextMenu).mock.calls).toEqual([
-            [ "noteY", { anchor, target: noteInclude }, {} ],
+            [ "noteY", { anchor, target: noteEmbed }, {} ],
             [ "owner", { anchor, target: embed }, ATTACHMENT_SCOPE ]
         ]);
     });
 
-    it("opens nothing for an include of a deleted attachment, or of nothing", async () => {
+    it("opens nothing for an embed of a deleted attachment, or of nothing", async () => {
         vi.mocked(froca.getAttachment).mockResolvedValue(null);
         const embed = inPage(document.createElement("figure"));
         embed.dataset.attachmentId = "att1";
 
-        await openIncludeNoteMenu(embed, document.createElement("button"));
-        await openIncludeNoteMenu(inPage(document.createElement("figure")), document.createElement("button"));
+        await openContentEmbedMenu(embed, document.createElement("button"));
+        await openContentEmbedMenu(inPage(document.createElement("figure")), document.createElement("button"));
 
         expect(linkContextMenu.openContextMenu).not.toHaveBeenCalled();
     });

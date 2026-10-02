@@ -38,21 +38,21 @@ export interface RenderOptions {
     trim?: boolean;
     /** If enabled, it will prevent the default behavior in which an empty note would display a list of children. */
     noChildrenList?: boolean;
-    /** If enabled, it will prevent rendering of included notes. */
-    noIncludedNotes?: boolean;
+    /** If enabled, it will prevent rendering of embedded notes. */
+    noContentEmbeds?: boolean;
     /**
-     * Keep expanding includes recursively at every depth. Used for printing/export,
+     * Keep expanding embeds recursively at every depth. Used for printing/export,
      * which preserves full nesting. When false (the default for on-screen display), only the first
-     * level of inclusion is rendered and deeper includes are replaced with a reference
-     * link (see {@link includesAsReferenceLinks}).
+     * level of embedding is rendered and deeper embeds are replaced with a reference
+     * link (see {@link embedsAsReferenceLinks}).
      */
-    expandNestedIncludes?: boolean;
+    expandNestedEmbeds?: boolean;
     /**
-     * Internal: render this note's own includes as reference links instead of expanding
-     * them. Set when rendering a note that is itself already an included note in display mode, so that
-     * inclusion stops after the first level.
+     * Internal: render this note's own embeds as reference links instead of expanding
+     * them. Set when rendering a note that is itself already an embedded note in display mode, so that
+     * embedding stops after the first level.
      */
-    includesAsReferenceLinks?: boolean;
+    embedsAsReferenceLinks?: boolean;
     /** If enabled, it will include archived notes when rendering children list. */
     includeArchivedNotes?: boolean;
     /** Set of note IDs that have already been seen during rendering to prevent infinite recursion. */
@@ -194,7 +194,7 @@ export async function getRenderedContent(this: {} | { ctx: string }, entity: FNo
 
 /**
  * Renders a markdown note by converting its source to CKEditor-compatible HTML,
- * then running the same post-render pipeline as text notes (included notes,
+ * then running the same post-render pipeline as text notes (embedded notes,
  * math, reference links, Mermaid, code highlight) so the preview matches what
  * the user sees in the Markdown note type's preview pane.
  */
@@ -625,7 +625,7 @@ export function disposeInteractiveContent($renderedContent: JQuery<HTMLElement>)
 /**
  * Mounts a collection — a book or a saved search — as the live {@link EmbeddedNoteList}, the same
  * results widget used in the note detail (grid/list/table/board/calendar/map/presentation). Used by
- * interactive contexts (e.g. the dashboard and included notes) that opt in via
+ * interactive contexts (e.g. the dashboard and embedded notes) that opt in via
  * {@link RenderOptions.interactive}; every other context keeps the static fallback. Loaded lazily so
  * the collection views (and their dependencies) are only pulled in when a collection is embedded.
  */
@@ -672,10 +672,10 @@ async function showRenderError($content: JQuery<HTMLElement>, error: unknown, no
 }
 
 /**
- * The box size a new include of `entity` starts with: `tiny` when the include shows no preview of
+ * The box size a new embed of `entity` starts with: `tiny` when the embed shows no preview of
  * it, `small` for audio, `full` for code and `medium` for the rest.
  */
-export function getIncludeBoxSize(entity: FNote | FAttachment): BoxSize {
+export function getEmbedBoxSize(entity: FNote | FAttachment): BoxSize {
     const type = getContentType(entity);
     const hasPreview = type === "webView"
         ? entity instanceof FNote && entity.hasLabel("webViewSrc")

@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import { installGlobMock } from "../../../test/globals-test-kit.js";
-import IncludeNote from "../includenote.js";
+import ContentEmbed from "../content_embed/content_embed.js";
 import { isUploadAsLink } from "../uploadimage.js";
 import FileUploadCommand from "./fileuploadcommand.js";
 
@@ -94,7 +94,7 @@ describe("FileUploadCommand", () => {
 
     beforeEach(async () => {
         editor = await createTestEditor([
-            Essentials, Paragraph, FileRepository, ReferenceSchema, IncludeNote
+            Essentials, Paragraph, FileRepository, ReferenceSchema, ContentEmbed
         ]);
 
         // Provide a minimal upload adapter so FileRepository.createLoader() succeeds.
@@ -164,10 +164,10 @@ describe("FileUploadCommand", () => {
 
         expect(getModelData(editor.model)).toMatch(new RegExp(
             "^<paragraph>foo</paragraph>" +
-            "<includeNote boxSize=\"tiny\" uploadFileName=\"a.txt\" uploadId=\"\\w+\">" +
-            "</includeNote>" +
-            "<includeNote boxSize=\"medium\" uploadFileName=\"b.png\" uploadId=\"\\w+\">" +
-            "</includeNote>" +
+            "<contentEmbed boxSize=\"tiny\" uploadFileName=\"a.txt\" uploadId=\"\\w+\">" +
+            "</contentEmbed>" +
+            "<contentEmbed boxSize=\"medium\" uploadFileName=\"b.png\" uploadId=\"\\w+\">" +
+            "</contentEmbed>" +
             "<paragraph>\\[\\]bar</paragraph>$"
         ));
     });
@@ -181,7 +181,7 @@ describe("FileUploadCommand", () => {
             asEmbed: true
         });
 
-        expect(getModelData(editor.model)).toMatch(/^<includeNote boxSize="medium" /);
+        expect(getModelData(editor.model)).toMatch(/^<contentEmbed boxSize="medium" /);
     });
 
     it("marks the loader of every file to upload as a link, for an embed too", () => {

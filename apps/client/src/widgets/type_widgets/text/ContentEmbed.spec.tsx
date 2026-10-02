@@ -26,12 +26,12 @@ vi.mock("../../../menus/link_context_menu", () => ({
 }));
 vi.mock("../../../services/content_renderer", () => ({ default: { disposeInteractiveContent } }));
 
-import IncludeNote, {
+import ContentEmbed, {
     getNoteActions,
-    type IncludeNoteProps,
-    TinyIncludeNote,
-    type TinyIncludeNoteProps
-} from "./IncludeNote";
+    type ContentEmbedProps,
+    TinyContentEmbed,
+    type TinyContentEmbedProps
+} from "./ContentEmbed";
 
 const ATTACHMENT_SCOPE = { viewMode: "attachments", attachmentId: "att1" } as const;
 
@@ -61,27 +61,27 @@ function element(html: string) {
     return first;
 }
 
-function renderBox(props: Partial<IncludeNoteProps> = {}) {
-    const boxProps: IncludeNoteProps = {
+function renderBox(props: Partial<ContentEmbedProps> = {}) {
+    const boxProps: ContentEmbedProps = {
         title: element(`<span><a href="#root/noteA">Note A</a></span>`),
         content: element(`<div class="rendered-content"><p>body</p></div>`),
         contentType: "text",
         notePath: "noteA",
         ...props
     };
-    act(() => render(<IncludeNote {...boxProps} />, container));
+    act(() => render(<ContentEmbed {...boxProps} />, container));
     return boxProps;
 }
 
-function renderTinyBox(props: Partial<TinyIncludeNoteProps> = {}) {
-    const boxProps: TinyIncludeNoteProps = {
+function renderTinyBox(props: Partial<TinyContentEmbedProps> = {}) {
+    const boxProps: TinyContentEmbedProps = {
         icon: "bx bx-note",
         title: element(`<span><a href="#root/noteA">Note A</a></span>`),
         notePath: "noteA",
         actions: [],
         ...props
     };
-    act(() => render(<TinyIncludeNote {...boxProps} />, container));
+    act(() => render(<TinyContentEmbed {...boxProps} />, container));
     return boxProps;
 }
 
@@ -116,7 +116,7 @@ function tooltipOf(target: HTMLElement) {
 }
 
 /**
- * Right-clicks `target`, and tells whether the box opened the include's menu for it, taking the
+ * Right-clicks `target`, and tells whether the box opened the embed's menu for it, taking the
  * click from the browser and what surrounds the box.
  */
 function rightClick(target: Element | null) {
@@ -144,7 +144,7 @@ function click(target: HTMLElement) {
     return { event, isStopped: stopPropagation.mock.calls.length > 0 };
 }
 
-describe("IncludeNote", () => {
+describe("ContentEmbed", () => {
     it("lays out the title row for each box size", () => {
         const plain = [ "title", "open", "menu" ];
         const withFullscreen = [ "title", "open", "fullscreen", "menu" ];
@@ -297,7 +297,7 @@ describe("IncludeNote", () => {
     });
 });
 
-describe("TinyIncludeNote", () => {
+describe("TinyContentEmbed", () => {
     it("lays out a single row: icon, title and description, actions, menu", () => {
         const run = vi.fn();
         const { title } = renderTinyBox({

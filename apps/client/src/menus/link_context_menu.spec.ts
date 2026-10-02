@@ -18,14 +18,14 @@ const mocks = vi.hoisted(() => ({
     getAttachmentOfNote: vi.fn(),
     getAttachmentActionGroups: vi.fn(),
     getTextEditorContaining: vi.fn(),
-    getIncludeBoxSize: vi.fn()
+    getEmbedBoxSize: vi.fn()
 }));
 
 vi.mock("./text_editor_context_menu", () => ({
     getTextEditorContaining: mocks.getTextEditorContaining
 }));
 
-vi.mock("../services/content_renderer", () => ({ getIncludeBoxSize: mocks.getIncludeBoxSize }));
+vi.mock("../services/content_renderer", () => ({ getEmbedBoxSize: mocks.getEmbedBoxSize }));
 
 vi.mock("./context_menu", () => ({ default: { show: mocks.show } }));
 
@@ -215,12 +215,12 @@ describe("getOriginBelow", () => {
     it("opens a menu below the anchor, from the anchor or from another element", () => {
         const anchor = document.createElement("button");
         anchor.getBoundingClientRect = () => ({ left: 40, bottom: 70 }) as DOMRect;
-        const include = document.createElement("figure");
+        const embed = document.createElement("figure");
         const below = { pageX: 40 + window.scrollX, pageY: 70 + window.scrollY };
 
         expect(linkContextMenu.getOriginBelow(anchor)).toEqual({ ...below, target: anchor });
-        expect(linkContextMenu.getOriginBelow(anchor, include))
-            .toEqual({ ...below, target: include });
+        expect(linkContextMenu.getOriginBelow(anchor, embed))
+            .toEqual({ ...below, target: embed });
     });
 });
 
@@ -274,7 +274,7 @@ describe("openContextMenu", () => {
         const execute = vi.fn();
         const attachment = { attachmentId: "att-1" };
         mocks.getAttachmentOfNote.mockResolvedValue(attachment);
-        mocks.getIncludeBoxSize.mockReturnValue("small");
+        mocks.getEmbedBoxSize.mockReturnValue("small");
         mocks.getAttachmentActionGroups.mockReturnValue([
             [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ]
         ]);
@@ -298,7 +298,7 @@ describe("openContextMenu", () => {
             { title: "link_context_menu.convert_link_to_embed" }
         ]);
         items.at(-1).handler();
-        expect(mocks.getIncludeBoxSize).toHaveBeenCalledWith(attachment);
+        expect(mocks.getEmbedBoxSize).toHaveBeenCalledWith(attachment);
         expect(execute).toHaveBeenCalledWith("embedAttachmentLink", {
             domElement: link,
             boxSize: "small"
@@ -311,17 +311,17 @@ describe("openContextMenu", () => {
         expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
-    describe("opened on an include in a note being edited", () => {
+    describe("opened on an embed in a note being edited", () => {
         const CHECK = "bx bx-check";
         const execute = vi.fn();
         const focus = vi.fn();
-        const selectIncludeAt = vi.fn();
+        const selectEmbedAt = vi.fn();
         let hasPlugin = true;
         let state: Record<string, unknown> | null;
         let editable: HTMLElement;
 
         beforeEach(() => {
-            selectIncludeAt.mockReset().mockReturnValue(true);
+            selectEmbedAt.mockReset().mockReturnValue(true);
             hasPlugin = true;
             state = {
                 boxSize: "medium", isTitleShown: false, isTitleToggleable: true,
@@ -336,8 +336,8 @@ describe("openContextMenu", () => {
                 plugins: {
                     has: () => hasPlugin,
                     get: () => ({
-                        selectIncludeAt,
-                        getIncludeStateAt: () => state,
+                        selectEmbedAt,
+                        getEmbedStateAt: () => state,
                         getBoxSizes: () => [
                             { value: "tiny", label: "Tiny" },
                             { value: "medium", label: "Medium" }
@@ -359,9 +359,9 @@ describe("openContextMenu", () => {
                 + `</figure>`;
         });
 
-        function include() {
+        function embed() {
             const figure = editable.querySelector<HTMLElement>("figure");
-            if (!figure) throw new Error("Expected an include.");
+            if (!figure) throw new Error("Expected an embed.");
             return figure;
         }
 
@@ -378,16 +378,16 @@ describe("openContextMenu", () => {
         function pick(item: { handler: () => void }) {
             execute.mockClear();
             focus.mockClear();
-            selectIncludeAt.mockClear();
+            selectEmbedAt.mockClear();
             item.handler();
-            expect(selectIncludeAt).toHaveBeenCalledWith(include());
+            expect(selectEmbedAt).toHaveBeenCalledWith(embed());
             expect(focus).toHaveBeenCalledOnce();
             return execute.mock.calls;
         }
 
         it("puts the commands of an embed after its first group, converting it last", async () => {
             // From the title, from the menu button beside it, and from a control acting on the
-            // whole include, as its toolbar does.
+            // whole embed, as its toolbar does.
             for (const target of [ "a", "button.include-note-menu", "figure" ]) {
                 const items = await openOn(editable.querySelector(target));
 
@@ -421,26 +421,26 @@ describe("openContextMenu", () => {
                 ]);
                 expect(items).toHaveLength(13);
             }
-            expect(selectIncludeAt).not.toHaveBeenCalled();
+            expect(selectEmbedAt).not.toHaveBeenCalled();
 
             const items = await openOn(editable.querySelector("a"));
             expect(pick(items[7].items[0]))
-                .toEqual([ [ "includeNoteBoxSize", { value: "tiny" } ] ]);
-            expect(pick(items[8])).toEqual([ [ "toggleIncludeNoteTitle", undefined ] ]);
+                .toEqual([ [ "contentEmbedBoxSize", { value: "tiny" } ] ]);
+            expect(pick(items[8])).toEqual([ [ "toggleContentEmbedTitle", undefined ] ]);
             expect(pick(items[9]))
-                .toEqual([ [ "toggleIncludeNoteCaption", { focusCaptionOnShow: true } ] ]);
+                .toEqual([ [ "toggleContentEmbedCaption", { focusCaptionOnShow: true } ] ]);
             expect(pick(items[12])).toEqual([ [ "convertEmbedToLink", undefined ] ]);
 
-            // An include the editor cannot select is left as it is.
-            selectIncludeAt.mockReturnValue(false);
+            // An embed the editor cannot select is left as it is.
+            selectEmbedAt.mockReturnValue(false);
             execute.mockClear();
             items[12].handler();
             expect(execute).not.toHaveBeenCalled();
         });
 
-        it("appends the commands of an included note, its conversion in a group of its own", async () => {
-            include().removeAttribute("data-attachment-id");
-            include().setAttribute("data-note-id", "n1");
+        it("appends the commands of an embedded note, its conversion in a group of its own", async () => {
+            embed().removeAttribute("data-attachment-id");
+            embed().setAttribute("data-note-id", "n1");
 
             const items = await openOn(editable.querySelector("a"), {});
 
@@ -456,8 +456,8 @@ describe("openContextMenu", () => {
             expect(mocks.getAttachmentOfNote).not.toHaveBeenCalled();
         });
 
-        it("disables what the include cannot do, and offers nothing for no include", async () => {
-            include().removeAttribute("data-attachment-id");
+        it("disables what the embed cannot do, and offers nothing for no embed", async () => {
+            embed().removeAttribute("data-attachment-id");
             state = {
                 boxSize: "tiny", isTitleShown: true, isTitleToggleable: false,
                 hasCaption: false, isCaptionToggleable: false, isConvertibleToLink: false
@@ -469,8 +469,8 @@ describe("openContextMenu", () => {
                 { title: "link_context_menu.show_caption", enabled: false, trailingIcon: undefined }
             ]);
 
-            // A link in the included content, an include the editor does not know, and an editor
-            // without includes.
+            // A link in the embedded content, an embed the editor does not know, and an editor
+            // without embeds.
             expect(await openOn(editable.querySelector(".include-note-content a"), {}))
                 .toHaveLength(4);
             state = null;
@@ -483,7 +483,7 @@ describe("openContextMenu", () => {
             editable.removeAttribute("contenteditable");
             expect(await openOn(editable.querySelector("a"), {})).toHaveLength(4);
             expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(4);
-            expect(selectIncludeAt).not.toHaveBeenCalled();
+            expect(selectEmbedAt).not.toHaveBeenCalled();
         });
     });
 

@@ -10,16 +10,16 @@ import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
 
-/** An action on the included note or attachment, offered as a button in the title row. */
-export interface IncludeNoteAction {
+/** An action on the embedded note or attachment, offered as a button in the title row. */
+export interface ContentEmbedAction {
     title: string;
     icon: string;
     run: () => void | Promise<void>;
 }
 
-export interface IncludeNoteProps {
+export interface ContentEmbedProps {
     boxSize?: string;
-    /** The link to the included note or attachment, shown as the title. */
+    /** The link to the embedded note or attachment, shown as the title. */
     title: HTMLElement;
     /** The rendered note or attachment. */
     content: HTMLElement;
@@ -29,9 +29,9 @@ export interface IncludeNoteProps {
     viewScope?: ViewScope;
 }
 
-export interface TinyIncludeNoteProps {
+export interface TinyContentEmbedProps {
     icon: string;
-    /** The link to the included note or attachment, shown as the title. */
+    /** The link to the embedded note or attachment, shown as the title. */
     title: HTMLElement;
     /** A line under the title, such as the size of an attachment. */
     description?: string;
@@ -39,13 +39,13 @@ export interface TinyIncludeNoteProps {
     notePath: string;
     viewScope?: ViewScope;
     /** The buttons before the "More actions" menu. */
-    actions: IncludeNoteAction[];
+    actions: ContentEmbedAction[];
 }
 
-/** The title row and the content of an included note or embedded attachment. */
-export default function IncludeNote({
+/** The title row and the content of an embedded note or attachment. */
+export default function ContentEmbed({
     boxSize, title, content, contentType, notePath, viewScope
-}: IncludeNoteProps) {
+}: ContentEmbedProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const [ isExpanded, setIsExpanded ] = useState(false);
     const isExpandable = boxSize === "expandable";
@@ -77,8 +77,8 @@ export default function IncludeNote({
                         }}
                     />
                 )}
-                <IncludeNoteTitle title={title} />
-                <IncludeNoteActionButton
+                <ContentEmbedTitle title={title} />
+                <ContentEmbedActionButton
                     className="include-note-open"
                     action={getOpenInNewTabAction(notePath, viewScope)}
                 />
@@ -90,7 +90,7 @@ export default function IncludeNote({
                         onClick={(e) => {
                             e.stopPropagation();
                             contentRef.current?.requestFullscreen().catch((error: unknown) => {
-                                console.warn("Could not show the include in fullscreen:", error);
+                                console.warn("Could not show the embed in fullscreen:", error);
                             });
                         }}
                     />
@@ -126,10 +126,10 @@ export default function IncludeNote({
     );
 }
 
-/** A tiny include: a single row with an icon, the title and the actions, and no content. */
-export function TinyIncludeNote({
+/** A tiny embed: a single row with an icon, the title and the actions, and no content. */
+export function TinyContentEmbed({
     icon, title, description, notePath, viewScope, actions
-}: TinyIncludeNoteProps) {
+}: TinyContentEmbedProps) {
     return (
         <div
             className="include-note-title-row"
@@ -137,11 +137,11 @@ export function TinyIncludeNote({
         >
             <Icon className="include-note-icon" icon={icon} />
             <div className="include-note-heading">
-                <IncludeNoteTitle title={title} />
+                <ContentEmbedTitle title={title} />
                 {description && <small className="include-note-description">{description}</small>}
             </div>
             {actions.map((action) => (
-                <IncludeNoteActionButton
+                <ContentEmbedActionButton
                     key={action.title}
                     className="include-note-action"
                     action={action}
@@ -152,8 +152,8 @@ export function TinyIncludeNote({
     );
 }
 
-/** The buttons of a tiny include of a note: "Quick edit" and "Open in new tab". */
-export function getNoteActions(notePath: string): IncludeNoteAction[] {
+/** The buttons of a tiny embed of a note: "Quick edit" and "Open in new tab". */
+export function getNoteActions(notePath: string): ContentEmbedAction[] {
     return [
         {
             title: t("link_context_menu.open_note_in_popup"),
@@ -166,7 +166,7 @@ export function getNoteActions(notePath: string): IncludeNoteAction[] {
     ];
 }
 
-function getOpenInNewTabAction(notePath: string, viewScope?: ViewScope): IncludeNoteAction {
+function getOpenInNewTabAction(notePath: string, viewScope?: ViewScope): ContentEmbedAction {
     return {
         title: t("common.open_in_new_tab"),
         icon: "bx bx-link-external",
@@ -180,7 +180,7 @@ function getOpenInNewTabAction(notePath: string, viewScope?: ViewScope): Include
     };
 }
 
-function IncludeNoteTitle({ title }: { title: HTMLElement }) {
+function ContentEmbedTitle({ title }: { title: HTMLElement }) {
     const titleRef = useRef<HTMLHeadingElement>(null);
 
     useLayoutEffect(() => {
@@ -190,9 +190,9 @@ function IncludeNoteTitle({ title }: { title: HTMLElement }) {
     return <h4 ref={titleRef} className="include-note-title" />;
 }
 
-function IncludeNoteActionButton({ className, action }: {
+function ContentEmbedActionButton({ className, action }: {
     className: string;
-    action: IncludeNoteAction;
+    action: ContentEmbedAction;
 }) {
     return (
         <ActionButton
@@ -208,7 +208,7 @@ function IncludeNoteActionButton({ className, action }: {
 }
 
 /**
- * Opens the menu of the include for a right click on its title row. The title link is left to the
+ * Opens the menu of the embed for a right click on its title row. The title link is left to the
  * handler of every link, which opens the same menu, or a quick edit with Ctrl.
  */
 function openMenuOnRightClick(e: MouseEvent, notePath: string, viewScope?: ViewScope) {

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "preact/hooks";
-import { getIncludeBoxSize } from "../../services/content_renderer";
+import { getEmbedBoxSize } from "../../services/content_renderer";
 import { t } from "../../services/i18n";
 import FormGroup from "../react/FormGroup";
 import FormRadioGroup from "../react/FormRadioGroup";
@@ -12,20 +12,20 @@ import froca from "../../services/froca";
 import { useNote, useTriliumEvent } from "../react/hooks";
 import type { BoxSize, CKEditorApi } from "../type_widgets/text/CKEditorWithWatchdog";
 
-export interface IncludeNoteOpts {
-    editorApi: Pick<CKEditorApi, "addIncludeNote" | "addImage">;
+export interface ContentEmbedOpts {
+    editorApi: Pick<CKEditorApi, "addContentEmbed" | "addImage">;
 }
 
-export default function IncludeNoteDialog() {
-    const editorApiRef = useRef<Pick<CKEditorApi, "addIncludeNote" | "addImage">>(null);
+export default function ContentEmbedDialog() {
+    const editorApiRef = useRef<Pick<CKEditorApi, "addContentEmbed" | "addImage">>(null);
     const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
     // The size chosen by hand, otherwise the one that suits the picked note.
     const [chosenBoxSize, setChosenBoxSize] = useState<BoxSize | null>(null);
     const [shown, setShown] = useState(false);
     const note = useNote(suggestion?.notePath ? tree.getNoteIdFromUrl(suggestion.notePath) : null);
-    const boxSize = chosenBoxSize ?? (note ? getIncludeBoxSize(note) : "medium");
+    const boxSize = chosenBoxSize ?? (note ? getEmbedBoxSize(note) : "medium");
 
-    useTriliumEvent("showIncludeNoteDialog", ({ editorApi }) => {
+    useTriliumEvent("showContentEmbedDialog", ({ editorApi }) => {
         editorApiRef.current = editorApi;
         setChosenBoxSize(null);
         setShown(true);
@@ -48,7 +48,7 @@ export default function IncludeNoteDialog() {
             onSubmit={async () => {
                 if (!suggestion?.notePath || !editorApiRef.current) return;
                 setShown(false);
-                await includeNote(suggestion.notePath, editorApiRef.current, boxSize);
+                await embedNote(suggestion.notePath, editorApiRef.current, boxSize);
             }}
             footer={<Button text={t("include_note.button_include")} keyboardShortcut="Enter" />}
             show={shown}
@@ -82,7 +82,7 @@ export default function IncludeNoteDialog() {
     )
 }
 
-async function includeNote(notePath: string, editorApi: Pick<CKEditorApi, "addIncludeNote" | "addImage">, boxSize: BoxSize) {
+async function embedNote(notePath: string, editorApi: Pick<CKEditorApi, "addContentEmbed" | "addImage">, boxSize: BoxSize) {
     const noteId = tree.getNoteIdFromUrl(notePath);
     if (!noteId) {
         return;
@@ -94,6 +94,6 @@ async function includeNote(notePath: string, editorApi: Pick<CKEditorApi, "addIn
         // so we'll just add an IMG tag
         editorApi.addImage(noteId);
     } else {
-        editorApi.addIncludeNote(noteId, boxSize);
+        editorApi.addContentEmbed(noteId, boxSize);
     }
 }

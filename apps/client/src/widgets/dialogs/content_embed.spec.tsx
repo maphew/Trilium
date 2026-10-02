@@ -7,7 +7,7 @@ import type { Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import { ParentComponent } from "../react/react_utils";
-import IncludeNoteDialog from "./include_note";
+import ContentEmbedDialog from "./content_embed";
 
 const autocomplete = vi.hoisted(() => ({
     onChange: undefined as ((suggestion: Suggestion | null) => void) | undefined
@@ -22,17 +22,17 @@ vi.mock("../react/NoteAutocomplete", () => ({
     }
 }));
 
-describe("IncludeNoteDialog", () => {
+describe("ContentEmbedDialog", () => {
     let host: Component;
     let container: HTMLElement;
-    const editorApi = { addIncludeNote: vi.fn(), addImage: vi.fn() };
+    const editorApi = { addContentEmbed: vi.fn(), addImage: vi.fn() };
 
     beforeEach(async () => {
         vi.clearAllMocks();
         host = new Component();
         container = renderInto(
             <ParentComponent.Provider value={host}>
-                <IncludeNoteDialog />
+                <ContentEmbedDialog />
             </ParentComponent.Provider>
         );
         await open();
@@ -40,7 +40,7 @@ describe("IncludeNoteDialog", () => {
 
     async function open() {
         await act(async () => {
-            void host.handleEventInChildren("showIncludeNoteDialog", { editorApi });
+            void host.handleEventInChildren("showContentEmbedDialog", { editorApi });
         });
     }
 
@@ -92,6 +92,6 @@ describe("IncludeNoteDialog", () => {
 
         await choose("expandable");
         await submit();
-        expect(editorApi.addIncludeNote).toHaveBeenCalledWith(song.noteId, "expandable");
+        expect(editorApi.addContentEmbed).toHaveBeenCalledWith(song.noteId, "expandable");
     });
 });

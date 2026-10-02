@@ -35,14 +35,14 @@ export default async function renderText(note: FNote | FAttachment, $renderedCon
 export async function postProcessRichContent(note: FNote | FAttachment, $renderedContent: JQuery<HTMLElement>, options: RenderOptions = {}) {
     const seenNoteIds = options.seenNoteIds ?? new Set<string>();
     seenNoteIds.add("noteId" in note ? note.noteId : note.attachmentId);
-    if (options.noIncludedNotes) {
+    if (options.noContentEmbeds) {
         $renderedContent.find(".include-note").remove();
-    } else if (options.includesAsReferenceLinks) {
-        // This note is itself an included note in display mode: stop after the first level by
-        // degrading its own includes to reference links instead of expanding them.
-        await replaceIncludesWithReferenceLinks($renderedContent[0]);
+    } else if (options.embedsAsReferenceLinks) {
+        // This note is itself an embedded note in display mode: stop after the first level by
+        // degrading its own embeds to reference links instead of expanding them.
+        await replaceEmbedsWithReferenceLinks($renderedContent[0]);
     } else {
-        await renderIncludedNotes($renderedContent[0], seenNoteIds, options.expandNestedIncludes ?? false);
+        await renderContentEmbeds($renderedContent[0], seenNoteIds, options.expandNestedEmbeds ?? false);
     }
 
     if ($renderedContent.find("span.math-tex").length > 0) {
@@ -75,14 +75,14 @@ export async function postProcessRichContent(note: FNote | FAttachment, $rendere
     }
 }
 
-async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<string>, expandNested: boolean) {
+async function renderContentEmbeds(contentEl: HTMLElement, seenNoteIds: Set<string>, expandNested: boolean) {
     // TODO: Consider duplicating with server's share/content_renderer.ts.
-    const includeNoteEls = contentEl.querySelectorAll(".include-note");
+    const embedEls = contentEl.querySelectorAll(".include-note");
 
     // Gather the list of items to load.
     const noteIds: string[] = [];
-    for (const includeNoteEl of includeNoteEls) {
-        const noteId = includeNoteEl.getAttribute("data-note-id");
+    for (const embedEl of embedEls) {
+        const noteId = embedEl.getAttribute("data-note-id");
         if (noteId) {
             noteIds.push(noteId);
         }
@@ -92,77 +92,77 @@ async function renderIncludedNotes(contentEl: HTMLElement, seenNoteIds: Set<stri
     await froca.getNotes(noteIds);
 
     // Render and integrate the notes.
-    for (const includeNoteEl of includeNoteEls) {
-        const attachment = await getEmbeddedAttachment(includeNoteEl);
+    for (const embedEl of embedEls) {
+        const attachment = await getEmbeddedAttachment(embedEl);
         if (attachment) {
             const { $renderedContent } = await content_renderer.getRenderedContent(attachment);
-            replaceIncludeContent(includeNoteEl, $renderedContent.toArray());
+            replaceEmbedContent(embedEl, $renderedContent.toArray());
             continue;
         }
 
-        const noteId = includeNoteEl.getAttribute("data-note-id");
+        const noteId = embedEl.getAttribute("data-note-id");
         if (!noteId) continue;
 
         const note = froca.getNoteFromCache(noteId);
         if (!note) {
-            console.warn(`Unable to include ${noteId} because it could not be found.`);
+            console.warn(`Unable to embed ${noteId} because it could not be found.`);
             continue;
         }
 
         if (seenNoteIds.has(noteId)) {
-            console.warn(`Skipping inclusion of ${noteId} to avoid circular reference.`);
-            includeNoteEl.remove();
+            console.warn(`Skipping embedding of ${noteId} to avoid circular reference.`);
+            embedEl.remove();
             continue;
         }
 
-        // On display only the first level is expanded: the included note is rendered with its own
-        // includes degraded to reference links. Printing/export keeps expanding recursively.
+        // On display only the first level is expanded: the embedded note is rendered with its own
+        // embeds degraded to reference links. Printing/export keeps expanding recursively.
         // Clone seenNoteIds per descent so it tracks the current ancestor path only — sibling
-        // branches must not pollute each other (a note included in two sub-trees is not a cycle).
+        // branches must not pollute each other (a note embedded in two sub-trees is not a cycle).
         const renderedContent = (await content_renderer.getRenderedContent(note, expandNested
-            ? { seenNoteIds: new Set(seenNoteIds), expandNestedIncludes: true }
-            : { seenNoteIds: new Set(seenNoteIds), includesAsReferenceLinks: true }
+            ? { seenNoteIds: new Set(seenNoteIds), expandNestedEmbeds: true }
+            : { seenNoteIds: new Set(seenNoteIds), embedsAsReferenceLinks: true }
         )).$renderedContent;
-        replaceIncludeContent(includeNoteEl, renderedContent.toArray());
+        replaceEmbedContent(embedEl, renderedContent.toArray());
     }
 }
 
-/** Puts `content` in an include, followed by the include's caption. */
-function replaceIncludeContent(includeNoteEl: Element, content: Node[]) {
-    const caption = getIncludeCaption(includeNoteEl);
-    includeNoteEl.replaceChildren(...content, ...(caption ? [ caption ] : []));
+/** Puts `content` in an embed, followed by the embed's caption. */
+function replaceEmbedContent(embedEl: Element, content: Node[]) {
+    const caption = getEmbedCaption(embedEl);
+    embedEl.replaceChildren(...content, ...(caption ? [ caption ] : []));
 }
 
-/** The caption of an include, or `null` for a Tiny include, which shows none. */
-export function getIncludeCaption(includeNoteEl: Element) {
-    if (includeNoteEl.getAttribute("data-box-size") === "tiny") {
+/** The caption of an embed, or `null` for a Tiny embed, which shows none. */
+export function getEmbedCaption(embedEl: Element) {
+    if (embedEl.getAttribute("data-box-size") === "tiny") {
         return null;
     }
 
-    return includeNoteEl.querySelector<HTMLElement>(":scope > figcaption");
+    return embedEl.querySelector<HTMLElement>(":scope > figcaption");
 }
 
 /**
  * Replace each `.include-note` in the given content with a bare reference link to the
- * included note, without expanding it. Used on display to stop inclusion after the first level so a
- * note's transitive include graph is not rendered inline. The link's title, icon and colour are
+ * embedded note, without expanding it. Used on display to stop embedding after the first level so a
+ * note's transitive embed graph is not rendered inline. The link's title, icon and colour are
  * filled in by the reference-link post-processing pass in `postProcessRichContent` (the same pass
  * that resolves reference links authored in the note), which also batch-prefetches the note.
  */
-async function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
-    for (const includeNoteEl of contentEl.querySelectorAll(".include-note")) {
-        const attachment = await getEmbeddedAttachment(includeNoteEl);
+async function replaceEmbedsWithReferenceLinks(contentEl: HTMLElement) {
+    for (const embedEl of contentEl.querySelectorAll(".include-note")) {
+        const attachment = await getEmbeddedAttachment(embedEl);
         if (attachment) {
             const { ownerId, attachmentId } = attachment;
             const href = `#root/${ownerId}?viewMode=attachments&attachmentId=${attachmentId}`;
             const referenceLink = document.createElement("a");
             referenceLink.className = "reference-link";
             referenceLink.setAttribute("href", href);
-            includeNoteEl.replaceWith(referenceLink);
+            embedEl.replaceWith(referenceLink);
             continue;
         }
 
-        const noteId = includeNoteEl.getAttribute("data-note-id");
+        const noteId = embedEl.getAttribute("data-note-id");
         // Validate the ID against a note-ID allow-list before interpolating it into the href: it
         // comes from note HTML, and the reference-link pass later reinterprets that href.
         if (!noteId || !/^[a-zA-Z0-9_]+$/.test(noteId)) continue;
@@ -170,13 +170,13 @@ async function replaceIncludesWithReferenceLinks(contentEl: HTMLElement) {
         const referenceLink = document.createElement("a");
         referenceLink.className = "reference-link";
         referenceLink.setAttribute("href", `#root/${noteId}`);
-        includeNoteEl.replaceWith(referenceLink);
+        embedEl.replaceWith(referenceLink);
     }
 }
 
-/** The attachment an include embeds, or `null` for an include of a note. */
-async function getEmbeddedAttachment(includeNoteEl: Element) {
-    const attachmentId = includeNoteEl.getAttribute("data-attachment-id");
+/** The attachment an embed shows, or `null` for an embed of a note. */
+async function getEmbeddedAttachment(embedEl: Element) {
+    const attachmentId = embedEl.getAttribute("data-attachment-id");
     // The ID comes from note HTML, so it is checked before it reaches a request or an href.
     if (!attachmentId || !/^[a-zA-Z0-9_]+$/.test(attachmentId)) {
         return null;

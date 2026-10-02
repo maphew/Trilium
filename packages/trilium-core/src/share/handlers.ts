@@ -154,7 +154,7 @@ function renderNote(note: SNote | undefined, req: ShareRequest): ShareReply {
     return {
         status: 200,
         headers,
-        body: renderNoteContent(note, (includedNote) => hasCredentialAccess(includedNote, req))
+        body: renderNoteContent(note, (embeddedNote) => hasCredentialAccess(embeddedNote, req))
     };
 }
 

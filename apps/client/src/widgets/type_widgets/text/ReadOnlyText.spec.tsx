@@ -33,13 +33,13 @@ import ReadOnlyText from "./ReadOnlyText";
 // Imported by ReadOnlyText only for its content styles; irrelevant (and heavy) in happy-dom.
 vi.mock("@triliumnext/ckeditor5", () => ({}));
 
-const { watchIncludedNotes, stopWatchingIncludes } = vi.hoisted(() => {
+const { watchContentEmbeds, stopWatchingEmbeds } = vi.hoisted(() => {
     const stop = vi.fn();
-    return { watchIncludedNotes: vi.fn(() => stop), stopWatchingIncludes: stop };
+    return { watchContentEmbeds: vi.fn(() => stop), stopWatchingEmbeds: stop };
 });
 vi.mock("./utils", async (importOriginal) => ({
     ...await importOriginal<typeof import("./utils")>(),
-    watchIncludedNotes
+    watchContentEmbeds
 }));
 
 vi.stubGlobal("logError", vi.fn());
@@ -280,21 +280,21 @@ describe("ReadOnlyText text direction", () => {
     });
 });
 
-describe("ReadOnlyText included notes", () => {
-    it("watches its content for include boxes until it unmounts", async () => {
-        watchIncludedNotes.mockClear();
-        stopWatchingIncludes.mockClear();
+describe("ReadOnlyText embedded notes", () => {
+    it("watches its content for embed boxes until it unmounts", async () => {
+        watchContentEmbeds.mockClear();
+        stopWatchingEmbeds.mockClear();
         const harness = setupHarness({ isVisible: true });
 
         await harness.mount();
 
         const content = harness.container.querySelector(".note-detail-readonly-text-content");
         expect(content).not.toBeNull();
-        expect(watchIncludedNotes.mock.calls).toEqual([ [ content ] ]);
-        expect(stopWatchingIncludes).not.toHaveBeenCalled();
+        expect(watchContentEmbeds.mock.calls).toEqual([ [ content ] ]);
+        expect(stopWatchingEmbeds).not.toHaveBeenCalled();
 
         await act(async () => render(null, harness.container));
         harness.container.remove();
-        expect(stopWatchingIncludes).toHaveBeenCalledOnce();
+        expect(stopWatchingEmbeds).toHaveBeenCalledOnce();
     });
 });

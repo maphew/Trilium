@@ -61,7 +61,7 @@ function toMarkdown(content: string, options: ToMarkdownOptions = {}) {
             codeBlockStyle: "fenced",
             headerlessTables,
             blankReplacement(_content, node) {
-                if (isIncludeNote(node)) {
+                if (isContentEmbed(node)) {
                     return node.outerHTML;
                 }
 
@@ -294,7 +294,7 @@ function buildFigureFilter(): Rule {
     return {
         filter(node, options) {
             return (node.nodeName === "FIGURE" && node.classList.contains("image"))
-                || isIncludeNote(node);
+                || isContentEmbed(node);
         },
         replacement(content, node) {
             return (node as HTMLElement).outerHTML;
@@ -302,8 +302,8 @@ function buildFigureFilter(): Rule {
     };
 }
 
-/** Whether `node` is an include. Includes saved before captions existed are `<section>`s. */
-function isIncludeNote(node: Pick<LinkPreviewNodeLike, "nodeName" | "classList">) {
+/** Whether `node` is an embed. Embeds saved before captions existed are `<section>`s. */
+function isContentEmbed(node: Pick<LinkPreviewNodeLike, "nodeName" | "classList">) {
     return (node.nodeName === "FIGURE" || node.nodeName === "SECTION")
         && node.classList.contains("include-note");
 }

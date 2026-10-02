@@ -113,7 +113,7 @@ import FAttachment from "../entities/fattachment.js";
 import { buildNote } from "../test/easy-froca.js";
 import {
     disposeInteractiveContent,
-    getIncludeBoxSize,
+    getEmbedBoxSize,
     getRenderedContent as rawGetRenderedContent,
     getUploadBoxSize
 } from "./content_renderer.js";
@@ -156,8 +156,8 @@ beforeEach(() => {
     (window as any).electronApi = undefined;
 });
 
-describe("getIncludeBoxSize", () => {
-    it("sizes an include by what it previews: none, audio, code or anything else", () => {
+describe("getEmbedBoxSize", () => {
+    it("sizes an embed by what it previews: none, audio, code or anything else", () => {
         const protectedCode = buildNote({ title: "Secret", type: "code", mime: "text/javascript" });
         protectedCode.isProtected = true;
 
@@ -168,18 +168,18 @@ describe("getIncludeBoxSize", () => {
             buildNote({ title: "Archive", type: "file", mime: "application/zip" }),
             buildAttachment({ role: "file", mime: "application/zip" }),
             buildAttachment({ role: "canvasLibraryItem", mime: "application/json" })
-        ].map(getIncludeBoxSize)).toEqual(Array(6).fill("tiny"));
+        ].map(getEmbedBoxSize)).toEqual(Array(6).fill("tiny"));
 
         expect([
             buildNote({ title: "Song", type: "file", mime: "audio/mpeg" }),
             buildAttachment({ role: "file", mime: "audio/ogg" })
-        ].map(getIncludeBoxSize)).toEqual([ "small", "small" ]);
+        ].map(getEmbedBoxSize)).toEqual([ "small", "small" ]);
 
         expect([
             buildNote({ title: "Script", type: "code", mime: "text/javascript" }),
             protectedCode,
             buildAttachment({ role: "file", mime: "application/json" })
-        ].map(getIncludeBoxSize)).toEqual([ "full", "full", "full" ]);
+        ].map(getEmbedBoxSize)).toEqual([ "full", "full", "full" ]);
         expect(touchProtectedSession).not.toHaveBeenCalled();
 
         expect([
@@ -191,7 +191,7 @@ describe("getIncludeBoxSize", () => {
             buildNote({ title: "Clip", type: "file", mime: "video/mp4" }),
             buildAttachment({ role: "file", mime: "application/pdf" }),
             buildAttachment({ role: "image", mime: "image/png" })
-        ].map(getIncludeBoxSize)).toEqual(Array(8).fill("medium"));
+        ].map(getEmbedBoxSize)).toEqual(Array(8).fill("medium"));
     });
 
     it("sizes an upload by its media type, as the attachment it becomes", () => {

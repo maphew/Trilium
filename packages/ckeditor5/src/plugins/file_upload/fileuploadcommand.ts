@@ -67,7 +67,7 @@ function insertEmbedPlaceholder(
     fileName: string,
     boxSize: string
 ) {
-    const placeholder = writer.createElement("includeNote", {
+    const placeholder = writer.createElement("contentEmbed", {
         boxSize,
         uploadId,
         uploadFileName: fileName

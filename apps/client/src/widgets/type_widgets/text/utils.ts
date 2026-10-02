@@ -4,34 +4,34 @@ import { h, type JSX } from "preact";
 import appContext from "../../../components/app_context";
 import linkContextMenu from "../../../menus/link_context_menu";
 import content_renderer from "../../../services/content_renderer";
-import { getIncludeCaption } from "../../../services/content_renderer_text";
+import { getEmbedCaption } from "../../../services/content_renderer_text";
 import froca from "../../../services/froca";
 import link, { ViewScope } from "../../../services/link";
 import utils from "../../../services/utils";
-import IncludeNote, { getNoteActions, TinyIncludeNote } from "./IncludeNote";
+import ContentEmbed, { getNoteActions, TinyContentEmbed } from "./ContentEmbed";
 
 /**
- * Fills an include box with a note. Without a box size of its own, the box takes the one of its
- * include.
+ * Fills an embed box with a note. Without a box size of its own, the box takes the one of its
+ * embed.
  */
-export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
+export async function loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
     const note = await froca.getNote(noteId);
     if (!note) return;
 
     const el = $el[0];
-    const size = boxSize ?? getIncludeBoxSize(el);
+    const size = boxSize ?? getEmbedBoxSize(el);
     if (size === "tiny") {
         const $link = await link.createLink(note.noteId, {
             showTooltip: false,
             showNotePath: true
         });
-        const box = h(TinyIncludeNote, {
+        const box = h(TinyContentEmbed, {
             icon: note.getIcon(),
             title: $link[0],
             notePath: note.noteId,
             actions: getNoteActions(note.noteId)
         });
-        await mountIncludeBox(el, box);
+        await mountEmbedBox(el, box);
         return;
     }
 
@@ -40,29 +40,29 @@ export async function loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>,
         showNoteIcon: true
     });
 
-    // The include widget itself is the first level of inclusion, so the included note's own
-    // includes are rendered as reference links rather than expanded (see includesAsReferenceLinks).
+    // The embed widget itself is the first level of embedding, so the embedded note's own
+    // embeds are rendered as reference links rather than expanded (see embedsAsReferenceLinks).
     const { $renderedContent, type } = await content_renderer.getRenderedContent(note, {
         interactive: true,
-        includesAsReferenceLinks: true,
+        embedsAsReferenceLinks: true,
         mediaEnvironment: "embedded"
     });
 
-    const box = h(IncludeNote, {
+    const box = h(ContentEmbed, {
         boxSize: size,
         title: $link[0],
         content: $renderedContent[0],
         contentType: type,
         notePath: note.noteId
     });
-    await mountIncludeBox(el, box, $renderedContent);
+    await mountEmbedBox(el, box, $renderedContent);
 }
 
 /**
- * Fills an include box with an embedded attachment, under a title linking to it. Without a box
- * size of its own, the box takes the one of its include.
+ * Fills an embed box with an embedded attachment, under a title linking to it. Without a box
+ * size of its own, the box takes the one of its embed.
  */
-export async function loadIncludedAttachment(
+export async function loadEmbeddedAttachment(
     attachmentId: string,
     $el: JQuery<HTMLElement>,
     boxSize?: string
@@ -71,7 +71,7 @@ export async function loadIncludedAttachment(
     if (!attachment) return;
 
     const el = $el[0];
-    const size = boxSize ?? getIncludeBoxSize(el);
+    const size = boxSize ?? getEmbedBoxSize(el);
     const viewScope: ViewScope = { viewMode: "attachments", attachmentId };
     if (size === "tiny") {
         // `attachment_actions` is imported on demand: it imports the image compression dialog.
@@ -79,7 +79,7 @@ export async function loadIncludedAttachment(
             link.createLink(attachment.ownerId, { showTooltip: false, viewScope }),
             import("../../../services/attachment_actions")
         ]);
-        const box = h(TinyIncludeNote, {
+        const box = h(TinyContentEmbed, {
             icon: attachmentIcon(attachment.role, attachment.mime),
             title: $link[0],
             description: utils.formatSize(attachment.contentLength),
@@ -87,7 +87,7 @@ export async function loadIncludedAttachment(
             viewScope,
             actions: [ getOpenExternallyAction(attachment), getDownloadAction(attachment) ]
         });
-        await mountIncludeBox(el, box);
+        await mountEmbedBox(el, box);
         return;
     }
 
@@ -101,7 +101,7 @@ export async function loadIncludedAttachment(
         { interactive: true, mediaEnvironment: "embedded" }
     );
 
-    const box = h(IncludeNote, {
+    const box = h(ContentEmbed, {
         boxSize: size,
         title: $link[0],
         content: $renderedContent[0],
@@ -109,14 +109,14 @@ export async function loadIncludedAttachment(
         notePath: attachment.ownerId,
         viewScope
     });
-    await mountIncludeBox(el, box, $renderedContent);
+    await mountEmbedBox(el, box, $renderedContent);
 }
 
 /**
- * Mounts `box` in the include `el`. An include that left the page while it loaded gets no box,
- * and `content` rendered for it is disposed: `watchIncludedNotes()` has already passed it.
+ * Mounts `box` in the embed `el`. An embed that left the page while it loaded gets no box,
+ * and `content` rendered for it is disposed: `watchContentEmbeds()` has already passed it.
  */
-async function mountIncludeBox(el: HTMLElement, box: JSX.Element, content?: JQuery<HTMLElement>) {
+async function mountEmbedBox(el: HTMLElement, box: JSX.Element, content?: JQuery<HTMLElement>) {
     if (!el.isConnected) {
         if (content) {
             content_renderer.disposeInteractiveContent(content);
@@ -127,12 +127,12 @@ async function mountIncludeBox(el: HTMLElement, box: JSX.Element, content?: JQue
     await content_renderer.mountInteractiveWidget(box, getWrapper(el));
 }
 
-function getIncludeBoxSize(el: HTMLElement) {
+function getEmbedBoxSize(el: HTMLElement) {
     return el.closest<HTMLElement>(".include-note")?.dataset.boxSize;
 }
 
 /**
- * The element an include box is mounted in: `el` when it is the `.include-note-wrapper` the
+ * The element an embed box is mounted in: `el` when it is the `.include-note-wrapper` the
  * editor renders, otherwise the wrapper of the `.include-note`, reused or created ahead of the
  * caption.
  */
@@ -148,18 +148,18 @@ function getWrapper(el: HTMLElement) {
 
     const wrapper = document.createElement("div");
     wrapper.className = "include-note-wrapper";
-    const caption = getIncludeCaption(el);
+    const caption = getEmbedCaption(el);
     el.replaceChildren(wrapper, ...(caption ? [ caption ] : []));
     return wrapper;
 }
 
 /**
- * Opens the context menu of the note or attachment that `include` shows, below `anchor`. The menu
- * opens from the include, so that the text editor that contains it stays focused.
+ * Opens the context menu of the note or attachment that `embed` shows, below `anchor`. The menu
+ * opens from the embed, so that the text editor that contains it stays focused.
  */
-export async function openIncludeNoteMenu(include: HTMLElement, anchor: HTMLElement) {
-    const { noteId, attachmentId } = include.dataset;
-    const origin = linkContextMenu.getOriginBelow(anchor, include);
+export async function openContentEmbedMenu(embed: HTMLElement, anchor: HTMLElement) {
+    const { noteId, attachmentId } = embed.dataset;
+    const origin = linkContextMenu.getOriginBelow(anchor, embed);
 
     if (attachmentId) {
         const attachment = await froca.getAttachment(attachmentId, true);
@@ -183,10 +183,10 @@ export async function getAttachmentHref(attachmentId: string) {
 }
 
 /**
- * Unmounts the include boxes, and what they show, once they leave `container`. The returned
+ * Unmounts the embed boxes, and what they show, once they leave `container`. The returned
  * function stops watching and unmounts the boxes still in it.
  */
-export function watchIncludedNotes(container: HTMLElement) {
+export function watchContentEmbeds(container: HTMLElement) {
     const observer = new MutationObserver(disposeRemoved);
     observer.observe(container, { childList: true, subtree: true });
 
@@ -208,10 +208,10 @@ function disposeRemoved(records: MutationRecord[]) {
     }
 }
 
-export function refreshIncludedNote(container: HTMLDivElement, noteId: string) {
-    const includedNotes = container.querySelectorAll(`.include-note[data-note-id="${noteId}"]`);
-    for (const includedNote of includedNotes) {
-        loadIncludedNote(noteId, $(includedNote as HTMLElement));
+export function refreshEmbeddedNote(container: HTMLDivElement, noteId: string) {
+    const embeddedNotes = container.querySelectorAll(`.include-note[data-note-id="${noteId}"]`);
+    for (const embeddedNote of embeddedNotes) {
+        loadEmbeddedNote(noteId, $(embeddedNote as HTMLElement));
     }
 }
 

@@ -1,4 +1,4 @@
-import type { CKTextEditor, IncludeNoteState } from "@triliumnext/ckeditor5";
+import type { CKTextEditor, ContentEmbedState } from "@triliumnext/ckeditor5";
 
 import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
@@ -19,11 +19,11 @@ import { getTextEditorContaining } from "./text_editor_context_menu.js";
  */
 export type LinkMenuOrigin = Pick<MouseEvent, "pageX" | "pageY" | "target">;
 
-/** The include a menu is opened on, in a text note open for editing. */
-interface MenuInclude {
+/** The embed a menu is opened on, in a text note open for editing. */
+interface MenuEmbed {
     editor: CKTextEditor;
     element: Element;
-    state: IncludeNoteState;
+    state: ContentEmbedState;
 }
 
 const CHECK_ICON = "bx bx-check";
@@ -39,10 +39,10 @@ async function openContextMenu(
     const request = ++lastMenuRequest;
     const noteId = notePath.split("/").at(-1) ?? notePath;
     const editor = await getEditingTextEditor(getTarget(e));
-    const include = editor && getMenuInclude(e, editor);
+    const embed = editor && getMenuEmbed(e, editor);
     const ownItems = viewScope.viewMode === "attachments" && viewScope.attachmentId
-        ? await getAttachmentItems(noteId, viewScope.attachmentId, e, editor, include)
-        : getIncludedNoteItems(include);
+        ? await getAttachmentItems(noteId, viewScope.attachmentId, e, editor, embed)
+        : getEmbeddedNoteItems(embed);
     // A later right-click opened its own menu while this one waited for the editor or the
     // attachment.
     if (request !== lastMenuRequest) {
@@ -158,7 +158,7 @@ async function getAttachmentItems(
     attachmentId: string,
     e: LinkMenuOrigin,
     editor: CKTextEditor | null,
-    include: MenuInclude | null
+    embed: MenuEmbed | null
 ): Promise<MenuItem<CommandNames>[]> {
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
     const [ attachment, { getAttachmentActionGroups } ] = await Promise.all([
@@ -176,59 +176,59 @@ async function getAttachmentItems(
             enabled: !action.disabledReason,
             handler: () => void action.run()
         })));
-    const groups = [ firstGroup, include ? getIncludeItems(include) : [], ...otherGroups ];
+    const groups = [ firstGroup, embed ? getEmbedItems(embed) : [], ...otherGroups ];
     const actionItems = groups
         .filter((group) => group.length > 0)
         .flatMap((group): MenuItem<CommandNames>[] => [ { kind: "separator" }, ...group ]);
 
     const embedItem = await getConvertToEmbedItem(e, editor, attachment);
-    const conversionItems = [ embedItem, include && getConvertToLinkItem(include) ]
+    const conversionItems = [ embedItem, embed && getConvertToLinkItem(embed) ]
         .filter((item) => !!item);
     return [ ...actionItems, ...conversionItems ];
 }
 
 /**
- * The commands of an included note that the menu is opened on, in a group of their own, and
+ * The commands of an embedded note that the menu is opened on, in a group of their own, and
  * converting it in another.
  */
-function getIncludedNoteItems(include: MenuInclude | null): MenuItem<CommandNames>[] {
-    if (!include) {
+function getEmbeddedNoteItems(embed: MenuEmbed | null): MenuItem<CommandNames>[] {
+    if (!embed) {
         return [];
     }
 
-    const linkItem = getConvertToLinkItem(include);
+    const linkItem = getConvertToLinkItem(embed);
     return [
         { kind: "separator" },
-        ...getIncludeItems(include),
+        ...getEmbedItems(embed),
         ...(linkItem ? [ { kind: "separator" } as const, linkItem ] : [])
     ];
 }
 
 /**
- * The include that a menu is opened on: from its title row, or from a control acting on the whole
- * include, such as its toolbar. A link inside the included content opens the menu of that link.
+ * The embed that a menu is opened on: from its title row, or from a control acting on the whole
+ * embed, such as its toolbar. A link inside the embedded content opens the menu of that link.
  */
-function getMenuInclude(e: LinkMenuOrigin, editor: CKTextEditor): MenuInclude | null {
+function getMenuEmbed(e: LinkMenuOrigin, editor: CKTextEditor): MenuEmbed | null {
     const target = getTarget(e);
     const element = target?.matches(".include-note")
         ? target
         : target?.closest(".include-note-title-row")?.closest(".include-note");
-    if (!element || !editor.plugins.has("IncludeNote")) {
+    if (!element || !editor.plugins.has("ContentEmbed")) {
         return null;
     }
 
-    const state = editor.plugins.get("IncludeNote").getIncludeStateAt(element);
+    const state = editor.plugins.get("ContentEmbed").getEmbedStateAt(element);
     return state ? { editor, element, state } : null;
 }
 
-/** The commands that the toolbar of an include offers, with what each shows checked. */
-function getIncludeItems(include: MenuInclude): MenuItem<CommandNames>[] {
-    const { editor, state } = include;
-    const sizeItems = editor.plugins.get("IncludeNote").getBoxSizes()
+/** The commands that the toolbar of an embed offers, with what each shows checked. */
+function getEmbedItems(embed: MenuEmbed): MenuItem<CommandNames>[] {
+    const { editor, state } = embed;
+    const sizeItems = editor.plugins.get("ContentEmbed").getBoxSizes()
         .map(({ value, label }): MenuItem<CommandNames> => ({
             title: escapeHtml(label),
             trailingIcon: value === state.boxSize ? CHECK_ICON : undefined,
-            handler: () => runIncludeCommand(include, "includeNoteBoxSize", { value })
+            handler: () => runEmbedCommand(embed, "contentEmbedBoxSize", { value })
         }));
 
     return [
@@ -241,27 +241,27 @@ function getIncludeItems(include: MenuInclude): MenuItem<CommandNames>[] {
             uiIcon: "bx bx-window-alt",
             enabled: state.isTitleToggleable,
             trailingIcon: state.isTitleShown ? CHECK_ICON : undefined,
-            handler: () => runIncludeCommand(include, "toggleIncludeNoteTitle")
+            handler: () => runEmbedCommand(embed, "toggleContentEmbedTitle")
         },
         {
             title: t("link_context_menu.show_caption"),
             uiIcon: "bx bx-captions",
             enabled: state.isCaptionToggleable,
             trailingIcon: state.hasCaption ? CHECK_ICON : undefined,
-            handler: () => runIncludeCommand(include, "toggleIncludeNoteCaption", {
+            handler: () => runEmbedCommand(embed, "toggleContentEmbedCaption", {
                 focusCaptionOnShow: true
             })
         }
     ];
 }
 
-/** Runs `command` on the include, which the commands act on once it is selected. */
-function runIncludeCommand(
-    { editor, element }: MenuInclude,
+/** Runs `command` on the embed, which the commands act on once it is selected. */
+function runEmbedCommand(
+    { editor, element }: MenuEmbed,
     command: string,
     options?: Record<string, unknown>
 ) {
-    if (editor.plugins.get("IncludeNote").selectIncludeAt(element)) {
+    if (editor.plugins.get("ContentEmbed").selectEmbedAt(element)) {
         editor.execute(command, options);
         editor.editing.view.focus();
     }
@@ -279,27 +279,27 @@ async function getConvertToEmbedItem(
     }
 
     // Imported on demand: `content_renderer` imports `link`, which imports this module.
-    const { getIncludeBoxSize } = await import("../services/content_renderer.js");
+    const { getEmbedBoxSize } = await import("../services/content_renderer.js");
     return {
         title: t("link_context_menu.convert_link_to_embed"),
         uiIcon: "bx bx-window-alt",
         handler: () => editor.execute("embedAttachmentLink", {
             domElement: link,
-            boxSize: getIncludeBoxSize(attachment)
+            boxSize: getEmbedBoxSize(attachment)
         })
     };
 }
 
-/** "Convert to link", for an include that names a note or an attachment. */
-function getConvertToLinkItem(include: MenuInclude): MenuItem<CommandNames> | null {
-    if (!include.state.isConvertibleToLink) {
+/** "Convert to link", for an embed that names a note or an attachment. */
+function getConvertToLinkItem(embed: MenuEmbed): MenuItem<CommandNames> | null {
+    if (!embed.state.isConvertibleToLink) {
         return null;
     }
 
     return {
         title: t("link_context_menu.convert_embed_to_link"),
         uiIcon: "bx bx-link",
-        handler: () => runIncludeCommand(include, "convertEmbedToLink")
+        handler: () => runEmbedCommand(embed, "convertEmbedToLink")
     };
 }
 

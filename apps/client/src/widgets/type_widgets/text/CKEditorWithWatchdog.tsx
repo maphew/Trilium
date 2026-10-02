@@ -19,7 +19,7 @@ export interface CKEditorApi {
     addLink(notePath: string, linkTitle: string | null, externalLink?: boolean): void;
     addLinkToEditor(linkHref: string, linkTitle: string): void;
     addHtmlToEditor(html: string): void;
-    addIncludeNote(noteId: string, boxSize?: BoxSize): void;
+    addContentEmbed(noteId: string, boxSize?: BoxSize): void;
     addImage(noteId: string): Promise<void>;
 }
 
@@ -170,15 +170,15 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
                 }
             });
         },
-        addIncludeNote(noteId, boxSize) {
+        addContentEmbed(noteId, boxSize) {
             const editor = watchdogRef.current?.editor;
             if (!editor) return;
 
             editor?.model.change((writer) => {
-                // Insert <includeNote>*</includeNote> at the current selection position
+                // Insert <contentEmbed>*</contentEmbed> at the current selection position
                 // in a way that will result in creating a valid model structure
                 editor?.model.insertContent(
-                    writer.createElement("includeNote", {
+                    writer.createElement("contentEmbed", {
                         noteId,
                         boxSize
                     })

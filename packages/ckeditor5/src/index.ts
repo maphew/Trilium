@@ -15,7 +15,7 @@ export type { EditorConfig, MentionFeed, MentionFeedObjectItem, ModelNode, Model
 export type { ClipboardImageEmbedConfig } from "./plugins/clipboard_image_embed.js";
 export type { FileUploadData, FileUploadEvent } from "./plugins/file_upload/fileuploadediting.js";
 export type { PasteTarget } from "./plugins/cuttonote.js";
-export type { IncludeNoteState } from "./plugins/includenote.js";
+export type { ContentEmbedState } from "./plugins/content_embed/content_embed.js";
 export type { AttachmentLinkChange } from "./plugins/referencelink.js";
 export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/mention/slash_commands.js";
 export type { TriliumMentionFeed } from "./plugins/mention/types.js";
@@ -29,7 +29,7 @@ export * from "./utils.js";
 
 // Import with sideffects to ensure that type augmentations are present.
 import "./plugins/file_upload/uploadfileplugin.js";
-import "./plugins/includenote.js";
+import "./plugins/content_embed/content_embed.js";
 import "./plugins/math/math.js";
 import "./plugins/mermaid/mermaid.js";
 import "./plugins/referencelink.js";

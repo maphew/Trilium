@@ -22,26 +22,26 @@ import {
 	type Observable
 } from 'ckeditor5';
 import windowIcon from 'boxicons/svg/regular/bx-window-alt.svg?raw';
-import noteIcon from '../icons/note.svg?raw';
-import { getAttachmentId } from './referencelink.js';
+import noteIcon from '../../icons/note.svg?raw';
+import { getAttachmentId } from '../referencelink.js';
 
-export const COMMAND_NAME = 'insertIncludeNote';
-export const BOX_SIZE_COMMAND_NAME = 'includeNoteBoxSize';
+export const COMMAND_NAME = 'insertContentEmbed';
+export const BOX_SIZE_COMMAND_NAME = 'contentEmbedBoxSize';
 export const EMBED_ATTACHMENT_LINK_COMMAND = 'embedAttachmentLink';
 export const CONVERT_EMBED_TO_LINK_COMMAND = 'convertEmbedToLink';
-export const TOGGLE_CAPTION_COMMAND_NAME = 'toggleIncludeNoteCaption';
-export const TOGGLE_TITLE_COMMAND_NAME = 'toggleIncludeNoteTitle';
-/** The toolbar button that opens the context menu of an include whose title is hidden. */
-export const INCLUDE_NOTE_MENU = 'includeNoteMenu';
+export const TOGGLE_CAPTION_COMMAND_NAME = 'toggleContentEmbedCaption';
+export const TOGGLE_TITLE_COMMAND_NAME = 'toggleContentEmbedTitle';
+/** The toolbar button that opens the context menu of an embed whose title is hidden. */
+export const CONTENT_EMBED_MENU = 'contentEmbedMenu';
 
 export const BOX_SIZES = [ 'tiny', 'small', 'medium', 'full', 'expandable' ] as const;
 
 export type BoxSizeValue = typeof BOX_SIZES[number];
 
-/** What the toolbar of an include shows of it, for a menu offering the same commands. */
-export interface IncludeNoteState {
+/** What the toolbar of an embed shows of it, for a menu offering the same commands. */
+export interface ContentEmbedState {
 	boxSize: BoxSizeValue | null;
-	/** Whether the title shows, which a Tiny or an Expandable include always does. */
+	/** Whether the title shows, which a Tiny or an Expandable embed always does. */
 	isTitleShown: boolean;
 	isTitleToggleable: boolean;
 	hasCaption: boolean;
@@ -76,51 +76,51 @@ export function getBoxSizeLabel(t: (message: string) => string, size: BoxSizeVal
 	}
 }
 
-export default class IncludeNote extends Plugin {
+export default class ContentEmbed extends Plugin {
 	static get requires() {
-		return [ IncludeNoteEditing, IncludeNoteUI ];
+		return [ ContentEmbedEditing, ContentEmbedUI ];
 	}
 
 	static get pluginName() {
-		return 'IncludeNote' as const;
+		return 'ContentEmbed' as const;
 	}
 
 	/**
-	 * Selects the include that `domElement` is part of, so that commands act on the include a
-	 * context menu is opened on. Returns `false` when `domElement` is not part of an include of
+	 * Selects the embed that `domElement` is part of, so that commands act on the embed a
+	 * context menu is opened on. Returns `false` when `domElement` is not part of an embed of
 	 * this editor.
 	 */
-	selectIncludeAt( domElement: Element ): boolean {
-		const include = getIncludeNoteAt( this.editor, domElement );
-		if ( !include ) {
+	selectEmbedAt( domElement: Element ): boolean {
+		const embed = getContentEmbedAt( this.editor, domElement );
+		if ( !embed ) {
 			return false;
 		}
 
 		this.editor.model.enqueueChange( { isUndoable: false }, writer => {
-			writer.setSelection( include, 'on' );
+			writer.setSelection( embed, 'on' );
 		} );
 		return true;
 	}
 
 	/**
-	 * The state of the include that `domElement` is part of, as its toolbar shows it with the
-	 * include selected, or `null`. The selection is left as it is.
+	 * The state of the embed that `domElement` is part of, as its toolbar shows it with the
+	 * embed selected, or `null`. The selection is left as it is.
 	 */
-	getIncludeStateAt( domElement: Element ): IncludeNoteState | null {
+	getEmbedStateAt( domElement: Element ): ContentEmbedState | null {
 		const editor = this.editor;
-		const include = getIncludeNoteAt( editor, domElement );
-		if ( !include ) {
+		const embed = getContentEmbedAt( editor, domElement );
+		if ( !embed ) {
 			return null;
 		}
 
-		const isTitleToggleable = isIncludeTitleToggleable( include );
+		const isTitleToggleable = isEmbedTitleToggleable( embed );
 		return {
-			boxSize: include.getAttribute( 'boxSize' ) as BoxSizeValue | undefined ?? null,
-			isTitleShown: !isTitleToggleable || !include.getAttribute( 'hideTitle' ),
+			boxSize: embed.getAttribute( 'boxSize' ) as BoxSizeValue | undefined ?? null,
+			isTitleShown: !isTitleToggleable || !embed.getAttribute( 'hideTitle' ),
 			isTitleToggleable,
-			hasCaption: !!getCaption( include ),
-			isCaptionToggleable: isIncludeCaptionToggleable( editor, include ),
-			isConvertibleToLink: isIncludeConvertibleToLink( editor, include )
+			hasCaption: !!getCaption( embed ),
+			isCaptionToggleable: isEmbedCaptionToggleable( editor, embed ),
+			isConvertibleToLink: isEmbedConvertibleToLink( editor, embed )
 		};
 	}
 
@@ -130,14 +130,14 @@ export default class IncludeNote extends Plugin {
 	}
 }
 
-class IncludeNoteUI extends Plugin {
+class ContentEmbedUI extends Plugin {
 	init() {
 		const editor = this.editor;
 		const t = editor.t;
 
-		// The "includeNote" button must be registered among the UI components of the editor
+		// The "contentEmbed" button must be registered among the UI components of the editor
 		// to be displayed in the toolbar.
-		editor.ui.componentFactory.add( 'includeNote', locale => {
+		editor.ui.componentFactory.add( 'contentEmbed', locale => {
 			// The state of the button will be bound to the widget command.
 			const command = editor.commands.get( COMMAND_NAME );
 
@@ -173,7 +173,7 @@ class IncludeNoteUI extends Plugin {
 				tooltip: true
 			} );
 
-			// Shown only on an include that names a note or an attachment.
+			// Shown only on an embed that names a note or an attachment.
 			if ( command ) {
 				buttonView.bind( 'isEnabled' ).to( command );
 				buttonView.bind( 'isVisible' ).to( command, 'isEnabled' );
@@ -235,7 +235,7 @@ class IncludeNoteUI extends Plugin {
 			return buttonView;
 		} );
 
-		editor.ui.componentFactory.add( INCLUDE_NOTE_MENU, locale => {
+		editor.ui.componentFactory.add( CONTENT_EMBED_MENU, locale => {
 			const command = editor.commands.get( TOGGLE_TITLE_COMMAND_NAME );
 			const buttonView = new ButtonView( locale );
 
@@ -253,7 +253,7 @@ class IncludeNoteUI extends Plugin {
 			}
 
 			this.listenTo( buttonView, 'execute', () => {
-				openIncludeNoteMenu( editor, buttonView.element );
+				openContentEmbedMenu( editor, buttonView.element );
 			} );
 
 			return buttonView;
@@ -261,20 +261,20 @@ class IncludeNoteUI extends Plugin {
 	}
 }
 
-class IncludeNoteEditing extends Plugin {
+class ContentEmbedEditing extends Plugin {
 	static get requires() {
 		return [ Widget ];
 	}
 
 	static get pluginName() {
-		return 'IncludeNoteEditing' as const;
+		return 'ContentEmbedEditing' as const;
 	}
 
-	/** The captions that were hidden or that a Tiny box size removed, by include. */
+	/** The captions that were hidden or that a Tiny box size removed, by embed. */
 	private readonly savedCaptions = new WeakMap<ModelElement, unknown>();
 
-	/** The includes whose saved caption a Tiny box size removed. */
-	private readonly tinyIncludes = new WeakSet<ModelElement>();
+	/** The embeds whose saved caption a Tiny box size removed. */
+	private readonly tinyEmbeds = new WeakSet<ModelElement>();
 
 	init() {
 		this._defineSchema();
@@ -282,41 +282,41 @@ class IncludeNoteEditing extends Plugin {
 
 		const editor = this.editor;
 		const commands = editor.commands;
-		commands.add( COMMAND_NAME, new InsertIncludeNoteCommand( editor ) );
-		commands.add( BOX_SIZE_COMMAND_NAME, new IncludeNoteBoxSizeCommand( editor ) );
+		commands.add( COMMAND_NAME, new InsertContentEmbedCommand( editor ) );
+		commands.add( BOX_SIZE_COMMAND_NAME, new ContentEmbedBoxSizeCommand( editor ) );
 		commands.add( EMBED_ATTACHMENT_LINK_COMMAND, new EmbedAttachmentLinkCommand( editor ) );
 		commands.add( CONVERT_EMBED_TO_LINK_COMMAND, new ConvertEmbedToLinkCommand( editor ) );
-		commands.add( TOGGLE_CAPTION_COMMAND_NAME, new ToggleIncludeNoteCaptionCommand( editor ) );
-		commands.add( TOGGLE_TITLE_COMMAND_NAME, new ToggleIncludeNoteTitleCommand( editor ) );
+		commands.add( TOGGLE_CAPTION_COMMAND_NAME, new ToggleContentEmbedCaptionCommand( editor ) );
+		commands.add( TOGGLE_TITLE_COMMAND_NAME, new ToggleContentEmbedTitleCommand( editor ) );
 
 		editor.model.document.registerPostFixer( writer => this.removeTinyCaptions( writer ) );
 	}
 
-	/** Keeps a copy of `caption`, for `include` to show again. */
-	saveCaption( include: ModelElement, caption: ModelElement ) {
-		this.savedCaptions.set( include, caption.toJSON() );
-		this.tinyIncludes.delete( include );
+	/** Keeps a copy of `caption`, for `embed` to show again. */
+	saveCaption( embed: ModelElement, caption: ModelElement ) {
+		this.savedCaptions.set( embed, caption.toJSON() );
+		this.tinyEmbeds.delete( embed );
 	}
 
-	/** A copy of the caption last saved for `include`, or `null`. */
-	getSavedCaption( include: ModelElement ): ModelElement | null {
-		const json = this.savedCaptions.get( include );
+	/** A copy of the caption last saved for `embed`, or `null`. */
+	getSavedCaption( embed: ModelElement ): ModelElement | null {
+		const json = this.savedCaptions.get( embed );
 		return json ? ModelElement.fromJSON( json ) : null;
 	}
 
-	/** A copy of the caption that a Tiny box size removed from `include`, or `null`. */
-	takeTinyCaption( include: ModelElement ): ModelElement | null {
-		return this.tinyIncludes.delete( include ) ? this.getSavedCaption( include ) : null;
+	/** A copy of the caption that a Tiny box size removed from `embed`, or `null`. */
+	takeTinyCaption( embed: ModelElement ): ModelElement | null {
+		return this.tinyEmbeds.delete( embed ) ? this.getSavedCaption( embed ) : null;
 	}
 
 	_defineSchema() {
 		const schema = this.editor.model.schema;
 
-		schema.register( 'includeNote', {
+		schema.register( 'contentEmbed', {
 			// Behaves like a self-contained object (e.g. an image).
 			isObject: true,
 
-			// An include shows either a note or, as an embed, an attachment. An embed that
+			// An embed shows either a note or an attachment. An embed that
 			// `FileUploadEditing` is uploading carries the upload attributes instead of its id.
 			allowAttributes: [
 				'noteId', 'attachmentId', 'boxSize', 'hideTitle', 'uploadId', 'uploadStatus',
@@ -329,10 +329,10 @@ class IncludeNoteEditing extends Plugin {
 
 		// `ImageCaptionEditing` and `TableCaptionEditing` share the same `caption` element.
 		if ( schema.isRegistered( 'caption' ) ) {
-			schema.extend( 'caption', { allowIn: 'includeNote' } );
+			schema.extend( 'caption', { allowIn: 'contentEmbed' } );
 		} else {
 			schema.register( 'caption', {
-				allowIn: 'includeNote',
+				allowIn: 'contentEmbed',
 				allowContentOf: '$block',
 				isLimit: true
 			} );
@@ -344,65 +344,65 @@ class IncludeNoteEditing extends Plugin {
 		const conversion = editor.conversion;
 		const t = editor.t;
 
-		// <includeNote> converters
+		// <contentEmbed> converters
 		conversion.for( 'upcast' ).elementToElement( {
 			model: ( viewElement, { writer: modelWriter } ) => {
 				const attachmentId = viewElement.getAttribute( 'data-attachment-id' );
-				const included = attachmentId
+				const embedded = attachmentId
 					? { attachmentId }
 					: { noteId: viewElement.getAttribute( 'data-note-id' ) };
 
-				return modelWriter.createElement( 'includeNote', {
-					...included,
+				return modelWriter.createElement( 'contentEmbed', {
+					...embedded,
 					boxSize: viewElement.getAttribute( 'data-box-size' ),
 					...( viewElement.getAttribute( 'data-hide-title' ) === 'true'
 						? { hideTitle: true }
 						: {} )
 				} );
 			},
-			// Includes saved before captions existed are `<section>` elements.
+			// Embeds saved before captions existed are `<section>` elements.
 			view: {
 				name: /^(?:figure|section)$/,
 				classes: 'include-note'
 			}
 		} );
 		conversion.for( 'dataDowncast' ).elementToElement( {
-			model: 'includeNote',
+			model: 'contentEmbed',
 			view: ( modelElement, { writer: viewWriter } ) => {
 				return viewWriter.createContainerElement( 'figure', {
 					class: 'include-note',
-					...getIncludedEntityAttributes( modelElement ),
+					...getEmbeddedEntityAttributes( modelElement ),
 					'data-box-size': modelElement.getAttribute( 'boxSize' ),
 					...getTitleAttributes( modelElement )
 				} );
 			}
 		} );
 		conversion.for( 'editingDowncast' ).elementToElement( {
-			model: 'includeNote',
+			model: 'contentEmbed',
 			view: ( modelElement, { writer: viewWriter } ) => {
 
 				const boxSize = modelElement.getAttribute( 'boxSize' ) as string | undefined;
 
 				const figure = viewWriter.createContainerElement( 'figure', {
 					class: 'include-note box-size-' + boxSize,
-					...getIncludedEntityAttributes( modelElement ),
+					...getEmbeddedEntityAttributes( modelElement ),
 					'data-box-size': boxSize,
 					...getTitleAttributes( modelElement )
 				} );
 
-				const includedNoteWrapper = viewWriter.createUIElement( 'div', {
+				const embedWrapper = viewWriter.createUIElement( 'div', {
 					class: 'include-note-wrapper',
 					"data-cke-ignore-events": true
 				}, function( domDocument ) {
 					const domElement = this.toDomElement( domDocument );
 
-					showIncludedContent( editor, modelElement, domElement );
+					showEmbeddedContent( editor, modelElement, domElement );
 					preventCKEditorHandling( domElement, editor );
 
 					return domElement;
 				} );
 
-				viewWriter.insert( viewWriter.createPositionAt( figure, 0 ), includedNoteWrapper );
+				viewWriter.insert( viewWriter.createPositionAt( figure, 0 ), embedWrapper );
 
 				// hasSelectionHandle gives the block widget CKEditor's own drag grip so it moves
 				// atomically, instead of the browser's native drag tearing the embedded note apart.
@@ -417,7 +417,7 @@ class IncludeNoteEditing extends Plugin {
 
 		// Handle boxSize attribute changes on existing elements
 		conversion.for( 'editingDowncast' ).add( dispatcher => {
-			dispatcher.on( 'attribute:boxSize:includeNote', ( evt, data, conversionApi ) => {
+			dispatcher.on( 'attribute:boxSize:contentEmbed', ( evt, data, conversionApi ) => {
 				const viewElement = conversionApi.mapper.toViewElement( data.item );
 				/* v8 ignore next 3 -- defensive guard: when the attribute:boxSize event fires the model item is always mapped to a rendered view element; forcing an unmapped state (mapper.unbindModelElement) crashes the conversion pipeline elsewhere before this guard can be observed, so it is unreachable from a unit test */
 				if ( !viewElement ) {
@@ -436,16 +436,16 @@ class IncludeNoteEditing extends Plugin {
 					viewWriter.addClass( 'box-size-' + newBoxSize, viewElement );
 					viewWriter.setAttribute( 'data-box-size', newBoxSize, viewElement );
 
-					// Re-render the included note content with the new box size. We drive this
+					// Re-render the embedded note content with the new box size. We drive this
 					// directly from the converter (rather than observing the DOM attribute) so the
 					// content is only rebuilt on a genuine box-size change — not whenever CKEditor
 					// re-applies unrelated attributes (e.g. `draggable` while selecting the widget).
-					reloadIncludedNote( editor, viewElement, data.item as ModelElement, newBoxSize );
+					reloadEmbeddedContent( editor, viewElement, data.item as ModelElement, newBoxSize );
 				}
 			} );
 
 			// Shows or hides the title without drawing the content again.
-			dispatcher.on( 'attribute:hideTitle:includeNote', ( _evt, data, conversionApi ) => {
+			dispatcher.on( 'attribute:hideTitle:contentEmbed', ( _evt, data, conversionApi ) => {
 				const viewElement = conversionApi.mapper.toViewElement( data.item as ModelElement );
 				if ( !viewElement ) {
 					return;
@@ -459,30 +459,30 @@ class IncludeNoteEditing extends Plugin {
 			} );
 
 			// Redraws the content in place when an upload ends. A converter that lists
-			// `attributes` also reconverts the include on every change of its children, such as
+			// `attributes` also reconverts the embed on every change of its children, such as
 			// a caption toggle.
 			for ( const attribute of [ 'attachmentId', 'uploadFileName' ] ) {
-				dispatcher.on( `attribute:${ attribute }:includeNote`, ( _evt, data, api ) => {
-					redrawIncludedEntity( editor, data.item as ModelElement, api );
+				dispatcher.on( `attribute:${ attribute }:contentEmbed`, ( _evt, data, api ) => {
+					redrawEmbeddedEntity( editor, data.item as ModelElement, api );
 				} );
 			}
 		} );
 
-		// <caption> converters, for the caption of an include only
+		// <caption> converters, for the caption of an embed only
 		conversion.for( 'upcast' ).elementToElement( {
-			view: element => isIncludeNoteCaptionView( element ) ? { name: true } : null,
+			view: element => isContentEmbedCaptionView( element ) ? { name: true } : null,
 			model: 'caption'
 		} );
 		conversion.for( 'dataDowncast' ).elementToElement( {
 			model: 'caption',
-			view: ( modelElement, { writer: viewWriter } ) => isIncludeNote( modelElement.parent )
+			view: ( modelElement, { writer: viewWriter } ) => isContentEmbed( modelElement.parent )
 				? viewWriter.createContainerElement( 'figcaption' )
 				: null
 		} );
 		conversion.for( 'editingDowncast' ).elementToElement( {
 			model: 'caption',
 			view: ( modelElement, { writer: viewWriter } ) => {
-				if ( !isIncludeNote( modelElement.parent ) ) {
+				if ( !isContentEmbed( modelElement.parent ) ) {
 					return null;
 				}
 
@@ -507,7 +507,7 @@ class IncludeNoteEditing extends Plugin {
 			'modelToViewPosition',
 			( _evt, data ) => {
 				const parent = data.modelPosition.parent;
-				const viewElement = parent.is( 'element', 'includeNote' )
+				const viewElement = parent.is( 'element', 'contentEmbed' )
 					? data.mapper.toViewElement( parent )
 					: undefined;
 				const wrapperIndex = viewElement ? getWrapperIndex( viewElement ) : null;
@@ -523,27 +523,27 @@ class IncludeNoteEditing extends Plugin {
 	}
 
 	/**
-	 * Removes the caption of every Tiny include that a change touched, keeping a copy for when
-	 * the include gets a larger box size.
+	 * Removes the caption of every Tiny embed that a change touched, keeping a copy for when
+	 * the embed gets a larger box size.
 	 */
 	private removeTinyCaptions( writer: ModelWriter ) {
-		const includes = new Set<ModelElement>();
+		const embeds = new Set<ModelElement>();
 		for ( const change of this.editor.model.document.differ.getChanges() ) {
 			if ( change.type === 'attribute' && change.attributeKey === 'boxSize' ) {
-				addIncludeNotes( includes, change.range.start.nodeAfter );
+				addContentEmbeds( embeds, change.range.start.nodeAfter );
 			} else if ( change.type === 'insert' && change.name === 'caption' ) {
-				addIncludeNotes( includes, change.position.parent );
+				addContentEmbeds( embeds, change.position.parent );
 			} else if ( change.type === 'insert' && change.name !== '$text' ) {
-				addIncludeNotes( includes, change.position.nodeAfter );
+				addContentEmbeds( embeds, change.position.nodeAfter );
 			}
 		}
 
 		let isChanged = false;
-		for ( const include of includes ) {
-			const caption = getCaption( include );
-			if ( caption && include.getAttribute( 'boxSize' ) === 'tiny' ) {
-				this.saveCaption( include, caption );
-				this.tinyIncludes.add( include );
+		for ( const embed of embeds ) {
+			const caption = getCaption( embed );
+			if ( caption && embed.getAttribute( 'boxSize' ) === 'tiny' ) {
+				this.saveCaption( embed, caption );
+				this.tinyEmbeds.add( embed );
 				writer.remove( caption );
 				isChanged = true;
 			}
@@ -553,7 +553,7 @@ class IncludeNoteEditing extends Plugin {
 	}
 }
 
-class InsertIncludeNoteCommand extends Command {
+class InsertContentEmbedCommand extends Command {
 	override execute() {
 		const editorEl = this.editor.editing.view.getDomRoot();
 		const component = glob.getComponentByEl(editorEl);
@@ -565,35 +565,35 @@ class InsertIncludeNoteCommand extends Command {
 		const model = this.editor.model;
 		const selection = model.document.selection;
         const firstPosition = selection.getFirstPosition();
-		const allowedIn = firstPosition && model.schema.findAllowedParent( firstPosition, 'includeNote' );
+		const allowedIn = firstPosition && model.schema.findAllowedParent( firstPosition, 'contentEmbed' );
 
 		this.isEnabled = allowedIn !== null;
 	}
 }
 
-class IncludeNoteBoxSizeCommand extends Command {
+class ContentEmbedBoxSizeCommand extends Command {
 	declare value: BoxSizeValue | null;
 
 	/**
-	 * Sets the box size of the selected include. Tiny takes the caption away, and a larger size
+	 * Sets the box size of the selected embed. Tiny takes the caption away, and a larger size
 	 * shows it again.
 	 */
 	override execute( options: { value: BoxSizeValue } ) {
 		const editor = this.editor;
-		const includeNoteElement = getSelectedIncludeNote( editor );
+		const embedElement = getSelectedContentEmbed( editor );
 
-		if ( includeNoteElement ) {
+		if ( embedElement ) {
 			editor.model.change( writer => {
-				const wasTiny = includeNoteElement.getAttribute( 'boxSize' ) === 'tiny';
-				writer.setAttribute( 'boxSize', options.value, includeNoteElement );
+				const wasTiny = embedElement.getAttribute( 'boxSize' ) === 'tiny';
+				writer.setAttribute( 'boxSize', options.value, embedElement );
 
 				if ( options.value === 'tiny' ) {
-					writer.setSelection( includeNoteElement, 'on' );
-				} else if ( wasTiny && !getCaption( includeNoteElement ) ) {
-					const caption = editor.plugins.get( IncludeNoteEditing )
-						.takeTinyCaption( includeNoteElement );
+					writer.setSelection( embedElement, 'on' );
+				} else if ( wasTiny && !getCaption( embedElement ) ) {
+					const caption = editor.plugins.get( ContentEmbedEditing )
+						.takeTinyCaption( embedElement );
 					if ( caption ) {
-						writer.append( caption, includeNoteElement );
+						writer.append( caption, embedElement );
 					}
 				}
 			} );
@@ -601,22 +601,22 @@ class IncludeNoteBoxSizeCommand extends Command {
 	}
 
 	override refresh() {
-		const includeNoteElement = getSelectedIncludeNote( this.editor );
+		const embedElement = getSelectedContentEmbed( this.editor );
 
-		this.isEnabled = !!includeNoteElement;
-		this.value = includeNoteElement?.getAttribute( 'boxSize' ) as BoxSizeValue | null ?? null;
+		this.isEnabled = !!embedElement;
+		this.value = embedElement?.getAttribute( 'boxSize' ) as BoxSizeValue | null ?? null;
 	}
 }
 
-/** Shows or hides the caption of the selected include. A Tiny include has none. */
-export class ToggleIncludeNoteCaptionCommand extends Command {
+/** Shows or hides the caption of the selected embed. A Tiny embed has none. */
+export class ToggleContentEmbedCaptionCommand extends Command {
 	declare value: boolean;
 
 	override refresh() {
-		const include = getSelectedIncludeNote( this.editor );
+		const embed = getSelectedContentEmbed( this.editor );
 
-		this.isEnabled = !!include && isIncludeCaptionToggleable( this.editor, include );
-		this.value = !!include && !!getCaption( include );
+		this.isEnabled = !!embed && isEmbedCaptionToggleable( this.editor, embed );
+		this.value = !!embed && !!getCaption( embed );
 	}
 
 	/**
@@ -625,23 +625,23 @@ export class ToggleIncludeNoteCaptionCommand extends Command {
 	 */
 	override execute( { focusCaptionOnShow = false }: { focusCaptionOnShow?: boolean } = {} ) {
 		const editor = this.editor;
-		const include = getSelectedIncludeNote( editor );
-		if ( !include ) {
+		const embed = getSelectedContentEmbed( editor );
+		if ( !embed ) {
 			return;
 		}
 
-		const editing = editor.plugins.get( IncludeNoteEditing );
+		const editing = editor.plugins.get( ContentEmbedEditing );
 		editor.model.change( writer => {
-			const caption = getCaption( include );
+			const caption = getCaption( embed );
 			if ( caption ) {
-				editing.saveCaption( include, caption );
-				writer.setSelection( include, 'on' );
+				editing.saveCaption( embed, caption );
+				writer.setSelection( embed, 'on' );
 				writer.remove( caption );
 				return;
 			}
 
-			const shown = editing.getSavedCaption( include ) ?? writer.createElement( 'caption' );
-			writer.append( shown, include );
+			const shown = editing.getSavedCaption( embed ) ?? writer.createElement( 'caption' );
+			writer.append( shown, embed );
 			if ( focusCaptionOnShow ) {
 				writer.setSelection( shown, 'in' );
 			}
@@ -650,31 +650,31 @@ export class ToggleIncludeNoteCaptionCommand extends Command {
 }
 
 /**
- * Shows or hides the title row of the selected include. A Tiny or an Expandable include always
+ * Shows or hides the title row of the selected embed. A Tiny or an Expandable embed always
  * shows it.
  */
-export class ToggleIncludeNoteTitleCommand extends Command {
+export class ToggleContentEmbedTitleCommand extends Command {
 	/** Whether the title shows. */
 	declare value: boolean;
 
 	override refresh() {
-		const include = getSelectedIncludeNote( this.editor );
+		const embed = getSelectedContentEmbed( this.editor );
 
-		this.isEnabled = !!include && isIncludeTitleToggleable( include );
-		this.value = !include?.getAttribute( 'hideTitle' );
+		this.isEnabled = !!embed && isEmbedTitleToggleable( embed );
+		this.value = !embed?.getAttribute( 'hideTitle' );
 	}
 
 	override execute() {
-		const include = getSelectedIncludeNote( this.editor );
-		if ( !include ) {
+		const embed = getSelectedContentEmbed( this.editor );
+		if ( !embed ) {
 			return;
 		}
 
 		this.editor.model.change( writer => {
-			if ( include.getAttribute( 'hideTitle' ) ) {
-				writer.removeAttribute( 'hideTitle', include );
+			if ( embed.getAttribute( 'hideTitle' ) ) {
+				writer.removeAttribute( 'hideTitle', embed );
 			} else {
-				writer.setAttribute( 'hideTitle', true, include );
+				writer.setAttribute( 'hideTitle', true, embed );
 			}
 		} );
 	}
@@ -700,7 +700,7 @@ class EmbedAttachmentLinkCommand extends Command {
 		}
 
 		editor.model.change( writer => {
-			const embed = writer.createElement( 'includeNote', {
+			const embed = writer.createElement( 'contentEmbed', {
 				attachmentId,
 				boxSize: boxSize ?? 'medium'
 			} );
@@ -710,17 +710,17 @@ class EmbedAttachmentLinkCommand extends Command {
 	}
 }
 
-/** Replaces the selected include with a link to the note or attachment it shows. */
+/** Replaces the selected embed with a link to the note or attachment it shows. */
 class ConvertEmbedToLinkCommand extends Command {
 	override refresh() {
-		const embed = getSelectedIncludeNote( this.editor );
+		const embed = getSelectedContentEmbed( this.editor );
 
-		this.isEnabled = !!embed && isIncludeConvertibleToLink( this.editor, embed );
+		this.isEnabled = !!embed && isEmbedConvertibleToLink( this.editor, embed );
 	}
 
 	override async execute() {
 		const editor = this.editor;
-		const embed = getSelectedIncludeNote( editor );
+		const embed = getSelectedContentEmbed( editor );
 		const attachmentId = embed?.getAttribute( 'attachmentId' ) as string | undefined;
 		const noteId = embed?.getAttribute( 'noteId' ) as string | undefined;
 		if ( !embed || ( !attachmentId && !noteId ) ) {
@@ -750,23 +750,23 @@ class ConvertEmbedToLinkCommand extends Command {
 	}
 }
 
-/** The include the selection is on or inside, or `null`. */
-function getSelectedIncludeNote( editor: Editor ) {
+/** The embed the selection is on or inside, or `null`. */
+function getSelectedContentEmbed( editor: Editor ) {
 	const selection = editor.model.document.selection;
 	const selectedElement = selection.getSelectedElement();
 
-	if ( selectedElement?.name === 'includeNote' ) {
+	if ( selectedElement?.name === 'contentEmbed' ) {
 		return selectedElement;
 	}
 
-	return selection.getFirstPosition()?.findAncestor( 'includeNote' ) ?? null;
+	return selection.getFirstPosition()?.findAncestor( 'contentEmbed' ) ?? null;
 }
 
-/** The include whose rendering contains `domElement`, or `null`. */
-function getIncludeNoteAt( editor: Editor, domElement: Element ) {
-	const includeElement = domElement.closest<HTMLElement>( '.include-note' );
-	const viewElement = includeElement
-		&& editor.editing.view.domConverter.mapDomToView( includeElement );
+/** The embed whose rendering contains `domElement`, or `null`. */
+function getContentEmbedAt( editor: Editor, domElement: Element ) {
+	const embedElement = domElement.closest<HTMLElement>( '.include-note' );
+	const viewElement = embedElement
+		&& editor.editing.view.domConverter.mapDomToView( embedElement );
 	if ( !viewElement?.is( 'element' ) ) {
 		return null;
 	}
@@ -774,31 +774,31 @@ function getIncludeNoteAt( editor: Editor, domElement: Element ) {
 	return editor.editing.mapper.toModelElement( viewElement ) ?? null;
 }
 
-function isIncludeNote( node: ModelNode | ModelDocumentFragment | null ): node is ModelElement {
-	return !!node?.is( 'element', 'includeNote' );
+function isContentEmbed( node: ModelNode | ModelDocumentFragment | null ): node is ModelElement {
+	return !!node?.is( 'element', 'contentEmbed' );
 }
 
-/** Whether the title of `include` can be hidden: a Tiny or an Expandable one always shows it. */
-function isIncludeTitleToggleable( include: ModelElement ) {
-	const boxSize = include.getAttribute( 'boxSize' );
+/** Whether the title of `embed` can be hidden: a Tiny or an Expandable one always shows it. */
+function isEmbedTitleToggleable( embed: ModelElement ) {
+	const boxSize = embed.getAttribute( 'boxSize' );
 	return boxSize !== 'tiny' && boxSize !== 'expandable';
 }
 
-/** Whether `include` can have a caption. A Tiny include has none. */
-function isIncludeCaptionToggleable( editor: Editor, include: ModelElement ) {
-	return include.getAttribute( 'boxSize' ) !== 'tiny'
-		&& editor.model.schema.checkChild( include, 'caption' );
+/** Whether `embed` can have a caption. A Tiny embed has none. */
+function isEmbedCaptionToggleable( editor: Editor, embed: ModelElement ) {
+	return embed.getAttribute( 'boxSize' ) !== 'tiny'
+		&& editor.model.schema.checkChild( embed, 'caption' );
 }
 
-/** Whether `include` names a note or an attachment, which a link can then point to. */
-function isIncludeConvertibleToLink( editor: Editor, include: ModelElement ) {
-	return ( !!include.getAttribute( 'attachmentId' ) || !!include.getAttribute( 'noteId' ) )
+/** Whether `embed` names a note or an attachment, which a link can then point to. */
+function isEmbedConvertibleToLink( editor: Editor, embed: ModelElement ) {
+	return ( !!embed.getAttribute( 'attachmentId' ) || !!embed.getAttribute( 'noteId' ) )
 		&& editor.model.schema.isRegistered( 'reference' );
 }
 
-/** The caption of `include`, or `null`. */
-function getCaption( include: ModelElement ) {
-	for ( const child of include.getChildren() ) {
+/** The caption of `embed`, or `null`. */
+function getCaption( embed: ModelElement ) {
+	for ( const child of embed.getChildren() ) {
 		if ( child.is( 'element', 'caption' ) ) {
 			return child;
 		}
@@ -807,14 +807,14 @@ function getCaption( include: ModelElement ) {
 	return null;
 }
 
-/** Whether `element` is the `<figcaption>` of an include. */
-function isIncludeNoteCaptionView( element: ViewElement ) {
+/** Whether `element` is the `<figcaption>` of an embed. */
+function isContentEmbedCaptionView( element: ViewElement ) {
 	const parent = element.parent;
 	return element.name === 'figcaption' && !!parent?.is( 'element' )
 		&& parent.hasClass( 'include-note' );
 }
 
-/** The index of the content wrapper among the children of an include's view, or `null`. */
+/** The index of the content wrapper among the children of an embed's view, or `null`. */
 function getWrapperIndex( viewElement: ViewElement ) {
 	for ( const [ index, child ] of Array.from( viewElement.getChildren() ).entries() ) {
 		if ( child.is( 'uiElement' ) && child.hasClass( 'include-note-wrapper' ) ) {
@@ -825,25 +825,25 @@ function getWrapperIndex( viewElement: ViewElement ) {
 	return null;
 }
 
-/** Adds `node`, when it is an include, and every include inside it to `includes`. */
-function addIncludeNotes(
-	includes: Set<ModelElement>,
+/** Adds `node`, when it is an embed, and every embed inside it to `embeds`. */
+function addContentEmbeds(
+	embeds: Set<ModelElement>,
 	node: ModelNode | ModelDocumentFragment | null
 ) {
-	if ( isIncludeNote( node ) ) {
-		includes.add( node );
+	if ( isContentEmbed( node ) ) {
+		embeds.add( node );
 	} else if ( node?.is( 'element' ) ) {
 		for ( const descendant of node.getChildren() ) {
-			addIncludeNotes( includes, descendant );
+			addContentEmbeds( embeds, descendant );
 		}
 	}
 }
 
 /**
- * The `data-*` attribute naming what an include shows: an attachment, or a note. An embed whose
+ * The `data-*` attribute naming what an embed shows: an attachment, or a note. An embed whose
  * upload has not ended names nothing.
  */
-function getIncludedEntityAttributes( element: ModelElement ): Record<string, string> {
+function getEmbeddedEntityAttributes( element: ModelElement ): Record<string, string> {
 	const attachmentId = element.getAttribute( 'attachmentId' ) as string | undefined;
 	const noteId = element.getAttribute( 'noteId' ) as string | undefined;
 
@@ -854,22 +854,22 @@ function getIncludedEntityAttributes( element: ModelElement ): Record<string, st
 	return noteId ? { 'data-note-id': noteId } : {};
 }
 
-/** The `data-hide-title` attribute of an include whose title is hidden. */
+/** The `data-hide-title` attribute of an embed whose title is hidden. */
 function getTitleAttributes( element: ModelElement ): Record<string, string> {
 	return element.getAttribute( 'hideTitle' ) ? { 'data-hide-title': 'true' } : {};
 }
 
-/** Has the host open the context menu of the selected include, below `anchor`. */
-function openIncludeNoteMenu( editor: Editor, anchor: HTMLElement | null ) {
-	const include = getSelectedIncludeNote( editor );
-	const viewElement = include && editor.editing.mapper.toViewElement( include );
+/** Has the host open the context menu of the selected embed, below `anchor`. */
+function openContentEmbedMenu( editor: Editor, anchor: HTMLElement | null ) {
+	const embed = getSelectedContentEmbed( editor );
+	const viewElement = embed && editor.editing.mapper.toViewElement( embed );
 	const domElement = viewElement && editor.editing.view.domConverter.mapViewToDom( viewElement );
 	if ( !anchor || !( domElement instanceof HTMLElement ) ) {
 		return;
 	}
 
 	const component = glob.getComponentByEl<EditorComponent>( editor.editing.view.getDomRoot() );
-	component.openIncludeNoteMenu?.( domElement, anchor );
+	component.openContentEmbedMenu?.( domElement, anchor );
 }
 
 /** The title of an embed whose upload is under way: a spinner and the name of the file. */
@@ -889,14 +889,14 @@ function createUploadTitle( domDocument: Document, fileName: string ) {
 const shownContents = new WeakMap<HTMLElement, string>();
 
 /**
- * Draws what an include shows into its content wrapper: the file name while an upload is under
+ * Draws what an embed shows into its content wrapper: the file name while an upload is under
  * way, then the attachment or note.
  */
-function showIncludedContent( editor: Editor, element: ModelElement, wrapper: HTMLElement ) {
+function showEmbeddedContent( editor: Editor, element: ModelElement, wrapper: HTMLElement ) {
 	const uploadFileName = element.getAttribute( 'uploadFileName' ) as string | undefined;
 	const shown = uploadFileName
 		? `upload:${ uploadFileName }`
-		: JSON.stringify( getIncludedEntityAttributes( element ) );
+		: JSON.stringify( getEmbeddedEntityAttributes( element ) );
 	const previous = shownContents.get( wrapper );
 	if ( previous === shown ) {
 		return;
@@ -912,16 +912,16 @@ function showIncludedContent( editor: Editor, element: ModelElement, wrapper: HT
 		wrapper.replaceChildren();
 	}
 	const boxSize = element.getAttribute( 'boxSize' ) as string | undefined;
-	loadIncludedContent( editor, element, $( wrapper ), boxSize );
+	loadEmbeddedContent( editor, element, $( wrapper ), boxSize );
 }
 
-/** Updates the `data-*` attribute of an include's view to what it shows, and redraws it. */
-function redrawIncludedEntity(
+/** Updates the `data-*` attribute of an embed's view to what it shows, and redraws it. */
+function redrawEmbeddedEntity(
 	editor: Editor,
-	include: ModelElement,
+	embed: ModelElement,
 	conversionApi: DowncastConversionApi
 ) {
-	const viewElement = conversionApi.mapper.toViewElement( include );
+	const viewElement = conversionApi.mapper.toViewElement( embed );
 	if ( !viewElement ) {
 		return;
 	}
@@ -929,24 +929,24 @@ function redrawIncludedEntity(
 	const viewWriter = conversionApi.writer;
 	viewWriter.removeAttribute( 'data-attachment-id', viewElement );
 	viewWriter.removeAttribute( 'data-note-id', viewElement );
-	for ( const [ key, value ] of Object.entries( getIncludedEntityAttributes( include ) ) ) {
+	for ( const [ key, value ] of Object.entries( getEmbeddedEntityAttributes( embed ) ) ) {
 		viewWriter.setAttribute( key, value, viewElement );
 	}
 
 	const wrapper = getWrapperDom( editor, viewElement );
 	if ( wrapper ) {
-		showIncludedContent( editor, include, wrapper );
+		showEmbeddedContent( editor, embed, wrapper );
 	}
 }
 
-/** The content wrapper of a rendered include, or `null` before the include is rendered. */
+/** The content wrapper of a rendered embed, or `null` before the embed is rendered. */
 function getWrapperDom( editor: Editor, viewElement: ViewElement ) {
 	return editor.editing.view.domConverter.mapViewToDom( viewElement )
 		?.querySelector<HTMLElement>( ':scope > .include-note-wrapper' ) ?? null;
 }
 
-/** Has the host render what an include shows into its wrapper. */
-function loadIncludedContent(
+/** Has the host render what an embed shows into its wrapper. */
+function loadEmbeddedContent(
 	editor: Editor,
 	element: ModelElement,
 	$wrapper: JQuery<HTMLElement>,
@@ -958,14 +958,14 @@ function loadIncludedContent(
 	const noteId = element.getAttribute( 'noteId' ) as string | undefined;
 
 	if ( attachmentId ) {
-		component.loadIncludedAttachment( attachmentId, $wrapper, boxSize );
+		component.loadEmbeddedAttachment( attachmentId, $wrapper, boxSize );
 	} else if ( noteId ) {
-		component.loadIncludedNote( noteId, $wrapper, boxSize );
+		component.loadEmbeddedNote( noteId, $wrapper, boxSize );
 	}
 }
 
 /**
- * Re-renders the included note content of an already-rendered widget after its box size changed.
+ * Re-renders the embedded note content of an already-rendered widget after its box size changed.
  *
  * The wrapper is a `UIElement` whose DOM is opaque to CKEditor, so we reach into it directly to
  * trigger the client-side render. The box size is passed explicitly because, at conversion time,
@@ -975,11 +975,11 @@ function loadIncludedContent(
  * DOM, so `mapViewToDom()` returns nothing and this is a no-op — the `UIElement` render callback
  * performs that first paint instead. It only does work on a subsequent, genuine box-size change.
  */
-function reloadIncludedNote( editor: Editor, viewElement: ViewElement, modelElement: ModelElement, boxSize: string ) {
+function reloadEmbeddedContent( editor: Editor, viewElement: ViewElement, modelElement: ModelElement, boxSize: string ) {
 	const wrapperDom = getWrapperDom( editor, viewElement );
 
 	if ( wrapperDom ) {
-		loadIncludedContent( editor, modelElement, $( wrapperDom ), boxSize );
+		loadEmbeddedContent( editor, modelElement, $( wrapperDom ), boxSize );
 	}
 }
 
@@ -994,11 +994,11 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
 	//domElement.addEventListener( 'click', stopEventPropagationAndHackRendererFocus, { capture: true } );
 
 	domElement.addEventListener( 'mousedown', ( evt: MouseEvent ) => {
-		// A button of the title row selects the include. Preventing the default keeps the focus
+		// A button of the title row selects the embed. Preventing the default keeps the focus
 		// in the editor instead of the button, and the click still fires.
 		if ( isTitleRowButton( evt.target ) ) {
 			evt.preventDefault();
-			selectIncludeNoteWidget( domElement, editor );
+			selectContentEmbedWidget( domElement, editor );
 			return;
 		}
 
@@ -1022,7 +1022,7 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
 		editor.editing.view._renderer.isFocused = false;
 
 		// Select the widget so the toolbar can appear
-		selectIncludeNoteWidget( domElement, editor );
+		selectContentEmbedWidget( domElement, editor );
 	}, { capture: true } );
 
 	domElement.addEventListener( 'focus', stopEventPropagationAndHackRendererFocus, { capture: true } );
@@ -1066,8 +1066,8 @@ function isTitleRowButton( target: EventTarget | null ): boolean {
 	return target instanceof Element && !!target.closest( '.include-note-title-row button' );
 }
 
-function selectIncludeNoteWidget( domElement: HTMLElement, editor: Editor ) {
-	const modelElement = getIncludeNoteAt( editor, domElement );
+function selectContentEmbedWidget( domElement: HTMLElement, editor: Editor ) {
+	const modelElement = getContentEmbedAt( editor, domElement );
 	if ( !modelElement ) {
 		return;
 	}
@@ -1083,11 +1083,11 @@ function selectIncludeNoteWidget( domElement: HTMLElement, editor: Editor ) {
 
 declare module 'ckeditor5' {
 	interface PluginsMap {
-		[ IncludeNote.pluginName ]: IncludeNote;
+		[ ContentEmbed.pluginName ]: ContentEmbed;
 	}
 
 	interface CommandsMap {
-		toggleIncludeNoteCaption: ToggleIncludeNoteCaptionCommand;
-		toggleIncludeNoteTitle: ToggleIncludeNoteTitleCommand;
+		toggleContentEmbedCaption: ToggleContentEmbedCaptionCommand;
+		toggleContentEmbedTitle: ToggleContentEmbedTitleCommand;
 	}
 }

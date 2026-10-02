@@ -1,41 +1,41 @@
 import { Plugin, WidgetToolbarRepository, isWidget, type ViewElement } from "ckeditor5";
-import IncludeNote, {
+import ContentEmbed, {
     CONVERT_EMBED_TO_LINK_COMMAND,
-    INCLUDE_NOTE_MENU,
+    CONTENT_EMBED_MENU,
     TOGGLE_CAPTION_COMMAND_NAME,
     TOGGLE_TITLE_COMMAND_NAME
-} from "./includenote.js";
-import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
+} from "./content_embed.js";
+import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
 
-export default class IncludeNoteToolbar extends Plugin {
+export default class ContentEmbedToolbar extends Plugin {
 
     static get requires() {
-        return [WidgetToolbarRepository, IncludeNote, IncludeNoteBoxSizeDropdown] as const;
+        return [WidgetToolbarRepository, ContentEmbed, ContentEmbedBoxSizeDropdown] as const;
     }
 
     afterInit() {
         const editor = this.editor;
         const widgetToolbarRepository = editor.plugins.get(WidgetToolbarRepository);
 
-        widgetToolbarRepository.register("includeNote", {
+        widgetToolbarRepository.register("contentEmbed", {
             items: [
-                "includeNoteBoxSizeDropdown",
+                "contentEmbedBoxSizeDropdown",
                 TOGGLE_TITLE_COMMAND_NAME,
                 TOGGLE_CAPTION_COMMAND_NAME,
                 CONVERT_EMBED_TO_LINK_COMMAND,
-                INCLUDE_NOTE_MENU
+                CONTENT_EMBED_MENU
             ],
             balloonClassName: "ck-toolbar-container include-note-toolbar",
             getRelatedElement(selection) {
                 const selectedElement = selection.getSelectedElement();
 
-                if (selectedElement && isIncludeNoteWidget(selectedElement)) {
+                if (selectedElement && isContentEmbedWidget(selectedElement)) {
                     return selectedElement;
                 }
 
-                // The toolbar stays on the include while its caption is edited.
+                // The toolbar stays on the embed while its caption is edited.
                 for (const ancestor of selection.getFirstPosition()?.getAncestors() ?? []) {
-                    if (ancestor.is("element") && isIncludeNoteWidget(ancestor)) {
+                    if (ancestor.is("element") && isContentEmbedWidget(ancestor)) {
                         return ancestor;
                     }
                 }
@@ -47,6 +47,6 @@ export default class IncludeNoteToolbar extends Plugin {
 
 }
 
-function isIncludeNoteWidget(element: ViewElement): boolean {
+function isContentEmbedWidget(element: ViewElement): boolean {
     return isWidget(element) && element.hasClass("include-note");
 }

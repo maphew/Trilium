@@ -1,13 +1,13 @@
 import { Plugin, type ListDropdownButtonDefinition, Collection, ViewModel, createDropdown, addListToDropdown, DropdownButtonView, type Command } from "ckeditor5";
-import IncludeNote, { BOX_SIZE_COMMAND_NAME, BOX_SIZES, type BoxSizeValue, getBoxSizeLabel } from "./includenote.js";
+import ContentEmbed, { BOX_SIZE_COMMAND_NAME, BOX_SIZES, type BoxSizeValue, getBoxSizeLabel } from "./content_embed.js";
 
 /**
- * Toolbar item which displays the list of box sizes for include notes in a dropdown.
+ * Toolbar item which displays the list of box sizes for embeds in a dropdown.
  */
-export default class IncludeNoteBoxSizeDropdown extends Plugin {
+export default class ContentEmbedBoxSizeDropdown extends Plugin {
 
     static get requires() {
-        return [IncludeNote] as const;
+        return [ContentEmbed] as const;
     }
 
     public init() {
@@ -17,7 +17,7 @@ export default class IncludeNoteBoxSizeDropdown extends Plugin {
         const itemDefinitions = this._getBoxSizeListItemDefinitions();
         const command = editor.commands.get(BOX_SIZE_COMMAND_NAME) as Command & { value: BoxSizeValue | null };
 
-        componentFactory.add("includeNoteBoxSizeDropdown", _locale => {
+        componentFactory.add("contentEmbedBoxSizeDropdown", _locale => {
             const dropdownView = createDropdown(editor.locale, DropdownButtonView);
             const boxSizeLabel = editor.t("Box size");
             dropdownView.buttonView.set({

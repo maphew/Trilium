@@ -23,11 +23,11 @@ import { RawHtmlBlock } from "../../react/RawHtml";
 import { TypeWidgetProps } from "../type_widget";
 import { applyReferenceLinks } from "./read_only_helper";
 import {
-    loadIncludedAttachment,
-    loadIncludedNote,
-    refreshIncludedNote,
+    loadEmbeddedAttachment,
+    loadEmbeddedNote,
+    refreshEmbeddedNote,
     setupImageOpening,
-    watchIncludedNotes
+    watchContentEmbeds
 } from "./utils";
 
 export default function ReadOnlyText({ note, noteContext, ntxId, parentComponent, isVisible }: TypeWidgetProps) {
@@ -83,7 +83,7 @@ interface ReadOnlyTextContentProps {
 
 /**
  * Renders arbitrary CKEditor-style HTML with the same pipeline as {@link ReadOnlyText}:
- * mermaid rewriting, inline mermaid, included-note expansion, KaTeX math, reference-link
+ * mermaid rewriting, inline mermaid, embed expansion, KaTeX math, reference-link
  * titles, code-block syntax highlighting, and image click handling. Transforms re-run
  * whenever `html` changes.
  */
@@ -108,14 +108,14 @@ export function ReadOnlyTextContent({ html, ntxId, dir, className, contentRef: e
             appContext.triggerEvent("contentElRefreshed", { ntxId, contentEl: container });
         }
 
-        // The passes that lazily load their library (mermaid, highlight.js) — plus included notes,
+        // The passes that lazily load their library (mermaid, highlight.js) — plus embedded notes,
         // which render a whole note of their own — finish after this effect returns. On screen they
         // simply paint when ready; a caller that snapshots the DOM instead (printing) has to wait for
         // them, so the work is registered rather than dropped on the floor.
         trackPendingRender(container, Promise.all([
             rewriteMermaidDiagramsInContainer(container),
             applyInlineMermaid(container),
-            applyIncludedNotes(container),
+            applyContentEmbeds(container),
             applyLinkEmbeds(container),
             applyReferenceLinks(container),
             formatCodeBlocks($(container))
@@ -127,13 +127,13 @@ export function ReadOnlyTextContent({ html, ntxId, dir, className, contentRef: e
 
     useEffect(() => {
         if (!contentRef.current) return;
-        return watchIncludedNotes(contentRef.current);
+        return watchContentEmbeds(contentRef.current);
     }, [ contentRef ]);
 
-    // React to included note changes.
-    useTriliumEvent("refreshIncludedNote", ({ noteId }) => {
+    // React to embedded note changes.
+    useTriliumEvent("refreshEmbeddedNote", ({ noteId }) => {
         if (!contentRef.current) return;
-        refreshIncludedNote(contentRef.current, noteId);
+        refreshEmbeddedNote(contentRef.current, noteId);
     });
 
     // Search integration.
@@ -164,15 +164,15 @@ function useNoteLanguage(note: FNote) {
     return { isRtl };
 }
 
-function applyIncludedNotes(container: HTMLDivElement) {
+function applyContentEmbeds(container: HTMLDivElement) {
     const loaded: Promise<unknown>[] = [];
-    const includedNotes = container.querySelectorAll<HTMLElement>(".include-note");
-    for (const includedNote of includedNotes) {
-        const { attachmentId, noteId } = includedNote.dataset;
+    const embeddedNotes = container.querySelectorAll<HTMLElement>(".include-note");
+    for (const embeddedNote of embeddedNotes) {
+        const { attachmentId, noteId } = embeddedNote.dataset;
         if (attachmentId) {
-            loaded.push(loadIncludedAttachment(attachmentId, $(includedNote)));
+            loaded.push(loadEmbeddedAttachment(attachmentId, $(embeddedNote)));
         } else if (noteId) {
-            loaded.push(loadIncludedNote(noteId, $(includedNote)));
+            loaded.push(loadEmbeddedNote(noteId, $(embeddedNote)));
         }
     }
     return Promise.all(loaded);
