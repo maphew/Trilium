@@ -163,7 +163,7 @@ rediscovers them. Fix what you pass by; none blocks a change:
   prefixes`, `Deleted notes`, `Integration testing`).
 - ~20 pills whose text differs from the target's title, ~35 plain-text shortcuts, two unreferenced
   attachments, a handful of British spellings.
-- Typos: "togged" (Canvas, Mind Map), "belwo" (Presentation), "Triliumin" (Troubleshooting), "to the
+- Typos: "togged" (Canvas, Mind Map), "Triliumin" (Troubleshooting), "to the
   to the" (Kanban Board), "expect printer" (Printing & Exporting as PDF).
 
 ## Related
