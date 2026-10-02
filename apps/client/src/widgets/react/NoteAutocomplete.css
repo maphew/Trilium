@@ -36,9 +36,15 @@
     }
 }
 
+/* Twice `VIEWPORT_PADDING` in Popup.tsx, whose `shift()` then keeps the list on screen. */
+.note-autocomplete-menu {
+    max-width: calc(100vw - 10px);
+}
+
 .note-autocomplete-menu .dropdown-item {
-    /* Outranks Bootstrap's `nowrap`, so a long note path wraps within the field's width. */
+    /* Outranks Bootstrap's `nowrap`, so a long note path wraps within the list's width. */
     white-space: normal;
+    overflow-wrap: anywhere;
 
     .search-result-attributes {
         display: block;

@@ -16,6 +16,9 @@ import Icon from "./Icon";
 import Popup from "./Popup";
 import RawHtml from "./RawHtml";
 
+/** Wide enough for a note path a few levels deep to fit on one line. */
+const DROPDOWN_MIN_WIDTH = 500;
+
 export interface NoteAutocompleteProps {
     id?: string;
     inputRef?: RefObject<HTMLInputElement>;
@@ -312,8 +315,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         placement="bottom-start"
                         // The pointer moves the highlighted row, so `:hover` marks no second one.
                         className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu"
-                        // The list spans the whole field, buttons included.
-                        style={{ width: `${anchor.getBoundingClientRect().width}px` }}
+                        // The list spans the whole field, buttons included, and widens past a narrow one.
+                        style={{ width: `${Math.max(anchor.getBoundingClientRect().width, DROPDOWN_MIN_WIDTH)}px` }}
                         escapeDismisses={false}
                         onDismiss={autocomplete.close}
                     >

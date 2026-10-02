@@ -644,20 +644,33 @@ describe("NoteAutocomplete's suggestion list", () => {
         const input = await mount();
         const group = input.closest(".input-group");
         if (!group) throw new Error("no input group rendered");
-        group.getBoundingClientRect = () => DOMRect.fromRect({ width: 320, height: 30 });
-        input.getBoundingClientRect = () => DOMRect.fromRect({ width: 200, height: 30 });
+        group.getBoundingClientRect = () => DOMRect.fromRect({ width: 720, height: 30 });
+        input.getBoundingClientRect = () => DOMRect.fromRect({ width: 600, height: 30 });
         await type(input, "a");
 
-        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("320px");
+        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("720px");
     });
 
     it("spans the element a host anchors it to instead", async () => {
         const frame = document.createElement("div");
-        frame.getBoundingClientRect = () => DOMRect.fromRect({ width: 480, height: 30 });
+        frame.getBoundingClientRect = () => DOMRect.fromRect({ width: 680, height: 30 });
         const input = await mount({ anchorRef: { current: frame } });
         await type(input, "a");
 
-        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("480px");
+        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("680px");
+    });
+
+    it("widens past a narrow field, and spans a wide one", async () => {
+        const input = await mount();
+        const group = input.closest(".input-group");
+        if (!group) throw new Error("no input group rendered");
+        group.getBoundingClientRect = () => DOMRect.fromRect({ width: 320, height: 30 });
+        await type(input, "a");
+        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("500px");
+
+        group.getBoundingClientRect = () => DOMRect.fromRect({ width: 640, height: 30 });
+        await type(input, "al");
+        expect(document.querySelector<HTMLElement>(".note-autocomplete-menu")?.style.width).toBe("640px");
     });
 
     it("picks a clicked note", async () => {
