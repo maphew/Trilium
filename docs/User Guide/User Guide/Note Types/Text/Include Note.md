@@ -7,6 +7,8 @@ This can be useful for e.g. including a dynamically generated chart (from script
 
 In the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a>, look for the <span class="tn-icon cke cke-trilium-note"></span> button. There is also a keyboard shortcut defined for it but it is not allocated by default.
 
+To include a note that is already linked, right-click a reference link to it in a text note being edited and select _Convert link to an included note_, at the end of the menu. The include gets the box size that suits the note, as one added from the button does.
+
 An [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) can be included the same way, from the context menu of a link to it (see _Embedding an attachment_ there).
 
 ## Box sizes

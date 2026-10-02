@@ -239,6 +239,15 @@ export function getAttachmentId( href: unknown ) {
 	return query ? new URLSearchParams( query ).get( 'attachmentId' ) : null;
 }
 
+/**
+ * The note a reference link points to, the last segment of its note path. For a link to an
+ * attachment, the note that owns it.
+ */
+export function getNoteId( href: unknown ) {
+	const notePath = typeof href === 'string' ? href.split( '?' )[ 0 ].replace( /^#/, '' ) : '';
+	return notePath.split( '/' ).at( -1 ) || null;
+}
+
 declare module "ckeditor5" {
 	interface PluginsMap {
 		[ReferenceLinkEditing.pluginName]: ReferenceLinkEditing;

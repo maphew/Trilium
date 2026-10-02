@@ -23,11 +23,11 @@ import {
 } from 'ckeditor5';
 import windowIcon from 'boxicons/svg/regular/bx-window-alt.svg?raw';
 import noteIcon from '../../icons/note.svg?raw';
-import { getAttachmentId } from '../referencelink.js';
+import { getAttachmentId, getNoteId } from '../referencelink.js';
 
 export const COMMAND_NAME = 'insertContentEmbed';
 export const BOX_SIZE_COMMAND_NAME = 'contentEmbedBoxSize';
-export const EMBED_ATTACHMENT_LINK_COMMAND = 'embedAttachmentLink';
+export const CONVERT_LINK_TO_EMBED_COMMAND = 'convertLinkToEmbed';
 export const CONVERT_EMBED_TO_LINK_COMMAND = 'convertEmbedToLink';
 export const TOGGLE_CAPTION_COMMAND_NAME = 'toggleContentEmbedCaption';
 export const TOGGLE_TITLE_COMMAND_NAME = 'toggleContentEmbedTitle';
@@ -284,7 +284,7 @@ class ContentEmbedEditing extends Plugin {
 		const commands = editor.commands;
 		commands.add( COMMAND_NAME, new InsertContentEmbedCommand( editor ) );
 		commands.add( BOX_SIZE_COMMAND_NAME, new ContentEmbedBoxSizeCommand( editor ) );
-		commands.add( EMBED_ATTACHMENT_LINK_COMMAND, new EmbedAttachmentLinkCommand( editor ) );
+		commands.add( CONVERT_LINK_TO_EMBED_COMMAND, new ConvertLinkToEmbedCommand( editor ) );
 		commands.add( CONVERT_EMBED_TO_LINK_COMMAND, new ConvertEmbedToLinkCommand( editor ) );
 		commands.add( TOGGLE_CAPTION_COMMAND_NAME, new ToggleContentEmbedCaptionCommand( editor ) );
 		commands.add( TOGGLE_TITLE_COMMAND_NAME, new ToggleContentEmbedTitleCommand( editor ) );
@@ -680,8 +680,8 @@ export class ToggleContentEmbedTitleCommand extends Command {
 	}
 }
 
-/** Replaces an attachment link with an embed of the attachment, in the same place. */
-class EmbedAttachmentLinkCommand extends Command {
+/** Replaces a reference link with an embed of the note or attachment it points to, in its place. */
+class ConvertLinkToEmbedCommand extends Command {
 	/**
 	 * @param options.domElement the link, as the editing view renders it.
 	 * @param options.boxSize the size of the embed, `medium` when not given.
@@ -692,16 +692,18 @@ class EmbedAttachmentLinkCommand extends Command {
 		const reference = viewElement?.is( 'element' )
 			? editor.editing.mapper.toModelElement( viewElement )
 			: undefined;
-		const attachmentId = reference?.is( 'element', 'reference' )
-			? getAttachmentId( reference.getAttribute( 'href' ) )
+		const href = reference?.is( 'element', 'reference' )
+			? reference.getAttribute( 'href' )
 			: null;
-		if ( !reference || !attachmentId ) {
+		const attachmentId = getAttachmentId( href );
+		const noteId = getNoteId( href );
+		if ( !reference || !noteId ) {
 			return;
 		}
 
 		editor.model.change( writer => {
 			const embed = writer.createElement( 'contentEmbed', {
-				attachmentId,
+				...( attachmentId ? { attachmentId } : { noteId } ),
 				boxSize: boxSize ?? 'medium'
 			} );
 			const range = writer.createRangeOn( reference );

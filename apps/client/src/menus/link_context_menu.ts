@@ -4,6 +4,7 @@ import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
 import appContext, { type CommandNames } from "../components/app_context.js";
 import type FAttachment from "../entities/fattachment.js";
+import type FNote from "../entities/fnote.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
@@ -42,7 +43,7 @@ async function openContextMenu(
     const embed = editor && getMenuEmbed(e, editor);
     const ownItems = viewScope.viewMode === "attachments" && viewScope.attachmentId
         ? await getAttachmentItems(noteId, viewScope.attachmentId, e, editor, embed)
-        : getEmbeddedNoteItems(embed);
+        : await getNoteItems(noteId, e, editor, embed);
     // A later right-click opened its own menu while this one waited for the editor or the
     // attachment.
     if (request !== lastMenuRequest) {
@@ -184,7 +185,9 @@ async function getAttachmentItems(
         .filter((group) => group.length > 0)
         .flatMap((group): MenuItem<CommandNames>[] => [ { kind: "separator" }, ...group ]);
 
-    const embedItem = await getConvertToEmbedItem(e, editor, attachment);
+    const embedItem = await getConvertToEmbedItem(
+        e, editor, t("link_context_menu.convert_link_to_embed"), async () => attachment
+    );
     const conversionItems = [ embedItem, embed && getConvertToLinkItem(embed) ]
         .filter((item) => !!item);
     return [ ...actionItems, ...conversionItems ];
@@ -192,11 +195,20 @@ async function getAttachmentItems(
 
 /**
  * The commands of an embedded note that the menu is opened on, in a group of their own, and
- * converting it in another.
+ * converting it in another. A menu opened on a link to the note offers converting the link.
  */
-function getEmbeddedNoteItems(embed: MenuEmbed | null): MenuItem<CommandNames>[] {
+async function getNoteItems(
+    noteId: string,
+    e: LinkMenuOrigin,
+    editor: CKTextEditor | null,
+    embed: MenuEmbed | null
+): Promise<MenuItem<CommandNames>[]> {
     if (!embed) {
-        return [];
+        const embedItem = await getConvertToEmbedItem(
+            e, editor, t("link_context_menu.convert_link_to_included_note"),
+            () => froca.getNote(noteId)
+        );
+        return embedItem ? [ { kind: "separator" }, embedItem ] : [];
     }
 
     const linkItem = getConvertToLinkItem(embed);
@@ -270,25 +282,38 @@ function runEmbedCommand(
     }
 }
 
-/** "Convert link to an embed", for an attachment link in a text note open for editing. */
+/**
+ * The item titled `title` that converts a link to a note or an attachment into an embed, in a
+ * text note open for editing. A link in the content of an embed is not part of the note, and
+ * offers none.
+ */
 async function getConvertToEmbedItem(
     e: LinkMenuOrigin,
     editor: CKTextEditor | null,
-    attachment: FAttachment
+    title: string,
+    getLinkedEntity: () => Promise<FNote | FAttachment | null>
 ): Promise<MenuItem<CommandNames> | null> {
     const link = getTarget(e)?.closest<HTMLElement>("a.reference-link");
-    if (!link || !editor?.commands.get("embedAttachmentLink")?.isEnabled) {
+    if (!link || link.closest(".include-note")
+            || !editor?.commands.get("convertLinkToEmbed")?.isEnabled) {
         return null;
     }
 
     // Imported on demand: `content_renderer` imports `link`, which imports this module.
-    const { getEmbedBoxSize } = await import("../services/content_renderer.js");
+    const [ entity, { getEmbedBoxSize } ] = await Promise.all([
+        getLinkedEntity(),
+        import("../services/content_renderer.js")
+    ]);
+    if (!entity) {
+        return null;
+    }
+
     return {
-        title: t("link_context_menu.convert_link_to_embed"),
+        title,
         uiIcon: "bx bx-window-alt",
-        handler: () => editor.execute("embedAttachmentLink", {
+        handler: () => editor.execute("convertLinkToEmbed", {
             domElement: link,
-            boxSize: getEmbedBoxSize(attachment)
+            boxSize: getEmbedBoxSize(entity)
         })
     };
 }

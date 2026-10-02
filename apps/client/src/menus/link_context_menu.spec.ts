@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     hasActiveContext: true,
     noteContexts: [] as { ntxId: string; isReadOnly: () => Promise<boolean> }[],
     getAttachmentOfNote: vi.fn(),
+    getNote: vi.fn(),
     getAttachmentActionGroups: vi.fn(),
     getTextEditorContaining: vi.fn(),
     getEmbedBoxSize: vi.fn()
@@ -31,7 +32,7 @@ vi.mock("../services/content_renderer", () => ({ getEmbedBoxSize: mocks.getEmbed
 vi.mock("./context_menu", () => ({ default: { show: mocks.show } }));
 
 vi.mock("../services/froca", () => ({
-    default: { getAttachmentOfNote: mocks.getAttachmentOfNote }
+    default: { getAttachmentOfNote: mocks.getAttachmentOfNote, getNote: mocks.getNote }
 }));
 
 vi.mock("../services/attachment_actions", () => ({
@@ -326,7 +327,7 @@ describe("openContextMenu", () => {
         ]);
         items.at(-1).handler();
         expect(mocks.getEmbedBoxSize).toHaveBeenCalledWith(attachment);
-        expect(execute).toHaveBeenCalledWith("embedAttachmentLink", {
+        expect(execute).toHaveBeenCalledWith("convertLinkToEmbed", {
             domElement: link,
             boxSize: "small"
         });
@@ -336,6 +337,41 @@ describe("openContextMenu", () => {
         await linkContextMenu.openContextMenu("root/n1", event, VIEW_SCOPE);
         expect(mocks.show.mock.calls[1][0].items).toHaveLength(6);
         expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
+    });
+
+    it("ends with converting a note link to an embed, but not one inside an embed", async () => {
+        const execute = vi.fn();
+        const note = { noteId: "n1" };
+        mocks.getNote.mockResolvedValue(note);
+        mocks.getEmbedBoxSize.mockReturnValue("full");
+        mocks.getTextEditorContaining.mockResolvedValue({
+            commands: { get: () => ({ isEnabled: true }) },
+            execute
+        });
+        const editable = document.createElement("div");
+        editable.className = "ck-editor__editable";
+        editable.setAttribute("contenteditable", "true");
+        editable.innerHTML = `<p><a class="reference-link" href="#root/n1">Note</a></p>`
+            + `<figure class="include-note"><div class="include-note-content">`
+            + `<a class="reference-link" href="#root/n1">Note</a></div></figure>`;
+        const [ link, embeddedLink ] = editable.querySelectorAll("a");
+
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(link));
+        const { items } = mocks.show.mock.calls[0][0];
+        expect(items.slice(4)).toMatchObject([
+            { kind: "separator" },
+            { title: "link_context_menu.convert_link_to_included_note", uiIcon: "bx bx-window-alt" }
+        ]);
+        items.at(-1).handler();
+        expect(mocks.getNote).toHaveBeenCalledWith("n1");
+        expect(mocks.getEmbedBoxSize).toHaveBeenCalledWith(note);
+        expect(execute).toHaveBeenCalledWith("convertLinkToEmbed", {
+            domElement: link,
+            boxSize: "full"
+        });
+
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(embeddedLink));
+        expect(mocks.show.mock.calls[1][0].items).toHaveLength(4);
     });
 
     describe("opened on an embed in a note being edited", () => {

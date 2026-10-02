@@ -25,8 +25,8 @@ import ContentEmbed, {
     BOX_SIZE_COMMAND_NAME,
     BOX_SIZES,
     COMMAND_NAME,
-    EMBED_ATTACHMENT_LINK_COMMAND,
     CONVERT_EMBED_TO_LINK_COMMAND,
+    CONVERT_LINK_TO_EMBED_COMMAND,
     CONTENT_EMBED_MENU,
     TOGGLE_CAPTION_COMMAND_NAME,
     TOGGLE_TITLE_COMMAND_NAME
@@ -719,7 +719,7 @@ describe("ContentEmbed with attachments", () => {
         editor.setData(`<p>Before <a class="reference-link" href="${LINK_HREF}">x</a> after</p>`);
         const link = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
 
-        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: link, boxSize: "expandable" });
+        editor.execute(CONVERT_LINK_TO_EMBED_COMMAND, { domElement: link, boxSize: "expandable" });
 
         expect(getModelData(editor.model, { withoutSelection: true })).toBe(
             "<paragraph>Before </paragraph>" +
@@ -733,23 +733,31 @@ describe("ContentEmbed with attachments", () => {
         );
 
         const relinked = editor.editing.view.getDomRoot()?.querySelector("a.reference-link");
-        editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement: relinked });
+        editor.execute(CONVERT_LINK_TO_EMBED_COMMAND, { domElement: relinked });
         expect(findContentEmbed(editor)?.getAttribute("boxSize")).toBe("medium");
     });
 
-    it("leaves a link to a note, and anything other than a link, alone", () => {
-        editor.setData(`<p>Before <a class="reference-link" href="#root/noteAbc">x</a></p>`);
+    it("turns a link to a note into an embed of the note, and leaves anything else alone", () => {
+        editor.setData(
+            `<p>Before <a class="reference-link" href="#root/parentAbc/noteAbc">x</a> after</p>`
+        );
         const before = getModelData(editor.model, { withoutSelection: true });
         const domRoot = editor.editing.view.getDomRoot();
-        const link = domRoot?.querySelector("a.reference-link");
         const paragraph = domRoot?.querySelector("p");
         const detached = document.createElement("a");
 
-        for (const domElement of [ link, paragraph, detached ]) {
-            editor.execute(EMBED_ATTACHMENT_LINK_COMMAND, { domElement });
+        for (const domElement of [ paragraph, detached ]) {
+            editor.execute(CONVERT_LINK_TO_EMBED_COMMAND, { domElement });
         }
-
         expect(getModelData(editor.model, { withoutSelection: true })).toBe(before);
+
+        const link = domRoot?.querySelector("a.reference-link");
+        editor.execute(CONVERT_LINK_TO_EMBED_COMMAND, { domElement: link, boxSize: "full" });
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<paragraph>Before </paragraph>" +
+            "<contentEmbed boxSize=\"full\" noteId=\"noteAbc\"></contentEmbed>" +
+            "<paragraph> after</paragraph>"
+        );
     });
 
     it("loads an embed that names nothing, as one saved mid-upload, as an empty box", () => {
