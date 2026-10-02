@@ -17,6 +17,7 @@
     /* The entries sit inside the rounded border rather than against it, so a highlighted one is a
        rounded chip within the menu instead of a band across it. */
     padding: var(--suggestion-list-padding);
+    scroll-padding-block: var(--suggestion-list-padding);
     list-style: none;
     overflow-y: auto;
     font-size: 0.9rem;
