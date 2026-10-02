@@ -6,7 +6,8 @@ import { render } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { Suggestion } from "../../../services/note_autocomplete";
-import { renderNoteSuggestion } from "../../react/NoteAutocomplete";
+import { FormDropdownDivider } from "../../react/FormList";
+import { renderNoteSuggestion, startsGroup } from "../../react/NoteAutocomplete";
 import Popup from "../../react/Popup";
 
 /**
@@ -62,10 +63,12 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
     const menuRef = useRef<HTMLMenuElement>(null);
     const lastPointer = useRef<{ x: number; y: number }>();
     const { entries, selectedIndex } = state;
+    // Grouped as the note autocomplete groups its rows; any other feed's entries form one group.
+    const suggestions = entries.map(({ item }) => (isNoteSuggestion(item) ? item : {}));
 
     useLayoutEffect(() => {
         if (!scrollsToSelection() || selectedIndex < 0) return;
-        menuRef.current?.children[selectedIndex]?.scrollIntoView({ block: "nearest" });
+        menuRef.current?.querySelectorAll(":scope > .dropdown-item")[selectedIndex]?.scrollIntoView({ block: "nearest" });
     }, [ selectedIndex, entries ]);
 
     return (
@@ -83,7 +86,8 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
                 // Keeps the focus in the editor, which closes the list without it.
                 onMouseDown={(e) => e.preventDefault()}
             >
-                {entries.map((entry, index) => (
+                {entries.map((entry, index) => [
+                    startsGroup(suggestions, index) && <FormDropdownDivider key={`divider-${index}`} />,
                     <li
                         key={`${entry.marker}:${entry.item.id}`}
                         className={clsx("dropdown-item", index === selectedIndex && "tn-menu-active")}
@@ -100,7 +104,7 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
                     >
                         <EntryContent entry={entry} />
                     </li>
-                ))}
+                ])}
             </menu>
         </Popup>
     );

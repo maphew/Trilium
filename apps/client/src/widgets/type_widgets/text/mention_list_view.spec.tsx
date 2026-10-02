@@ -63,6 +63,24 @@ describe("createMentionListView", () => {
         expect(document.querySelector(".mention-list-menu")).toBeNull();
     });
 
+    it("separates the notes from the creation rows as the note autocomplete does, and scrolls past the line", async () => {
+        const scroll = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+        const entry = (id: string, action?: string) => ({
+            item: { id, action, highlightedNotePathTitle: id } as MentionListState["entries"][0]["item"],
+            marker: "@",
+            render: () => undefined
+        });
+        const state = stateWith({ entries: [ entry("@Alpha"), entry("@create", "create-note"), entry("@child", "create-child-note") ] });
+        const view = await show(state);
+
+        const children = [ ...document.querySelectorAll(".mention-list-menu .tn-menu-scroll > *") ];
+        expect(children.map((child) => child.className)).toEqual([ "dropdown-item tn-menu-active", "dropdown-divider", "dropdown-item", "dropdown-item" ]);
+
+        scroll.mockClear();
+        await act(async () => view.show({ ...state, selectedIndex: 2 }));
+        expect(scroll.mock.contexts[0]).toBe(rows()[2]);
+    });
+
     it("reports the row the pointer moves onto and the one clicked, not a row under a still pointer", async () => {
         const state = stateWith();
         await show(state);

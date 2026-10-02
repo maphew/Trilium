@@ -544,7 +544,7 @@ function noNotesRow(): Suggestion {
 }
 
 /** Whether a line goes above the row at `index`: the first of a group, after the rows of another. */
-function startsGroup(items: Suggestion[], index: number) {
+export function startsGroup(items: Suggestion[], index: number) {
     return index > 0 && rowGroup(items[index]) !== rowGroup(items[index - 1]);
 }
 
