@@ -1,3 +1,5 @@
+import type { CKTextEditor } from "@triliumnext/ckeditor5";
+
 import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
 import appContext, { type CommandNames } from "../components/app_context.js";
@@ -7,7 +9,11 @@ import type { ViewScope } from "../services/link.js";
 import options from "../services/options.js";
 import utils, { isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
-import contextMenu, { type ContextMenuEvent, type MenuItem } from "./context_menu.js";
+import contextMenu, {
+    type ContextMenuEvent,
+    type ContextMenuOptions,
+    type MenuItem
+} from "./context_menu.js";
 import { getTextEditorContaining } from "./text_editor_context_menu.js";
 
 let lastMenuRequest = 0;
@@ -20,8 +26,10 @@ async function openContextMenu(
 ) {
     const request = ++lastMenuRequest;
     const noteId = notePath.split("/").at(-1) ?? notePath;
-    const attachmentItems = await getAttachmentItems(noteId, viewScope, e);
-    // A later right-click opened its own menu while this one waited for the attachment.
+    const editor = await getEditingTextEditor(getTarget(e));
+    const attachmentItems = await getAttachmentItems(noteId, viewScope, e, editor);
+    // A later right-click opened its own menu while this one waited for the editor or the
+    // attachment.
     if (request !== lastMenuRequest) {
         return;
     }
@@ -30,8 +38,31 @@ async function openContextMenu(
         x: e.pageX,
         y: e.pageY,
         items: [ ...getItems(e), ...attachmentItems ],
-        selectMenuItemHandler: ({ command }) => handleLinkContextMenuItem(command, e, notePath, viewScope, hoistedNoteId)
+        selectMenuItemHandler: ({ command }) => handleLinkContextMenuItem(command, e, notePath, viewScope, hoistedNoteId),
+        ...(editor ? keepEditorFocused(editor) : {})
     });
+}
+
+/**
+ * Menu options adding the menu to the focus tracker of `editor`, so that the editor stays focused
+ * while the menu is up.
+ */
+function keepEditorFocused(
+    editor: CKTextEditor
+): Pick<ContextMenuOptions<CommandNames>, "onShow" | "onHide"> {
+    let menuContainer: HTMLElement | null = null;
+
+    return {
+        onShow: (container) => {
+            menuContainer = container;
+            editor.ui.focusTracker.add(container);
+        },
+        onHide: () => {
+            if (menuContainer) {
+                editor.ui.focusTracker.remove(menuContainer);
+            }
+        }
+    };
 }
 
 function getItems(e: ContextMenuEvent | GeoMouseEvent): MenuItem<CommandNames>[] {
@@ -101,18 +132,17 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
 async function getAttachmentItems(
     noteId: string,
     { viewMode, attachmentId }: ViewScope,
-    e: ContextMenuEvent
+    e: ContextMenuEvent,
+    editor: CKTextEditor | null
 ): Promise<MenuItem<CommandNames>[]> {
     if (viewMode !== "attachments" || !attachmentId) {
         return [];
     }
 
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
-    const [ attachment, { getAttachmentActionGroups }, embedItem, linkItem ] = await Promise.all([
+    const [ attachment, { getAttachmentActionGroups } ] = await Promise.all([
         froca.getAttachmentOfNote(noteId, attachmentId),
-        import("../services/attachment_actions.js"),
-        getConvertToEmbedItem(e),
-        getConvertToLinkItem(e)
+        import("../services/attachment_actions.js")
     ]);
     if (!attachment) {
         return [];
@@ -129,16 +159,17 @@ async function getAttachmentItems(
         }))
     ]);
 
-    const conversionItems = [ embedItem, linkItem ].filter((item) => item !== null);
+    const conversionItems = [ getConvertToEmbedItem(e, editor), getConvertToLinkItem(e, editor) ]
+        .filter((item) => item !== null);
     return [ ...actionItems, ...conversionItems ];
 }
 
 /** "Convert link to an embed", for an attachment link in a text note open for editing. */
-async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<CommandNames> | null> {
-    const link = e.target instanceof Element
-        ? e.target.closest<HTMLElement>("a.reference-link")
-        : null;
-    const editor = await getEditingTextEditor(link);
+function getConvertToEmbedItem(
+    e: ContextMenuEvent,
+    editor: CKTextEditor | null
+): MenuItem<CommandNames> | null {
+    const link = getTarget(e)?.closest<HTMLElement>("a.reference-link");
     if (!link || !editor?.commands.get("embedAttachmentLink")?.isEnabled) {
         return null;
     }
@@ -157,15 +188,13 @@ async function getConvertToEmbedItem(e: ContextMenuEvent): Promise<MenuItem<Comm
  * "Convert to link", for a menu opened from the title row of an attachment embed in a text note
  * open for editing.
  */
-async function getConvertToLinkItem(e: ContextMenuEvent): Promise<MenuItem<CommandNames> | null> {
-    const titleRow = e.target instanceof Element
-        ? e.target.closest<HTMLElement>(".include-note-title-row")
-        : null;
-    const editor = titleRow?.closest("section.include-note[data-attachment-id]")
-        ? await getEditingTextEditor(titleRow)
-        : null;
-    if (!titleRow || !editor?.plugins.has("IncludeNote")
-            || !editor.commands.get("convertEmbedToLink")) {
+function getConvertToLinkItem(
+    e: ContextMenuEvent,
+    editor: CKTextEditor | null
+): MenuItem<CommandNames> | null {
+    const titleRow = getTarget(e)?.closest<HTMLElement>(".include-note-title-row");
+    if (!titleRow?.closest("section.include-note[data-attachment-id]")
+            || !editor?.plugins.has("IncludeNote") || !editor.commands.get("convertEmbedToLink")) {
         return null;
     }
 
@@ -179,6 +208,10 @@ async function getConvertToLinkItem(e: ContextMenuEvent): Promise<MenuItem<Comma
             }
         }
     };
+}
+
+function getTarget(e: ContextMenuEvent) {
+    return e.target instanceof Element ? e.target : null;
 }
 
 /** The text editor containing `element`, or `null` when there is none or it is read-only. */

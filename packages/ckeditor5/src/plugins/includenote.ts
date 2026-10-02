@@ -487,6 +487,14 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
 	//domElement.addEventListener( 'click', stopEventPropagationAndHackRendererFocus, { capture: true } );
 
 	domElement.addEventListener( 'mousedown', ( evt: MouseEvent ) => {
+		// A button of the title row selects the include. Preventing the default keeps the focus
+		// in the editor instead of the button, and the click still fires.
+		if ( isTitleRowButton( evt.target ) ) {
+			evt.preventDefault();
+			selectIncludeNoteWidget( domElement, editor );
+			return;
+		}
+
 		// Interactive embedded content — links, form controls, and live widgets such as collections
 		// (geo map, calendar, board, table) — needs the browser's native event handling to remain
 		// usable, e.g. dragging a geo-map marker relies on the mousedown reaching Leaflet. Leave those
@@ -544,6 +552,11 @@ function isInteractiveTarget( target: EventTarget | null, boundary: HTMLElement 
 	);
 
 	return !!match && boundary.contains( match );
+}
+
+/** Whether `target` is in a button of the title row that the host renders above the content. */
+function isTitleRowButton( target: EventTarget | null ): boolean {
+	return target instanceof Element && !!target.closest( '.include-note-title-row button' );
 }
 
 function selectIncludeNoteWidget( domElement: HTMLElement, editor: Editor ) {

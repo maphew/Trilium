@@ -369,19 +369,45 @@ describe("openContextMenu", () => {
             hasCommand = false;
             expect(await openOnTitle()).toHaveLength(6);
 
-            // A title row outside an attachment embed is not looked up in the editor at all.
             hasCommand = true;
             const section = editable.querySelector("section");
             section?.removeAttribute("data-attachment-id");
             expect(await openOnTitle()).toHaveLength(6);
-            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(2);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(3);
 
+            // A read-only note is not looked up in the editor at all.
             section?.setAttribute("data-attachment-id", "att-1");
             editable.removeAttribute("contenteditable");
             expect(await openOnTitle()).toHaveLength(6);
-            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(2);
+            expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(3);
             expect(selectIncludeAt).not.toHaveBeenCalled();
         });
+    });
+
+    it("keeps the text editor it opens from focused while it is up", async () => {
+        const focusTracker = { add: vi.fn(), remove: vi.fn() };
+        mocks.getTextEditorContaining.mockResolvedValue({ ui: { focusTracker } });
+        const editable = document.createElement("div");
+        editable.className = "ck-editor__editable";
+        editable.setAttribute("contenteditable", "true");
+        editable.innerHTML = `<div class="include-note-title-row"><button></button></div>`;
+        const button = editable.querySelector("button") ?? undefined;
+
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(button));
+
+        const shown = mocks.show.mock.calls[0][0];
+        const container = document.createElement("div");
+        shown.onShow(container);
+        expect(focusTracker.add).toHaveBeenCalledWith(container);
+        expect(focusTracker.remove).not.toHaveBeenCalled();
+        shown.onHide();
+        expect(focusTracker.remove).toHaveBeenCalledWith(container);
+
+        // A note shown read-only has no editor to keep focused.
+        editable.removeAttribute("contenteditable");
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(button));
+        expect(mocks.show.mock.calls[1][0]).not.toHaveProperty("onShow");
+        expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
     it("adds nothing for a link to a note, or to an attachment that no longer exists", async () => {

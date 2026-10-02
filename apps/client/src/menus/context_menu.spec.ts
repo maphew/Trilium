@@ -75,11 +75,28 @@ describe("contextMenu", () => {
         buildPage();
         const contextMenu = await buildContextMenu();
         const onHide = vi.fn();
+        // What the container holds when `onShow` gets it, before the menu takes focus inside it.
+        let shownContainer: { element: HTMLElement; isConnected: boolean; isEmpty: boolean } | null
+            = null;
+        const onShow = (element: HTMLElement) => {
+            shownContainer = {
+                element,
+                isConnected: element.isConnected,
+                isEmpty: !element.hasChildNodes()
+            };
+        };
 
-        await contextMenu.show({ x: 10, y: 20, items, selectMenuItemHandler: () => {}, onHide });
+        await contextMenu.show({
+            x: 10, y: 20, items, selectMenuItemHandler: () => {}, onShow, onHide
+        });
 
         const menu = menuElement();
         expect(menu?.parentElement?.parentElement).toBe(document.body);
+        expect(shownContainer).toEqual({
+            element: menu?.parentElement,
+            isConnected: true,
+            isEmpty: true
+        });
         expect(menu?.getAttribute("role")).toBe("menu");
         // The classes the old menu carried, which the stylesheets and themes style it by.
         expect([ ...menu?.classList ?? [] ]).toEqual(expect.arrayContaining([

@@ -333,6 +333,43 @@ describe("IncludeNote", () => {
         expect(linkStop).not.toHaveBeenCalled();
     });
 
+    it("selects the widget on a press on a title row button, and keeps the focus in the editor", () => {
+        const include = insertIncludeNote(editor, "noteButton", "small");
+        editor.model.change((writer) => {
+            const paragraph = include.nextSibling;
+            if (!paragraph) {
+                throw new Error("Expected a paragraph after the include.");
+            }
+            writer.setSelection(paragraph, 0);
+        });
+
+        const domRoot = editor.editing.view.getDomRoot();
+        const wrapper = domRoot?.querySelector("div.include-note-wrapper");
+        expect(wrapper).not.toBeNull();
+        if (!domRoot || !wrapper) {
+            return;
+        }
+        wrapper.innerHTML = `<div class="include-note-title-row"><button><span></span></button></div>`
+            + `<div class="include-note-content"><button></button></div>`;
+        const [ titleRowButton, contentButton ] = wrapper.querySelectorAll("button");
+
+        // A button of the rendered content keeps its native handling.
+        const contentEvt = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        contentButton.dispatchEvent(contentEvt);
+        expect(contentEvt.defaultPrevented).toBe(false);
+        expect(editor.model.document.selection.getSelectedElement()).toBeNull();
+
+        const evt = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        const stop = vi.spyOn(evt, "stopPropagation");
+        titleRowButton.querySelector("span")?.dispatchEvent(evt);
+
+        expect(editor.model.document.selection.getSelectedElement()).toBe(include);
+        expect(document.activeElement).toBe(domRoot);
+        // No focus for the button itself; its click still runs.
+        expect(evt.defaultPrevented).toBe(true);
+        expect(stop).not.toHaveBeenCalled();
+    });
+
     it("leaves a mousedown inside an embedded collection untouched so the live widget keeps working", () => {
         insertIncludeNote(editor, "noteColl", "full");
 
