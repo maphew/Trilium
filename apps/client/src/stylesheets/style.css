@@ -1728,6 +1728,11 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     display: none;
 }
 
+.include-note[data-box-size="tiny"] > .include-note-wrapper > .include-note-title-row {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 .include-note[data-hide-title="true"]:not([data-box-size="tiny"], [data-box-size="expandable"]) {
     > .include-note-wrapper > .include-note-title-row {
         display: none;
