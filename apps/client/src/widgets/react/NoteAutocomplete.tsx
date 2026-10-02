@@ -11,16 +11,19 @@ import appContext from "../../components/app_context";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
-import { escapeHtml } from "../../services/utils";
+import { escapeHtml, isMobile } from "../../services/utils";
 import { useAutocomplete } from "./FormAutocomplete";
 import { FormDropdownDivider } from "./FormList";
 import { useSyncedRef } from "./hooks";
 import Icon from "./Icon";
 import Popup from "./Popup";
 import RawHtml from "./RawHtml";
+import { renderShortcutKbds } from "./shortcut_kbd";
 
 /** Wide enough for a note path a few levels deep to fit on one line. */
 const DROPDOWN_MIN_WIDTH = 500;
+/** Keyboard hints are left out on mobile, as `Button` leaves out its shortcut. */
+const cachedIsMobile = isMobile();
 
 export interface NoteAutocompleteProps {
     id?: string;
@@ -442,7 +445,7 @@ function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion 
             <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
             {description && <RawHtml className="search-result-attributes" html={description} />}
         </div>
-        {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
+        <SuggestionShortcut suggestion={suggestion} />
     </>;
 }
 
@@ -475,10 +478,10 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
     }
 
     return (
-        <div className={clsx("note-suggestion", (suggestion.action === "search-notes" || suggestion.action === "full-text-search") && "search-notes-action")}>
+        <div className="note-suggestion">
             <span className={clsx("icon", suggestionIcon(suggestion))} />
             <span className="text">
-                {suggestionShortcut(suggestion) && <kbd>{suggestionShortcut(suggestion)}</kbd>}
+                <SuggestionShortcut suggestion={suggestion} />
                 <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
                 {suggestion.highlightedAttributeSnippet && (
                     <RawHtml className="search-result-attributes" html={suggestion.highlightedAttributeSnippet} />
@@ -509,10 +512,22 @@ function suggestionIcon(suggestion: Suggestion) {
     }
 }
 
-/** The keys that act on a row from the field, without picking it from the list. */
-function suggestionShortcut(suggestion: Suggestion) {
+/**
+ * The keys that act on a row from the field without picking it from the list, drawn as a button's
+ * shortcut is. A command keeps its own, already formatted.
+ */
+function SuggestionShortcut({ suggestion }: { suggestion: Suggestion }) {
+    if (suggestion.action === "command") {
+        return suggestion.commandShortcut ? <kbd>{suggestion.commandShortcut}</kbd> : null;
+    }
+
+    const shortcut = searchRowShortcut(suggestion);
+    if (!shortcut || cachedIsMobile) return null;
+    return <span className="note-suggestion-shortcut">{renderShortcutKbds(shortcut)}</span>;
+}
+
+function searchRowShortcut(suggestion: Suggestion) {
     switch (suggestion.action) {
-        case "command": return suggestion.commandShortcut;
         case "search-notes": return "Ctrl+Enter";
         case "full-text-search": return "Shift+Enter";
     }

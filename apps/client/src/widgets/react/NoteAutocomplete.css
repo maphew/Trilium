@@ -112,9 +112,36 @@ span.aa-dropdown-menu .note-suggestion-separator {
     border-top: 1px solid var(--main-border-color);
 }
 
-/* The shortcut of the row that runs a search, at the end of its title line. */
-.search-notes-action .text > kbd {
-    float: inline-end;
+/*
+ * The keys of a search row, at the end of its title line. One line tall, as the title is, so the row
+ * keeps the height of the others.
+ */
+.note-suggestion-shortcut {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    padding-inline-start: 12px;
+    white-space: nowrap;
     color: var(--muted-text-color);
-    background-color: transparent;
+}
+
+span.aa-dropdown-menu .note-suggestion-shortcut {
+    float: inline-end;
+}
+
+/*
+ * Each key drawn as the Next theme draws a button's (`button.btn kbd` in forms.css), plainly in the
+ * themes without its variables. The `!important`s outrank the Next theme's `.dropdown-item kbd`.
+ */
+:is(.dropdown-item, .aa-suggestion) .note-suggestion-shortcut > kbd {
+    padding: 0.1875rem 0.375rem;
+    border: 0;
+    box-shadow: none;
+    vertical-align: middle;
+    line-height: 1;
+    font-family: var(--monospace-font-family) !important;
+    font-size: 0.6em !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5pt;
+    background: var(--cmd-button-keyboard-shortcut-background, transparent);
+    color: var(--cmd-button-keyboard-shortcut-color, inherit) !important;
 }

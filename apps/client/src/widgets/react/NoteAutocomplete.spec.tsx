@@ -187,7 +187,7 @@ describe("NoteAutocomplete's suggestion list", () => {
     }
 
     function fullTextRow() {
-        return allRows().find((row) => row.querySelector("kbd")?.textContent === "Shift+Enter");
+        return allRows().find((row) => row.querySelector(".bx-search"));
     }
 
     it("lists the notes as the rows of a menu, the first one highlighted", async () => {
@@ -538,7 +538,8 @@ describe("NoteAutocomplete's suggestion list", () => {
         const row = fullTextRow();
         expect(row).toBeDefined();
         expect(allRows().at(-1)).toBe(row);
-        expect(row?.querySelector("kbd")?.textContent).toBe("Shift+Enter");
+        // Two keys, drawn as a button's shortcut is; their labels are translated.
+        expect(row?.querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
         expect(row?.querySelector(".tn-icon")?.className).toBe("bx bx-search tn-icon");
         // Set apart from the notes above it.
         expect(row?.previousElementSibling?.className).toBe("dropdown-divider");
@@ -675,7 +676,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             const suggestions = [ ...host.querySelectorAll(".aa-suggestion") ];
             expect(separators).toHaveLength(1);
             expect(separators[0].previousElementSibling).toBe(suggestions[1]);
-            expect(separators[0].nextElementSibling?.querySelector("kbd")?.textContent).toBe("Shift+Enter");
+            expect(separators[0].nextElementSibling?.querySelector(".bx-search")).not.toBeNull();
             host.remove();
         });
 
@@ -685,7 +686,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             const input = await mount({ onChange });
             await type(input, "al");
 
-            expect(rows()[0].querySelector("kbd")?.textContent).toBe("Ctrl+Enter");
+            expect(rows()[0].querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
             // No notes above the search rows to set them apart from.
             expect(document.querySelector(".note-autocomplete-menu .dropdown-divider")).toBeNull();
             // Past the full-text search row ahead of it.
