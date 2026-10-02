@@ -62,12 +62,11 @@ describe("NoteAutocomplete", () => {
         expect(buttonClasses((await render()).container)).toEqual([
             "input-group-text go-to-selected-note-button bx bx-arrow-to-right disabled",
             "input-group-text full-text-search-button bx bx-search",
-            "input-group-text show-recent-notes-button bx bx-time",
             "input-group-text input-clearer-button bx bxs-tag-x"
         ]);
 
         const withoutGoTo = buttonClasses((await render({ opts: { hideGoToSelectedNoteButton: true } })).container);
-        expect(withoutGoTo).toHaveLength(3);
+        expect(withoutGoTo).toHaveLength(2);
         expect(withoutGoTo[0]).toContain("full-text-search-button");
 
         expect(buttonClasses((await render({ opts: { hideAllButtons: true } })).container)).toEqual([]);
@@ -254,6 +253,11 @@ describe("NoteAutocomplete's suggestion list", () => {
             }
         });
 
+        expect(prevented).toEqual([ true, false ]);
+        expect(onChange).toHaveBeenCalledOnce();
+        expect(onChange).toHaveBeenCalledWith(notes[1]);
+    });
+
     it("searches on the first keystroke, and paces the rest of a burst", async () => {
         const input = await mount();
 
@@ -270,28 +274,22 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(queries()).toEqual([ "a", "alp" ]);
     });
 
-    it("lists the recent notes from the clock button, emptying the field", async () => {
-        const onTextChange = vi.fn();
-        const input = await mount({ onTextChange });
-        await type(input, "a");
-        await press(input, "Enter");
-        expect(input.dataset.notePath).toBe("root/a");
-        input.blur();
-
-        const button = document.querySelector<HTMLElement>(".show-recent-notes-button");
-        if (!button) throw new Error("no recent notes button rendered");
-        const mouseDown = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
-        button.dispatchEvent(mouseDown);
-        await act(async () => { button.click(); });
+    it("lists the recent notes when an empty field gets focus, and waits for typing in a filled one", async () => {
+        const input = await mount();
+        await act(async () => { input.focus(); });
         await settle();
-
-        expect(mouseDown.defaultPrevented).toBe(true);
-        expect(input.value).toBe("");
-        expect(input.dataset.notePath).toBe("");
-        expect(onTextChange).toHaveBeenLastCalledWith("");
         expect(queries().at(-1)).toBe("");
         expect(rows()).toHaveLength(2);
-        expect(document.activeElement).toBe(input);
+
+        await type(input, "a");
+        await press(input, "Enter");
+        await act(async () => { input.blur(); });
+        getNoteSuggestions.mockClear();
+
+        await act(async () => { input.focus(); });
+        await settle();
+        expect(queries()).toEqual([]);
+        expect(rows()).toHaveLength(0);
     });
 
     it("lists the recent notes through the handle, with the callbacks of the latest render", async () => {

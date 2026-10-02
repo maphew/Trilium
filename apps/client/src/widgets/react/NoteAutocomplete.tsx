@@ -267,6 +267,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 }}
                 onCompositionStart={autocomplete.handleCompositionStart}
                 onCompositionEnd={autocomplete.handleCompositionEnd}
+                onFocus={(e) => {
+                    // An empty field lists the recently visited notes. A filled one waits for typing,
+                    // so that focus returning from the note type chooser does not search again.
+                    if (!e.currentTarget.value.trim()) autocomplete.open();
+                }}
                 onBlur={() => {
                     // A list in the host's container stays open until a pick.
                     if (!container) autocomplete.handleBlur();
@@ -288,13 +293,6 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     // Keeps the focus in the input, which the list closes without.
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={fullTextSearch}
-                />
-                <a
-                    className="input-group-text show-recent-notes-button bx bx-time"
-                    title={t("note_autocomplete.show-recent-notes")}
-                    // Keeps the focus in the input, which the list closes without.
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={showRecentNotes}
                 />
                 <a
                     className="input-group-text input-clearer-button bx bxs-tag-x"
