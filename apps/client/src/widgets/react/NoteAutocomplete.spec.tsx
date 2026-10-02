@@ -1,9 +1,17 @@
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { getNoteSuggestions } = vi.hoisted(() => ({
+    getNoteSuggestions: vi.fn<(term: string) => Promise<Suggestion[]>>(async () => [])
+}));
+
+vi.mock("../../services/note_autocomplete", () => ({ getNoteSuggestions }));
+
+import type { Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import NoteAutocomplete, { type NoteAutocompleteProps } from "./NoteAutocomplete";
+
 
 async function render(props: NoteAutocompleteProps = {}) {
     let container = document.createElement("div");
@@ -103,5 +111,144 @@ describe("NoteAutocomplete", () => {
             input.blur();
         });
         expect(onBlur).toHaveBeenLastCalledWith("");
+    });
+});
+
+describe("NoteAutocomplete's suggestion list", () => {
+    const notes: Suggestion[] = [
+        { notePath: "root/a", noteTitle: "Alpha", notePathTitle: "Alpha", highlightedNotePathTitle: "<b>Al</b>pha", icon: "bx bx-file" },
+        { notePath: "root/x/b", noteTitle: "Beta", notePathTitle: "X / Beta", highlightedNotePathTitle: "X / Beta",
+            highlightedAttributeSnippet: "#tag" }
+    ];
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        getNoteSuggestions.mockReset();
+        getNoteSuggestions.mockResolvedValue(notes);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    async function mount(props: NoteAutocompleteProps = {}) {
+        let input: HTMLInputElement | null = null;
+        await act(async () => {
+            input = renderInto(<NoteAutocomplete {...props} />).querySelector("input");
+        });
+        if (!input) throw new Error("no input rendered");
+        return input as HTMLInputElement;
+    }
+
+    /** Lets the debounced lookup run and the popup place itself. */
+    async function settle() {
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    }
+
+    async function type(input: HTMLInputElement, text: string) {
+        await act(async () => {
+            input.value = text;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await settle();
+    }
+
+    async function press(input: HTMLInputElement, key: string) {
+        await act(async () => {
+            input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+        });
+        await settle();
+    }
+
+    function rows() {
+        return [ ...document.querySelectorAll<HTMLElement>(".algolia-autocomplete .aa-dropdown-menu .aa-suggestion") ];
+    }
+
+    it("lists the notes in the plugin's markup, the first one highlighted", async () => {
+        const input = await mount();
+        await type(input, "al");
+
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al");
+        const [ alpha, beta ] = rows();
+        expect(rows()).toHaveLength(2);
+        expect(alpha.closest(".aa-suggestions")?.parentElement?.className).toBe("aa-dataset-0");
+        expect(alpha.className).toBe("aa-suggestion aa-cursor");
+        expect(alpha.querySelector(".note-suggestion .icon")?.className).toBe("icon bx bx-file");
+        expect(alpha.querySelector(".search-result-title")?.innerHTML).toBe("<b>Al</b>pha");
+        expect(beta.querySelector(".icon")?.className).toBe("icon bx bx-note");
+        expect(beta.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
+        expect(input.getAttribute("aria-expanded")).toBe("true");
+        expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
+    });
+
+    it("gives each kind of row its icon, and never shows a content snippet", async () => {
+        getNoteSuggestions.mockResolvedValue([
+            { action: "search-notes", highlightedNotePathTitle: "S" },
+            { action: "create-note", highlightedNotePathTitle: "C" },
+            { action: "create-child-note", highlightedNotePathTitle: "C" },
+            { action: "external-link", highlightedNotePathTitle: "E" },
+            // The list matches by title and attributes, so a body excerpt would suggest a content
+            // match that fast search never made.
+            { notePath: "root/c", highlightedNotePathTitle: "T", highlightedContentSnippet: "some <b>matched</b> content" } as Suggestion
+        ]);
+        const input = await mount();
+        await type(input, "x");
+
+        expect(rows().map((row) => row.querySelector(".icon")?.className)).toEqual([
+            "icon bx bx-search", "icon bx bx-plus", "icon bx bx-subdirectory-right", "icon bx bx-link-external", "icon bx bx-note"
+        ]);
+        expect(rows()[0].querySelector(".note-suggestion")?.classList.contains("search-notes-action")).toBe(true);
+        expect(rows()[4].textContent).toBe("T");
+    });
+
+    it("picks the highlighted note with Enter, and reports it", async () => {
+        const onChange = vi.fn();
+        const noteIdChanged = vi.fn();
+        const input = await mount({ onChange, noteIdChanged });
+        await type(input, "b");
+        await press(input, "ArrowDown");
+        expect(rows()[1].classList.contains("aa-cursor")).toBe(true);
+
+        await press(input, "Enter");
+        expect(onChange).toHaveBeenCalledWith(notes[1]);
+        expect(noteIdChanged).toHaveBeenCalledWith("b");
+        expect(input.value).toBe("Beta");
+        expect(input.dataset.notePath).toBe("root/x/b");
+        expect(rows()).toHaveLength(0);
+    });
+
+    it("picks a clicked note", async () => {
+        const noteIdChanged = vi.fn();
+        const input = await mount({ noteIdChanged });
+        await type(input, "a");
+
+        await act(async () => { rows()[0].click(); });
+        expect(noteIdChanged).toHaveBeenCalledWith("a");
+        expect(input.value).toBe("Alpha");
+    });
+
+    it("reports a selection cleared by emptying the field", async () => {
+        const onChange = vi.fn();
+        const noteIdChanged = vi.fn();
+        const input = await mount({ onChange, noteIdChanged });
+        await type(input, "a");
+        await press(input, "Enter");
+
+        await type(input, "");
+        await act(async () => { input.dispatchEvent(new Event("change", { bubbles: true })); });
+        expect(onChange).toHaveBeenLastCalledWith(null);
+        expect(noteIdChanged).toHaveBeenLastCalledWith(undefined);
+        expect(input.dataset.notePath).toBe("");
+    });
+
+    it("closes on Escape, and stays closed in a read-only field", async () => {
+        const input = await mount();
+        await type(input, "a");
+        await press(input, "Escape");
+        expect(rows()).toHaveLength(0);
+
+        const readOnly = await mount({ readOnly: true });
+        await press(readOnly, "ArrowDown");
+        expect(rows()).toHaveLength(0);
     });
 });

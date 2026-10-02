@@ -329,35 +329,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
                             html += '</div>';
                             return html;
                         }
-                        // Add special class for search-notes action
-                        const actionClass = suggestion.action === "search-notes" ? "search-notes-action" : "";
-
-                        // Choose appropriate icon based on action
-                        let iconClass = suggestion.icon ?? "bx bx-note";
-                        if (suggestion.action === "search-notes") {
-                            iconClass = "bx bx-search";
-                        } else if (suggestion.action === "create-note") {
-                            iconClass = "bx bx-plus";
-                        } else if (suggestion.action === "create-child-note") {
-                            iconClass = "bx bx-subdirectory-right";
-                        } else if (suggestion.action === "external-link") {
-                            iconClass = "bx bx-link-external";
-                        }
-
-                        // Simplified HTML structure without nested divs
-                        let html = `<div class="note-suggestion ${actionClass}">`;
-                        html += `<span class="icon ${escapeHtml(iconClass)}"></span>`;
-                        html += `<span class="text">`;
-                        html += `<span class="search-result-title">${suggestion.highlightedNotePathTitle}</span>`;
-
-                        // Add attribute snippet inline if available
-                        if (suggestion.highlightedAttributeSnippet) {
-                            html += `<span class="search-result-attributes">${suggestion.highlightedAttributeSnippet}</span>`;
-                        }
-
-                        html += `</span>`;
-                        html += `</div>`;
-                        return html;
                     }
                 },
                 // we can't cache identical searches because notes can be created / renamed, new recent notes can be added
@@ -431,12 +402,6 @@ function initNoteAutocomplete($el: JQuery<HTMLElement>, options?: Options) {
     $el.on("autocomplete:closed", () => {
         if (!String($el.val())?.trim()) {
             clearText($el);
-        }
-    });
-
-    $el.on("autocomplete:opened", () => {
-        if ($el.attr("readonly")) {
-            $el.autocomplete("close");
         }
     });
 

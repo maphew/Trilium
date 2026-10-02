@@ -35,22 +35,13 @@ export default function NoteAutocomplete({ inputRef: externalInputRef, text, onC
                     noteIdChanged(noteId);
                 }
             };
-            const changeListener = (e) => {
-                if (!ref.current?.value) {
-                    autoCompleteListener(e, null);
-                }
-            };
             $autoComplete
-                .on("autocomplete:noteselected", autoCompleteListener)
                 .on("autocomplete:externallinkselected", autoCompleteListener)
-                .on("autocomplete:commandselected", autoCompleteListener)
-                .on("change", changeListener);
+                .on("autocomplete:commandselected", autoCompleteListener);
             return () => {
                 $autoComplete
-                    .off("autocomplete:noteselected", autoCompleteListener)
                     .off("autocomplete:externallinkselected", autoCompleteListener)
-                    .off("autocomplete:commandselected", autoCompleteListener)
-                    .off("change", changeListener);
+                    .off("autocomplete:commandselected", autoCompleteListener);
             };
         }
     }, [opts, container?.current, onChange, noteIdChanged])

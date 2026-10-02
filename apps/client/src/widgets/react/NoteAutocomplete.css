@@ -1,0 +1,14 @@
+/* The styles `autocomplete.js` set inline on its suggestion list. */
+.algolia-autocomplete .aa-dropdown-menu,
+.algolia-autocomplete .aa-suggestions {
+    display: block;
+}
+
+.algolia-autocomplete .aa-suggestion {
+    white-space: nowrap;
+    cursor: pointer;
+
+    > * {
+        white-space: normal;
+    }
+}

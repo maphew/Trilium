@@ -232,53 +232,6 @@ describe("autocompleteSource (via dataset)", () => {
         expect(rows.every((r) => r.action !== "search-notes")).toBe(true);
     });
 
-    it("renders a note suggestion via the template (default icon, no attribute snippet)", () => {
-        const { dataset } = initAndGetSource();
-        const html = dataset.templates.suggestion({ highlightedNotePathTitle: "Title" });
-        expect(html).toContain("note-suggestion");
-        expect(html).toContain("bx bx-note");
-        expect(html).toContain("Title");
-        expect(html).not.toContain("search-result-attributes");
-    });
-
-    it("renders a note suggestion with explicit icon and attribute snippet", () => {
-        const { dataset } = initAndGetSource();
-        const html = dataset.templates.suggestion({
-            highlightedNotePathTitle: "T",
-            icon: "bx bx-star",
-            highlightedAttributeSnippet: "#color=red"
-        });
-        expect(html).toContain("bx bx-star");
-        expect(html).toContain("search-result-attributes");
-        expect(html).toContain("#color=red");
-    });
-
-    it("never renders a content snippet, whatever the suggestion carries", () => {
-        // The dropdown lists notes matched by title and attributes, so a body excerpt would
-        // suggest a content match that fast search never made.
-        const { dataset } = initAndGetSource();
-        const html = dataset.templates.suggestion({
-            highlightedNotePathTitle: "T",
-            highlightedContentSnippet: "some <b>matched</b> content"
-        });
-        expect(html).not.toContain("search-result-content");
-        expect(html).not.toContain("matched");
-    });
-
-    it("renders search-notes, create-note and external-link suggestion icons/classes", () => {
-        const { dataset } = initAndGetSource();
-        expect(dataset.templates.suggestion({ action: "search-notes", highlightedNotePathTitle: "S" }))
-            .toContain("search-notes-action");
-        expect(dataset.templates.suggestion({ action: "search-notes", highlightedNotePathTitle: "S" }))
-            .toContain("bx bx-search");
-        expect(dataset.templates.suggestion({ action: "create-note", highlightedNotePathTitle: "C" }))
-            .toContain("bx bx-plus");
-        expect(dataset.templates.suggestion({ action: "create-child-note", highlightedNotePathTitle: "C" }))
-            .toContain("bx bx-subdirectory-right");
-        expect(dataset.templates.suggestion({ action: "external-link", highlightedNotePathTitle: "E" }))
-            .toContain("bx bx-link-external");
-    });
-
     it("renders a command suggestion with description and shortcut", () => {
         const { dataset } = initAndGetSource();
         const html = dataset.templates.suggestion({
@@ -723,21 +676,6 @@ describe("initNoteAutocomplete wiring", () => {
         $el.attr("data-note-path", "root/keep");
         $el.trigger("autocomplete:closed");
         expect($el.attr("data-note-path")).toBe("root/keep");
-    });
-
-    it("autocomplete:opened closes the dropdown for a readonly input", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.attr("readonly", "readonly");
-        $el.trigger("autocomplete:opened");
-        expect(lastCommandWith("close")).toBe(true);
-    });
-
-    it("autocomplete:opened does nothing for a non-readonly input", () => {
-        const $el = makeEl();
-        noteAutocomplete.initNoteAutocomplete($el);
-        $el.trigger("autocomplete:opened");
-        expect(lastCommandWith("close")).toBe(false);
     });
 });
 

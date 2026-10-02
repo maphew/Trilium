@@ -1,12 +1,17 @@
+import "./NoteAutocomplete.css";
+
 import clsx from "clsx";
 import type { RefObject } from "preact";
 import type { CSSProperties } from "preact/compat";
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
-import type { Options, Suggestion } from "../../services/note_autocomplete";
+import { getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { useAutocomplete } from "./FormAutocomplete";
 import { useSyncedRef } from "./hooks";
+import Popup from "./Popup";
+import RawHtml from "./RawHtml";
 
 export interface NoteAutocompleteProps {
     id?: string;
@@ -28,7 +33,7 @@ export interface NoteAutocompleteProps {
     tabIndex?: number;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, containerStyle, opts, onTextChange, onKeyDown, onBlur, noteId, readOnly, tabIndex }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const [ value, setValue ] = useState("");
     const [ notePath, setNotePath ] = useState("");
@@ -42,6 +47,27 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             setValue(text?.trim() ?? "");
         }
     }, [ text, noteId ]);
+
+    const source = useCallback((query: string) => getNoteSuggestions(query), []);
+
+    const pickSuggestion = useCallback((suggestion: Suggestion) => {
+        setValue(suggestion.noteTitle ?? "");
+        setNotePath(suggestion.notePath ?? "");
+        onChange?.(suggestion);
+        if (noteIdChanged && suggestion.notePath) {
+            noteIdChanged(lastSegment(suggestion.notePath));
+        }
+    }, [ onChange, noteIdChanged ]);
+
+    const autocomplete = useAutocomplete({
+        query: value,
+        source,
+        onPick: pickSuggestion,
+        inputRef,
+        disabled: readOnly,
+        autoActivate: true,
+        textOf: suggestionText
+    });
 
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;
@@ -62,13 +88,30 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 spellcheck={false}
                 dir="auto"
                 data-note-path={notePath}
+                {...autocomplete.comboboxProps}
                 onInput={(e) => {
                     const newValue = e.currentTarget.value;
                     setValue(newValue);
+                    autocomplete.handleInput();
                     onTextChange?.(newValue);
                 }}
-                onKeyDown={onKeyDown}
-                onBlur={() => onBlur?.(value.trim() ? notePath.split("/").at(-1) ?? "" : "")}
+                onChange={(e) => {
+                    // Emptying the field clears the selection.
+                    if (e.currentTarget.value) return;
+                    setNotePath("");
+                    onChange?.(null);
+                    // The callers tell a cleared selection by `undefined` (`noteId ?? "root"`),
+                    // which the prop's type does not admit.
+                    noteIdChanged?.(undefined as unknown as string);
+                }}
+                onKeyDown={(e) => {
+                    autocomplete.handleKeyDown(e);
+                    onKeyDown?.(e);
+                }}
+                onBlur={() => {
+                    autocomplete.handleBlur();
+                    onBlur?.(value.trim() ? lastSegment(notePath) : "");
+                }}
             />
 
             {showGoToButton && (
@@ -92,6 +135,78 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     title={t("note_autocomplete.clear-text-field")}
                 />
             </>}
+
+            {autocomplete.isShown && inputRef.current && (
+                <Popup
+                    anchor={inputRef.current}
+                    placement="bottom-start"
+                    capHeight={false}
+                    className="algolia-autocomplete"
+                    // The list spans the input, as `autocomplete.js` sized it.
+                    style={{ width: `${inputRef.current.getBoundingClientRect().width}px` }}
+                    escapeDismisses={false}
+                    onDismiss={autocomplete.close}
+                >
+                    <span
+                        className="aa-dropdown-menu"
+                        role="listbox"
+                        // Keeps the input focused, so its blur does not close the list before the
+                        // click lands on a suggestion.
+                        onMouseDown={(e) => e.preventDefault()}
+                    >
+                        <div className="aa-dataset-0">
+                            <span className="aa-suggestions">
+                                {autocomplete.items.map((suggestion, index) => (
+                                    <div
+                                        key={`${suggestion.action ?? ""}:${suggestion.notePath ?? index}`}
+                                        id={autocomplete.itemId(index)}
+                                        className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
+                                        role="option"
+                                        aria-selected={index === autocomplete.activeIndex}
+                                        onMouseEnter={() => autocomplete.setActiveIndex(index)}
+                                        onClick={() => autocomplete.pick(suggestion)}
+                                    >
+                                        <NoteSuggestion suggestion={suggestion} />
+                                    </div>
+                                ))}
+                            </span>
+                        </div>
+                    </span>
+                </Popup>
+            )}
         </div>
     );
+}
+
+/** One row of the list, in the markup of the jQuery plugin's suggestion template. */
+function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
+    return (
+        <div className={clsx("note-suggestion", suggestion.action === "search-notes" && "search-notes-action")}>
+            <span className={clsx("icon", suggestionIcon(suggestion))} />
+            <span className="text">
+                <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
+                {suggestion.highlightedAttributeSnippet && (
+                    <RawHtml className="search-result-attributes" html={suggestion.highlightedAttributeSnippet} />
+                )}
+            </span>
+        </div>
+    );
+}
+
+function suggestionIcon(suggestion: Suggestion) {
+    switch (suggestion.action) {
+        case "search-notes": return "bx bx-search";
+        case "create-note": return "bx bx-plus";
+        case "create-child-note": return "bx bx-subdirectory-right";
+        case "external-link": return "bx bx-link-external";
+        default: return suggestion.icon ?? "bx bx-note";
+    }
+}
+
+function suggestionText(suggestion: Suggestion) {
+    return suggestion.noteTitle ?? "";
+}
+
+function lastSegment(notePath: string) {
+    return notePath.split("/").at(-1) ?? "";
 }

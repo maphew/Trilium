@@ -1,6 +1,6 @@
 import "./FormAutocomplete.css";
 
-import type { ComponentChildren, TargetedKeyboardEvent } from "preact";
+import type { ComponentChildren, RefObject } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -106,57 +106,22 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
-    const dropdownRef = useRef<HTMLUListElement>(null);
-    const [ isOpen, setIsOpen ] = useState(false);
-    const [ items, setItems ] = useState<string[]>([]);
-    const [ activeIndex, setActiveIndex ] = useState(-1);
     const [ position, setPosition ] = useState<CSSProperties>();
-
-    // Discards responses of queries that were superseded while in flight.
-    const latestQuery = useRef(0);
     const isDisabled = !!(restProps.readOnly || restProps.disabled);
-    // Names the entries so the field can point at the highlighted one: focus stays in the box, so
-    // that pointer is all a screen reader has to go on.
-    const itemIdPrefix = useUniqueName("autocomplete-item");
-    const activeItemId = activeIndex >= 0 ? `${itemIdPrefix}-${activeIndex}` : undefined;
 
-    const close = useCallback(() => {
-        // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
-        latestQuery.current++;
-        setIsOpen(false);
-        setActiveIndex(-1);
-        setItems([]);
-    }, []);
-
-    // Fetch suggestions for the current query, debounced. The previous items stay visible while
-    // the request is in flight, so refining a query does not make the dropdown flicker.
-    useEffect(() => {
-        if (!isOpen) {
-            return;
-        }
-
-        const queryId = ++latestQuery.current;
-        const timeout = setTimeout(async () => {
-            const suggestions = await source(currentValue);
-
-            // A newer query (or a close) happened while awaiting.
-            if (latestQuery.current === queryId) {
-                setItems(suggestions);
-                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, currentValue, isHeading) : -1);
-            }
-        }, DEBOUNCE_MS);
-
-        return () => clearTimeout(timeout);
-    }, [ isOpen, currentValue, source, autoActivate, isHeading ]);
-
-    // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
-    // bottom of a list taller than the room the dropdown was given.
-    useEffect(() => {
-        if (activeIndex < 0) return;
-        // `nearest` scrolls the list by as little as it takes, and not at all while the entry is
-        // already in view — so hovering down a visible list never moves it under the pointer.
-        dropdownRef.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
-    }, [ activeIndex, items ]);
+    const autocomplete = useAutocomplete({
+        query: currentValue,
+        source,
+        onPick: onPick ?? onChange,
+        inputRef: inputEl,
+        disabled: isDisabled,
+        openOnFocus,
+        openOnEnter,
+        keepOpenOnPick,
+        autoActivate,
+        isHeading
+    });
+    const { isOpen, items, activeIndex, setActiveIndex, itemId, pick } = autocomplete;
 
     // Keep the dropdown glued to the input.
     useLayoutEffect(() => {
@@ -182,64 +147,6 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         };
     }, [ isOpen, items.length, inputEl, dropdownMinWidth ]);
 
-    function selectItem(item: string) {
-        if (isHeading?.(item)) {
-            return;
-        }
-
-        (onPick ?? onChange)(item);
-        if (keepOpenOnPick) {
-            // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
-            // what the list is about to stop offering.
-            setActiveIndex(-1);
-        } else {
-            close();
-        }
-        inputEl.current?.focus();
-    }
-
-    function handleKeyDown(e: TargetedKeyboardEvent<HTMLInputElement>) {
-        const isDropdownShown = isOpen && items.length > 0;
-
-        switch (e.key) {
-            case "ArrowDown":
-            case "ArrowUp":
-                e.preventDefault();
-                if (!isDropdownShown) {
-                    setIsOpen(true);
-                } else {
-                    const delta = e.key === "ArrowDown" ? 1 : -1;
-                    setActiveIndex((index) => stepOver(items, index, delta, isHeading));
-                }
-                break;
-
-            case "Enter":
-                if (isDropdownShown && activeIndex >= 0) {
-                    // Consume the key so it does not also reach the surrounding form or dialog.
-                    e.preventDefault();
-                    e.stopPropagation();
-                    selectItem(items[activeIndex]);
-                } else if (openOnEnter && !isDisabled) {
-                    setIsOpen(true);
-                }
-                break;
-
-            case "Escape":
-                if (isDropdownShown) {
-                    // Only dismiss the dropdown; a surrounding popup keeps its own Escape handling.
-                    e.stopPropagation();
-                    close();
-                }
-                break;
-
-            case "Tab":
-                close();
-                break;
-        }
-
-        onKeyDown?.(e);
-    }
-
     const field = (
         <FormTextBox
             // Keyed for the sake of a field carrying chips, which are keyed themselves: keyed and
@@ -251,25 +158,21 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             currentValue={currentValue}
             onChange={(newValue) => {
                 onChange(newValue);
-                if (!isDisabled) {
-                    setIsOpen(true);
-                }
+                autocomplete.handleInput();
             }}
             onFocus={(e) => {
-                if (openOnFocus && !isDisabled) {
-                    setIsOpen(true);
-                }
+                autocomplete.handleFocus();
                 onFocus?.(e);
             }}
             onBlur={(newValue) => {
-                close();
+                autocomplete.handleBlur();
                 onBlur?.(newValue);
             }}
-            onKeyDown={handleKeyDown}
-            role="combobox"
-            aria-expanded={isOpen && items.length > 0}
-            aria-autocomplete="list"
-            aria-activedescendant={activeItemId}
+            onKeyDown={(e) => {
+                autocomplete.handleKeyDown(e);
+                onKeyDown?.(e);
+            }}
+            {...autocomplete.comboboxProps}
         />
     );
 
@@ -281,7 +184,6 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
 
             {isOpen && items.length > 0 && position && createPortal(
                 <ul
-                    ref={dropdownRef}
                     className="form-autocomplete-dropdown"
                     role="listbox"
                     style={position}
@@ -296,12 +198,12 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                             </li>
                             : <li
                                 key={item}
-                                id={`${itemIdPrefix}-${index}`}
+                                id={itemId(index)}
                                 className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
                                 role="option"
                                 aria-selected={index === activeIndex}
                                 onMouseEnter={() => setActiveIndex(index)}
-                                onClick={() => selectItem(item)}
+                                onClick={() => pick(item)}
                             >
                                 {renderItem ? renderItem(item) : item}
                             </li>
@@ -312,16 +214,186 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     );
 }
 
+interface UseAutocompleteOptions<T> {
+    /** The text in the field, which `source` is queried with. */
+    query: string;
+    /** See {@link FormAutocompleteProps.source}. */
+    source(query: string): Promise<T[]>;
+    /** Called with the entry picked by click or Enter. */
+    onPick(item: T): void;
+    /** The field, which keeps the focus once an entry is picked. */
+    inputRef: RefObject<HTMLInputElement>;
+    /** Keeps the list closed, for a read-only or disabled field. */
+    disabled?: boolean;
+    /** See {@link FormAutocompleteProps.openOnFocus}. */
+    openOnFocus?: boolean;
+    /** See {@link FormAutocompleteProps.openOnEnter}. */
+    openOnEnter?: boolean;
+    /** See {@link FormAutocompleteProps.keepOpenOnPick}. */
+    keepOpenOnPick?: boolean;
+    /** See {@link FormAutocompleteProps.autoActivate}. */
+    autoActivate?: boolean;
+    /** See {@link FormAutocompleteProps.isHeading}. */
+    isHeading?(item: T): boolean;
+    /** The text of an entry, which `autoActivate` matches against the query. Defaults to `String(item)`. */
+    textOf?(item: T): string;
+}
+
+/**
+ * The behavior of a combobox, without its markup: when the list opens and closes, which entry is
+ * highlighted, and what the keys do. The focus stays in the field, which points at the highlighted
+ * entry through `aria-activedescendant`.
+ *
+ * The host renders the list from `items`, gives each entry the id `itemId(index)`, and passes the
+ * field's events to the `handle*` functions. Entries are fetched debounced while the list is open,
+ * and a response to a superseded query is discarded.
+ */
+export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, openOnFocus, openOnEnter, keepOpenOnPick, autoActivate, isHeading, textOf = String }: UseAutocompleteOptions<T>) {
+    const [ isOpen, setIsOpen ] = useState(false);
+    const [ items, setItems ] = useState<T[]>([]);
+    const [ activeIndex, setActiveIndex ] = useState(-1);
+
+    // Discards responses of queries that were superseded while in flight.
+    const latestQuery = useRef(0);
+    // Names the entries so the field can point at the highlighted one: focus stays in the box, so
+    // that pointer is all a screen reader has to go on.
+    const itemIdPrefix = useUniqueName("autocomplete-item");
+    const itemId = useCallback((index: number) => `${itemIdPrefix}-${index}`, [ itemIdPrefix ]);
+    const isShown = isOpen && items.length > 0;
+
+    const open = useCallback(() => {
+        if (!disabled) setIsOpen(true);
+    }, [ disabled ]);
+
+    const close = useCallback(() => {
+        // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
+        latestQuery.current++;
+        setIsOpen(false);
+        setActiveIndex(-1);
+        setItems([]);
+    }, []);
+
+    // Fetch suggestions for the current query, debounced. The previous items stay visible while
+    // the request is in flight, so refining a query does not make the dropdown flicker.
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        const queryId = ++latestQuery.current;
+        const timeout = setTimeout(async () => {
+            const suggestions = await source(query);
+
+            // A newer query (or a close) happened while awaiting.
+            if (latestQuery.current === queryId) {
+                setItems(suggestions);
+                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf) : -1);
+            }
+        }, DEBOUNCE_MS);
+
+        return () => clearTimeout(timeout);
+    }, [ isOpen, query, source, autoActivate, isHeading, textOf ]);
+
+    // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
+    // bottom of a list taller than the room the dropdown was given.
+    useEffect(() => {
+        if (activeIndex < 0) return;
+        // `nearest` scrolls the list by as little as it takes, and not at all while the entry is
+        // already in view — so hovering down a visible list never moves it under the pointer.
+        document.getElementById(itemId(activeIndex))?.scrollIntoView({ block: "nearest" });
+    }, [ activeIndex, items, itemId ]);
+
+    function pick(item: T) {
+        if (isHeading?.(item)) {
+            return;
+        }
+
+        onPick(item);
+        if (keepOpenOnPick) {
+            // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
+            // what the list is about to stop offering.
+            setActiveIndex(-1);
+        } else {
+            close();
+        }
+        inputRef.current?.focus();
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+        switch (e.key) {
+            case "ArrowDown":
+            case "ArrowUp":
+                e.preventDefault();
+                if (!isShown) {
+                    open();
+                } else {
+                    const delta = e.key === "ArrowDown" ? 1 : -1;
+                    setActiveIndex((index) => stepOver(items, index, delta, isHeading));
+                }
+                break;
+
+            case "Enter":
+                if (isShown && activeIndex >= 0) {
+                    // Consume the key so it does not also reach the surrounding form or dialog.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    pick(items[activeIndex]);
+                } else if (openOnEnter) {
+                    open();
+                }
+                break;
+
+            case "Escape":
+                if (isShown) {
+                    // Only dismiss the dropdown; a surrounding popup keeps its own Escape handling.
+                    e.stopPropagation();
+                    close();
+                }
+                break;
+
+            case "Tab":
+                close();
+                break;
+        }
+    }
+
+    return {
+        isOpen,
+        isShown,
+        items,
+        activeIndex,
+        setActiveIndex,
+        itemId,
+        open,
+        close,
+        pick,
+        /** Call once the field's text has changed. */
+        handleInput: open,
+        handleFocus() {
+            if (openOnFocus) open();
+        },
+        handleBlur: close,
+        handleKeyDown,
+        /** The field's combobox attributes. */
+        comboboxProps: {
+            role: "combobox",
+            "aria-expanded": isShown,
+            "aria-autocomplete": "list",
+            "aria-activedescendant": activeIndex >= 0 ? itemId(activeIndex) : undefined
+        } as const
+    };
+}
+
 /**
  * Which entry a list opens on: the one the field's text names, or the first that can be taken, so
  * that a field whose text stands for a choice already made opens on it and one being typed into
  * opens on its best candidate. Matched the way the sources filter — ignoring case and surrounding
  * space.
  */
-function bestMatchIndex(items: string[], text: string, isHeading?: (item: string) => boolean) {
-    const canBeTaken = (item: string) => !isHeading?.(item);
+function bestMatchIndex<T>(items: T[], text: string, isHeading: ((item: T) => boolean) | undefined, textOf: (item: T) => string) {
+    const canBeTaken = (item: T) => !isHeading?.(item);
     const trimmed = text.trim().toLowerCase();
-    const exact = items.findIndex((item) => canBeTaken(item) && item.toLowerCase() === trimmed);
+    const exact = items.findIndex((item) => canBeTaken(item) && textOf(item).toLowerCase() === trimmed);
 
     return exact >= 0 ? exact : items.findIndex(canBeTaken);
 }
@@ -334,7 +406,7 @@ function bestMatchIndex(items: string[], text: string, isHeading?: (item: string
  * Exported for its own tests, the alternative being to drive a dropdown by keystrokes to find out
  * which row a heading was skipped for.
  */
-export function stepOver(items: string[], from: number, delta: number, isHeading?: (item: string) => boolean) {
+export function stepOver<T>(items: T[], from: number, delta: number, isHeading?: (item: T) => boolean) {
     let index = from;
 
     for (let step = 0; step < items.length; step++) {
