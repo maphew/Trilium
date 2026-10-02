@@ -129,7 +129,12 @@ export default function ContentEmbed({
                 {!isContentActive && (
                     <div
                         className="include-note-backdrop"
-                        onClick={() => contentRef.current?.focus({ preventScroll: true })}
+                        onClick={(e) => {
+                            const content = contentRef.current;
+                            if (!content) return;
+                            getFocusTargetAt(content, e.clientX, e.clientY)
+                                .focus({ preventScroll: true });
+                        }}
                     />
                 )}
             </div>
@@ -189,6 +194,18 @@ function getOpenInNewTabAction(notePath: string, viewScope?: ViewScope): Content
             });
         }
     };
+}
+
+const FOCUSABLE_SELECTOR = "[tabindex], a[href], iframe, webview, "
+    + ":is(button, input, select, textarea):not(:disabled)";
+
+/**
+ * The element that a click at (`x`, `y`) would focus: the closest focusable element under that
+ * point in `content`, which is focusable itself.
+ */
+function getFocusTargetAt(content: HTMLElement, x: number, y: number) {
+    const hit = document.elementsFromPoint(x, y).find((element) => content.contains(element));
+    return hit?.closest<HTMLElement>(FOCUSABLE_SELECTOR) ?? content;
 }
 
 function ContentEmbedTitle({ title }: { title: HTMLElement }) {

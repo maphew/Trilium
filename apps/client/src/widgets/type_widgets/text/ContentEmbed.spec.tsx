@@ -49,6 +49,7 @@ afterEach(() => {
     for (const tooltip of document.querySelectorAll(".tooltip")) {
         tooltip.remove();
     }
+    Reflect.deleteProperty(document, "elementsFromPoint");
 });
 
 function element(html: string) {
@@ -59,6 +60,16 @@ function element(html: string) {
         throw new Error(`Expected an element in: ${html}`);
     }
     return first;
+}
+
+/** Stubs `document.elementsFromPoint()`, which happy-dom lacks, to find `elements` at any point. */
+function stubElementsFromPoint(elements: Element[]) {
+    const elementsFromPoint = vi.fn((_x: number, _y: number) => elements);
+    Object.defineProperty(document, "elementsFromPoint", {
+        value: elementsFromPoint,
+        configurable: true
+    });
+    return elementsFromPoint;
 }
 
 function renderBox(props: Partial<ContentEmbedProps> = {}) {
@@ -296,9 +307,15 @@ describe("ContentEmbed", () => {
         expect(container.querySelector(".include-note-fullscreen-controls")).toBeNull();
     });
 
-    it("keeps its content behind a backdrop until a click on it focuses the content", async () => {
-        renderBox();
+    it("keeps its content behind a backdrop until a click on it focuses what is under it", async () => {
+        const content = element(
+            `<div class="rendered-content"><p>body</p><div tabindex="0"><img></div></div>`
+        );
+        renderBox({ content });
         const box = contentBox();
+        const text = content.querySelector("p");
+        const viewer = content.querySelector<HTMLElement>("[tabindex]");
+        const image = content.querySelector("img");
         const isActive = () => box.parentElement?.classList.contains("active");
         const backdrop = () => container.querySelector<HTMLElement>(
             ".include-note-body > .include-note-content + .include-note-backdrop"
@@ -307,16 +324,29 @@ describe("ContentEmbed", () => {
         expect(firstBackdrop).not.toBeNull();
         expect(box.tabIndex).toBe(-1);
         expect(isActive()).toBe(false);
-        if (!firstBackdrop) return;
+        if (!firstBackdrop || !text || !viewer || !image) return;
 
-        click(firstBackdrop);
-        expect(document.activeElement).toBe(box);
+        // What takes the focus under the pointer gets it, as it would from a click on it.
+        const elementsFromPoint = stubElementsFromPoint([ firstBackdrop, image, viewer, box ]);
+        act(() => {
+            firstBackdrop.dispatchEvent(new MouseEvent("click", { clientX: 40, clientY: 30 }));
+        });
+        expect(elementsFromPoint).toHaveBeenCalledWith(40, 30);
+        expect(document.activeElement).toBe(viewer);
         expect(backdrop()).toBeNull();
         expect(isActive()).toBe(true);
 
-        act(() => box.blur());
+        act(() => viewer.blur());
         await vi.waitFor(() => expect(backdrop()).not.toBeNull());
         expect(isActive()).toBe(false);
+
+        // Over text, the content box takes it.
+        const secondBackdrop = backdrop();
+        if (!secondBackdrop) return;
+        stubElementsFromPoint([ secondBackdrop, text, box ]);
+        click(secondBackdrop);
+        expect(document.activeElement).toBe(box);
+        expect(isActive()).toBe(true);
     });
 });
 
