@@ -102,7 +102,7 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, openOnEnter, onPick, keepOpenOnPick, renderItem, leading, trailing, autoActivate, isHeading, dropdownMinWidth, inputRef, onFocus, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, openOnEnter, onPick, keepOpenOnPick, renderItem, leading, trailing, autoActivate, isHeading, dropdownMinWidth, inputRef, onFocus, onBlur, onKeyDown, onCompositionStart, onCompositionEnd, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
@@ -171,6 +171,14 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             onKeyDown={(e) => {
                 autocomplete.handleKeyDown(e);
                 onKeyDown?.(e);
+            }}
+            onCompositionStart={(e) => {
+                autocomplete.handleCompositionStart();
+                onCompositionStart?.(e);
+            }}
+            onCompositionEnd={(e) => {
+                autocomplete.handleCompositionEnd();
+                onCompositionEnd?.(e);
             }}
             {...autocomplete.comboboxProps}
         />
