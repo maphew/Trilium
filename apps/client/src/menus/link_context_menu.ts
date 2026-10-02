@@ -151,7 +151,8 @@ function handleLinkContextMenuItem(command: string | undefined, e: LinkMenuOrigi
 
 /**
  * The actions on the attachment a link points to, each group after a separator. A menu opened on
- * an embed of it has the commands of the embed after the first group.
+ * an embed of it has the commands of the embed after the first group. A menu opened in a note shown
+ * read-only has only the actions that leave the attachment unchanged.
  */
 async function getAttachmentItems(
     noteId: string,
@@ -161,15 +162,17 @@ async function getAttachmentItems(
     embed: MenuEmbed | null
 ): Promise<MenuItem<CommandNames>[]> {
     // Imported on demand: `attachment_actions` imports `link`, which imports this module.
-    const [ attachment, { getAttachmentActionGroups } ] = await Promise.all([
+    const [ attachment, { getAttachmentActionGroups }, isReadOnly ] = await Promise.all([
         froca.getAttachmentOfNote(noteId, attachmentId),
-        import("../services/attachment_actions.js")
+        import("../services/attachment_actions.js"),
+        isInReadOnlyNote(getTarget(e))
     ]);
     if (!attachment) {
         return [];
     }
 
-    const [ firstGroup = [], ...otherGroups ] = getAttachmentActionGroups(attachment)
+    const actionGroups = getAttachmentActionGroups(attachment, { isReadOnly });
+    const [ firstGroup = [], ...otherGroups ] = actionGroups
         .map((group) => group.map((action): MenuItem<CommandNames> => ({
             title: action.title,
             uiIcon: action.icon,
@@ -305,6 +308,19 @@ function getConvertToLinkItem(embed: MenuEmbed): MenuItem<CommandNames> | null {
 
 function getTarget(e: LinkMenuOrigin) {
     return e.target instanceof Element ? e.target : null;
+}
+
+/**
+ * Whether `element` is in a split pane whose note is shown read-only, by its `#readOnly` label or
+ * by its size.
+ */
+async function isInReadOnlyNote(element: Element | null) {
+    const ntxId = element instanceof HTMLElement ? getClosestNtxId(element) : null;
+    const noteContext = ntxId
+        ? appContext.tabManager.getNoteContexts().find((context) => context.ntxId === ntxId)
+        : null;
+
+    return (await noteContext?.isReadOnly()) ?? false;
 }
 
 /** The text editor containing `element`, or `null` when there is none or it is read-only. */

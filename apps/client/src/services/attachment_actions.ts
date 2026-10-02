@@ -28,6 +28,8 @@ export interface AttachmentAction {
 export interface AttachmentActionOptions {
     /** Copies a reference to the attachment. Without it, the actions offer no copy. */
     copyReference?: () => void | Promise<void>;
+    /** Leaves out the actions that change the attachment, for a note shown read-only. */
+    isReadOnly?: boolean;
 }
 
 /**
@@ -36,39 +38,54 @@ export interface AttachmentActionOptions {
  */
 export function getAttachmentActionGroups(
     attachment: FAttachment,
-    { copyReference }: AttachmentActionOptions = {}
+    { copyReference, isReadOnly = false }: AttachmentActionOptions = {}
 ): AttachmentAction[][] {
+    const viewActions = getViewActions(attachment, copyReference);
+    return isReadOnly ? [ viewActions ] : [ viewActions, ...getEditActionGroups(attachment) ];
+}
+
+/** The actions that leave the attachment unchanged. */
+function getViewActions(
+    attachment: FAttachment,
+    copyReference: AttachmentActionOptions["copyReference"]
+): AttachmentAction[] {
     const { attachmentId, mime } = attachment;
 
     return [
-        [
-            getOpenExternallyAction(attachment),
-            {
-                title: t("attachments_actions.open_custom"),
-                tooltip: t("attachments_actions.open_custom_title"),
-                icon: "bx bx-customize",
-                disabledReason: utils.isElectron()
-                    ? undefined
-                    : t("attachments_actions.open_custom_client_only"),
-                run: () => open.openAttachmentCustom(attachmentId, mime)
-            },
-            getDownloadAction(attachment),
-            ...(copyReference ? [ {
-                title: t("attachments_actions.copy_link_to_clipboard"),
-                icon: "bx bx-copy",
-                run: copyReference
-            } ] : []),
-            ...(supportsOcr(attachment) ? [ {
-                title: t("ocr.view_extracted_text"),
-                icon: "bx bx-text",
-                run: () => {
-                    appContext.triggerCommand("showOcrTextDialog", {
-                        textUrl: `ocr/attachments/${attachmentId}/text`,
-                        processUrl: `ocr/process-attachment/${attachmentId}`
-                    });
-                }
-            } ] : [])
-        ],
+        getOpenExternallyAction(attachment),
+        {
+            title: t("attachments_actions.open_custom"),
+            tooltip: t("attachments_actions.open_custom_title"),
+            icon: "bx bx-customize",
+            disabledReason: utils.isElectron()
+                ? undefined
+                : t("attachments_actions.open_custom_client_only"),
+            run: () => open.openAttachmentCustom(attachmentId, mime)
+        },
+        getDownloadAction(attachment),
+        ...(copyReference ? [ {
+            title: t("attachments_actions.copy_link_to_clipboard"),
+            icon: "bx bx-copy",
+            run: copyReference
+        } ] : []),
+        ...(supportsOcr(attachment) ? [ {
+            title: t("ocr.view_extracted_text"),
+            icon: "bx bx-text",
+            run: () => {
+                appContext.triggerCommand("showOcrTextDialog", {
+                    textUrl: `ocr/attachments/${attachmentId}/text`,
+                    processUrl: `ocr/process-attachment/${attachmentId}`
+                });
+            }
+        } ] : [])
+    ];
+}
+
+/** The actions that change, delete or convert the attachment, in their groups. */
+function getEditActionGroups(attachment: FAttachment): AttachmentAction[][] {
+    const { attachmentId, mime } = attachment;
+
+    return [
         [
             {
                 title: t("attachments_actions.upload_new_revision"),

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     activeNtxId: "ntx-active" as string | null,
     /** False when no tab is open at all, which leaves both the hoisting and the split unresolvable. */
     hasActiveContext: true,
+    noteContexts: [] as { ntxId: string; isReadOnly: () => Promise<boolean> }[],
     getAttachmentOfNote: vi.fn(),
     getAttachmentActionGroups: vi.fn(),
     getTextEditorContaining: vi.fn(),
@@ -60,7 +61,8 @@ vi.mock("../components/app_context", () => ({
                 : undefined,
             getNoteContextById: () => ({
                 getMainContext: () => ({ getSubContexts: () => mocks.subContexts })
-            })
+            }),
+            getNoteContexts: () => mocks.noteContexts
         }
     }
 }));
@@ -85,6 +87,7 @@ beforeEach(() => {
     mocks.subContexts = [ { ntxId: "ntx-first" }, { ntxId: "ntx-last" } ];
     mocks.activeNtxId = "ntx-active";
     mocks.hasActiveContext = true;
+    mocks.noteContexts = [];
     mocks.getAttachmentOfNote.mockResolvedValue(null);
 });
 
@@ -257,7 +260,9 @@ describe("openContextMenu", () => {
         await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(), VIEW_SCOPE);
 
         expect(mocks.getAttachmentOfNote).toHaveBeenCalledWith("n1", "att-1");
-        expect(mocks.getAttachmentActionGroups).toHaveBeenCalledWith(attachment);
+        expect(mocks.getAttachmentActionGroups).toHaveBeenCalledWith(attachment, {
+            isReadOnly: false
+        });
         const { items } = mocks.show.mock.calls[0][0];
         expect(items.slice(4)).toMatchObject([
             { kind: "separator" },
@@ -268,6 +273,28 @@ describe("openContextMenu", () => {
 
         items[5].handler();
         expect(download).toHaveBeenCalledOnce();
+    });
+
+    it("asks for the actions of a read-only note in a pane showing one", async () => {
+        const attachment = { attachmentId: "att-1" };
+        mocks.getAttachmentOfNote.mockResolvedValue(attachment);
+        mocks.getAttachmentActionGroups.mockReturnValue([]);
+        mocks.noteContexts = [
+            { ntxId: "ntx-read-only", isReadOnly: async () => true },
+            { ntxId: "ntx-editable", isReadOnly: async () => false }
+        ];
+        const event = contextMenuEvent(document.createElement("div"));
+
+        for (const ntxId of [ "ntx-read-only", "ntx-editable", null ]) {
+            mocks.getClosestNtxId.mockReturnValue(ntxId);
+            await linkContextMenu.openContextMenu("root/n1", event, VIEW_SCOPE);
+        }
+
+        expect(mocks.getAttachmentActionGroups.mock.calls).toEqual([
+            [ attachment, { isReadOnly: true } ],
+            [ attachment, { isReadOnly: false } ],
+            [ attachment, { isReadOnly: false } ]
+        ]);
     });
 
     it("ends with converting an attachment link to an embed, only in a note being edited", async () => {
