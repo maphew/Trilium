@@ -364,6 +364,12 @@ function NoteSuggestionList({ autocomplete, searchingFor }: {
                             <NoteSuggestion suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
                         </div>
                     )}
+                    {searchingFor === undefined && listsNoNote(autocomplete.items) && <>
+                        <div className="aa-suggestion disabled">
+                            <NoteSuggestion suggestion={noNotesRow()} />
+                        </div>
+                        <div className="note-suggestion-separator" role="separator" />
+                    </>}
                     {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
                         startsGroup(autocomplete.items, index) && <div key={`separator-${index}`} className="note-suggestion-separator" role="separator" />,
                         <div
@@ -405,6 +411,12 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
                     <NoteSuggestionMenuItem suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
                 </li>
             )}
+            {searchingFor === undefined && listsNoNote(autocomplete.items) && <>
+                <li className="dropdown-item disabled">
+                    <NoteSuggestionMenuItem suggestion={noNotesRow()} />
+                </li>
+                <FormDropdownDivider />
+            </>}
             {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
                 startsGroup(autocomplete.items, index) && <FormDropdownDivider key={`divider-${index}`} />,
                 <li
@@ -515,6 +527,19 @@ function createWhenNoNote(items: Suggestion[]) {
     return items.some((suggestion) => rowGroup(suggestion) === "note")
         ? -1
         : items.findIndex((suggestion) => suggestion.action === "create-note");
+}
+
+/**
+ * Whether a query listed rows but no note, so that the search and creation rows do not read as notes
+ * on their own: the lists then open with a disabled row saying so.
+ */
+function listsNoNote(items: Suggestion[]) {
+    return items.length > 0 && !items.some((suggestion) => rowGroup(suggestion) === "note");
+}
+
+/** The disabled row opening a list that holds no note, built when rendered so that it is translated. */
+function noNotesRow(): Suggestion {
+    return { icon: "bx bx-info-circle", highlightedNotePathTitle: t("quick-search.no-results") };
 }
 
 /** Whether a line goes above the row at `index`: the first of a group, after the rows of another. */

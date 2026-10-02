@@ -672,6 +672,35 @@ describe("NoteAutocomplete's suggestion list", () => {
             expect(allRows().at(-1)?.classList.contains("tn-menu-active")).toBe(true);
         });
 
+        it("says no note matched ahead of the rows acting on the query, in both kinds of list", async () => {
+            getNoteSuggestions.mockResolvedValue([ searchRow, createRow ]);
+            const input = await mount();
+            await type(input, "New");
+
+            const menu = document.querySelector(".note-autocomplete-menu .tn-menu-scroll");
+            const first = menu?.firstElementChild;
+            expect(first?.classList.contains("disabled")).toBe(true);
+            expect(first?.getAttribute("role")).toBeNull();
+            expect(first?.querySelector(".bx-info-circle")).not.toBeNull();
+            expect(first?.nextElementSibling?.className).toBe("dropdown-divider");
+            // Not a row the keys reach: the list still opens on creating the note.
+            expect(allRows().find((row) => row.classList.contains("tn-menu-active"))?.querySelector(".bx-plus")).not.toBeNull();
+
+            const host = document.createElement("div");
+            document.body.append(host);
+            const contained = await mount({ container: { current: host } });
+            await type(contained, "New");
+            const firstContained = host.querySelector(".aa-suggestions")?.firstElementChild;
+            expect(firstContained?.classList.contains("disabled")).toBe(true);
+            expect(firstContained?.nextElementSibling?.className).toBe("note-suggestion-separator");
+            host.remove();
+
+            // A list with notes needs no such row.
+            getNoteSuggestions.mockResolvedValue([ ...notes, createRow ]);
+            await type(input, "al");
+            expect(document.querySelector(".note-autocomplete-menu .tn-menu-scroll > .disabled")).toBeNull();
+        });
+
         it("opens on creating the note when no note matches, past the search rows ahead of it", async () => {
             getNoteSuggestions.mockResolvedValue([ searchRow, createRow ]);
             const input = await mount();
@@ -713,9 +742,11 @@ describe("NoteAutocomplete's suggestion list", () => {
             const input = await mount({ onChange });
             await type(input, "al");
 
-            expect(rows()[0].querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
-            // No notes above the search rows to set them apart from.
-            expect(document.querySelector(".note-autocomplete-menu .dropdown-divider")).toBeNull();
+            expect(allRows().find((row) => row.querySelector(".bx-file-find"))?.querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
+            // One line, under the row saying no note matched.
+            const dividers = document.querySelectorAll(".note-autocomplete-menu .dropdown-divider");
+            expect(dividers).toHaveLength(1);
+            expect(dividers[0].previousElementSibling?.classList.contains("disabled")).toBe(true);
             // Past the full-text search row ahead of it.
             await press(input, "ArrowDown");
             await press(input, "Enter");

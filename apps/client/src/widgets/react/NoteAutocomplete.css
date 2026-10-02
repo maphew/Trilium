@@ -104,6 +104,12 @@ span.aa-dropdown-menu .aa-suggestion {
         color: var(--suggestion-active-text-color);
         background-color: var(--suggestion-active-background-color);
     }
+
+    /* A row saying something about the list, not one to pick. */
+    &.disabled {
+        cursor: default;
+        color: var(--muted-text-color);
+    }
 }
 
 span.aa-dropdown-menu .note-suggestion-separator {
