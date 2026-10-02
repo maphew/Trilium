@@ -236,6 +236,11 @@ interface UseAutocompleteOptions<T> {
     keepOpenOnPick?: boolean | ((item: T) => boolean);
     /** See {@link FormAutocompleteProps.autoActivate}. */
     autoActivate?: boolean;
+    /**
+     * The entry `autoActivate` opens the list on when none matches the query, in place of the first
+     * one that can be taken. A negative index falls back to that first one.
+     */
+    fallbackIndex?(items: T[]): number;
     /** See {@link FormAutocompleteProps.isHeading}. */
     isHeading?(item: T): boolean;
     /** The text of an entry, which `autoActivate` matches against the query. Defaults to `String(item)`. */
@@ -256,7 +261,7 @@ interface UseAutocompleteOptions<T> {
  * field's events to the `handle*` functions. Entries are fetched while the list is open, debounced
  * or paced by `schedule`, and a response to a superseded query is discarded.
  */
-export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, openOnFocus, openOnEnter, keepOpenOnPick, autoActivate, isHeading, textOf = String, schedule }: UseAutocompleteOptions<T>) {
+export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, openOnFocus, openOnEnter, keepOpenOnPick, autoActivate, fallbackIndex, isHeading, textOf = String, schedule }: UseAutocompleteOptions<T>) {
     const [ isOpen, setIsOpen ] = useState(false);
     // What an input method is composing is not yet what the user means, so nothing is looked up for
     // it until the composition ends.
@@ -312,7 +317,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             if (latestQuery.current === queryId) {
                 setItems(suggestions);
                 scrollToActive.current = true;
-                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf) : -1);
+                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, query, isHeading, textOf, fallbackIndex) : -1);
             }
         };
 
@@ -323,7 +328,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
 
         const timeout = setTimeout(lookUp, DEBOUNCE_MS);
         return () => clearTimeout(timeout);
-    }, [ isOpen, isComposing, query, source, autoActivate, isHeading, textOf, schedule ]);
+    }, [ isOpen, isComposing, query, source, autoActivate, fallbackIndex, isHeading, textOf, schedule ]);
 
     // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
     // bottom of a list taller than the room the dropdown was given.
@@ -436,17 +441,19 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
 }
 
 /**
- * Which entry a list opens on: the one the field's text names, or the first that can be taken, so
- * that a field whose text stands for a choice already made opens on it and one being typed into
- * opens on its best candidate. Matched the way the sources filter — ignoring case and surrounding
- * space.
+ * Which entry a list opens on: the one the field's text names, or else the one `fallbackIndex` picks or
+ * the first that can be taken, so that a field whose text stands for a choice already made opens on it
+ * and one being typed into opens on its best candidate. Matched the way the sources filter — ignoring
+ * case and surrounding space.
  */
-function bestMatchIndex<T>(items: T[], text: string, isHeading: ((item: T) => boolean) | undefined, textOf: (item: T) => string) {
+function bestMatchIndex<T>(items: T[], text: string, isHeading: ((item: T) => boolean) | undefined, textOf: (item: T) => string, fallbackIndex?: (items: T[]) => number) {
     const canBeTaken = (item: T) => !isHeading?.(item);
     const trimmed = text.trim().toLowerCase();
     const exact = items.findIndex((item) => canBeTaken(item) && textOf(item).toLowerCase() === trimmed);
 
-    return exact >= 0 ? exact : items.findIndex(canBeTaken);
+    if (exact >= 0) return exact;
+    const fallback = fallbackIndex?.(items) ?? -1;
+    return fallback >= 0 ? fallback : items.findIndex(canBeTaken);
 }
 
 /**

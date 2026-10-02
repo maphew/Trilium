@@ -48,6 +48,10 @@ export interface Options {
  */
 async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNotes = true): Promise<MentionFeedObjectItem[]> {
     const rows = await getNoteSuggestions(queryText, { allowCreatingNotes });
+    // The creation rows go first here: the mention list renders only the first
+    // `mention.dropdownLimit` items, which a long result list would push them past.
+    const isCreation = (row: Suggestion) => row.action === "create-note" || row.action === "create-child-note";
+    rows.sort((a, b) => Number(isCreation(b)) - Number(isCreation(a)));
 
     return rows.map((row) => ({
         action: row.action,
@@ -62,7 +66,7 @@ async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNot
 }
 
 export interface NoteSuggestionOptions {
-    /** Adds the two note-creation rows ahead of the notes, for a non-blank term. */
+    /** Adds the two note-creation rows last, after the notes and the search row, for a non-blank term. */
     allowCreatingNotes?: boolean;
     /** Adds a row that runs a search for a non-blank term, after the notes. */
     allowJumpToSearchNotes?: boolean;
@@ -95,10 +99,17 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
         });
     }
 
-    // Both rows stay above the results: the CKEditor mention feed renders only the first
-    // `mention.dropdownLimit` items.
+    if (hasTerm && allowJumpToSearchNotes) {
+        after.push({
+            action: "search-notes",
+            noteTitle: term,
+            highlightedNotePathTitle: t("note_autocomplete.show-in-full-search", { term: escapeHtml(term) })
+        });
+    }
+
+    // Last, so that Up from the first note reaches them first; the search rows have keys of their own.
     if (pendingInboxTarget) {
-        before.push({
+        after.push({
             action: "create-note",
             noteTitle: term,
             highlightedNotePathTitle: buildCreateNoteTitle(term, await pendingInboxTarget)
@@ -107,14 +118,6 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
             noteTitle: term,
             parentNoteId: activeNoteId || "root",
             highlightedNotePathTitle: t("note_autocomplete.create-child-note", { term: escapeHtml(term) })
-        });
-    }
-
-    if (hasTerm && allowJumpToSearchNotes) {
-        after.push({
-            action: "search-notes",
-            noteTitle: term,
-            highlightedNotePathTitle: t("note_autocomplete.show-in-full-search", { term: escapeHtml(term) })
         });
     }
 

@@ -76,22 +76,22 @@ describe("getNoteSuggestions", () => {
         expect(getInboxTarget).not.toHaveBeenCalled();
     });
 
-    it("places both creation rows above the results", async () => {
+    it("places both creation rows last, after the results", async () => {
         server.get = vi.fn(async () => [ { noteTitle: "Existing", notePath: "root/y" } ]) as typeof server.get;
 
         const rows = await getNoteSuggestions("New", { allowCreatingNotes: true });
-        expect(rows.map((r) => r.action)).toEqual([ "create-note", "create-child-note", undefined ]);
-        expect(rows.map((r) => r.noteTitle)).toEqual([ "New", "New", "Existing" ]);
+        expect(rows.map((r) => r.action)).toEqual([ undefined, "create-note", "create-child-note" ]);
+        expect(rows.map((r) => r.noteTitle)).toEqual([ "Existing", "New", "New" ]);
         // The inbox is resolved when the row is picked, so the row carries no parent.
-        expect(rows[0].parentNoteId).toBeUndefined();
-        expect(rows[1].parentNoteId).toBe("activeNote");
+        expect(rows[1].parentNoteId).toBeUndefined();
+        expect(rows[2].parentNoteId).toBe("activeNote");
     });
 
     it("uses root as the child-note parent when there is no active note", async () => {
         getActiveContextNoteId.mockReturnValue(null);
 
         const rows = await getNoteSuggestions("New", { allowCreatingNotes: true });
-        expect(rows[1]).toMatchObject({ action: "create-child-note", parentNoteId: "root" });
+        expect(rows.find((r) => r.action === "create-child-note")).toMatchObject({ parentNoteId: "root" });
     });
 
     it("adds no creation rows for a blank term", async () => {
@@ -141,14 +141,14 @@ describe("getNoteSuggestions", () => {
         expect(logError).toHaveBeenCalledWith(expect.stringContaining("nope"));
     });
 
-    it("adds the external-link row first for a URL, and the search row last for any term", async () => {
+    it("adds the external-link row first for a URL, and the search row after the notes for any term", async () => {
         server.get = vi.fn(async () => [ { noteTitle: "A", notePath: "root/a" } ]) as typeof server.get;
         const all = { allowCreatingNotes: true, allowJumpToSearchNotes: true, allowExternalLinks: true };
 
         const rows = await getNoteSuggestions("https://example.com/x", all);
-        expect(rows.map((r) => r.action)).toEqual([ "external-link", "create-note", "create-child-note", undefined, "search-notes" ]);
+        expect(rows.map((r) => r.action)).toEqual([ "external-link", undefined, "search-notes", "create-note", "create-child-note" ]);
         expect(rows[0]).toMatchObject({ externalLink: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.insert-external-link" });
-        expect(rows[4]).toMatchObject({ noteTitle: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.show-in-full-search" });
+        expect(rows[2]).toMatchObject({ noteTitle: "https://example.com/x", highlightedNotePathTitle: "note_autocomplete.show-in-full-search" });
 
         // Not a URL, and a blank term: neither row is offered.
         expect((await getNoteSuggestions("plain", all)).map((r) => r.action)).not.toContain("external-link");

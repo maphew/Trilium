@@ -4,7 +4,7 @@ import "./NoteAutocomplete.css";
 import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
 import { type RefObject, render } from "preact";
-import { createPortal, type CSSProperties, Fragment } from "preact/compat";
+import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
@@ -141,6 +141,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         disabled: readOnly,
         autoActivate: true,
         textOf: suggestionText,
+        fallbackIndex: createWhenNoNote,
         // The row runs the search again over the notes' content, into the same list.
         keepOpenOnPick: (suggestion) => suggestion.action === "full-text-search",
         schedule
@@ -363,21 +364,20 @@ function NoteSuggestionList({ autocomplete, searchingFor }: {
                             <NoteSuggestion suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
                         </div>
                     )}
-                    {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
-                        <Fragment key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}>
-                            {startsSearchRows(autocomplete.items, index) && <div className="note-suggestion-separator" role="separator" />}
-                            <div
-                                id={autocomplete.itemId(index)}
-                                className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
-                                role="option"
-                                aria-selected={index === autocomplete.activeIndex}
-                                onMouseMove={(e) => autocomplete.hover(index, e)}
-                                onClick={() => autocomplete.pick(suggestion)}
-                            >
-                                <NoteSuggestion suggestion={suggestion} />
-                            </div>
-                        </Fragment>
-                    ))}
+                    {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
+                        startsGroup(autocomplete.items, index) && <div key={`separator-${index}`} className="note-suggestion-separator" role="separator" />,
+                        <div
+                            key={suggestionKey(suggestion, index)}
+                            id={autocomplete.itemId(index)}
+                            className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
+                            role="option"
+                            aria-selected={index === autocomplete.activeIndex}
+                            onMouseMove={(e) => autocomplete.hover(index, e)}
+                            onClick={() => autocomplete.pick(suggestion)}
+                        >
+                            <NoteSuggestion suggestion={suggestion} />
+                        </div>
+                    ])}
                 </span>
             </div>
         </span>
@@ -405,21 +405,20 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
                     <NoteSuggestionMenuItem suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
                 </li>
             )}
-            {searchingFor === undefined && autocomplete.items.map((suggestion, index) => (
-                <Fragment key={`${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`}>
-                    {startsSearchRows(autocomplete.items, index) && <FormDropdownDivider />}
-                    <li
-                        id={autocomplete.itemId(index)}
-                        className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
-                        role="option"
-                        aria-selected={index === autocomplete.activeIndex}
-                        onMouseMove={(e) => autocomplete.hover(index, e)}
-                        onClick={() => autocomplete.pick(suggestion)}
-                    >
-                        <NoteSuggestionMenuItem suggestion={suggestion} />
-                    </li>
-                </Fragment>
-            ))}
+            {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
+                startsGroup(autocomplete.items, index) && <FormDropdownDivider key={`divider-${index}`} />,
+                <li
+                    key={suggestionKey(suggestion, index)}
+                    id={autocomplete.itemId(index)}
+                    className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
+                    role="option"
+                    aria-selected={index === autocomplete.activeIndex}
+                    onMouseMove={(e) => autocomplete.hover(index, e)}
+                    onClick={() => autocomplete.pick(suggestion)}
+                >
+                    <NoteSuggestionMenuItem suggestion={suggestion} />
+                </li>
+            ])}
         </menu>
     );
 }
@@ -491,13 +490,40 @@ function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
     );
 }
 
-/** Whether a line goes above the row at `index`: the first of the rows searching for the query, after a note. */
-function startsSearchRows(items: Suggestion[], index: number) {
-    return index > 0 && isSearchRow(items[index]) && !isSearchRow(items[index - 1]);
+/**
+ * Which group of the list a row belongs to: the notes (with an external link or a command), the
+ * rows searching further for the query, or the rows creating a note from it.
+ */
+function rowGroup(suggestion: Suggestion) {
+    switch (suggestion.action) {
+        case "full-text-search":
+        case "search-notes":
+            return "search";
+        case "create-note":
+        case "create-child-note":
+            return "create";
+        default:
+            return "note";
+    }
 }
 
-function isSearchRow(suggestion: Suggestion) {
-    return suggestion.action === "full-text-search" || suggestion.action === "search-notes";
+/**
+ * With no note to open, the list opens on creating one rather than on the search rows ahead of it, so
+ * Enter still makes the note a title names. Negative, for the first row, while there are notes.
+ */
+function createWhenNoNote(items: Suggestion[]) {
+    return items.some((suggestion) => rowGroup(suggestion) === "note")
+        ? -1
+        : items.findIndex((suggestion) => suggestion.action === "create-note");
+}
+
+/** Whether a line goes above the row at `index`: the first of a group, after the rows of another. */
+function startsGroup(items: Suggestion[], index: number) {
+    return index > 0 && rowGroup(items[index]) !== rowGroup(items[index - 1]);
+}
+
+function suggestionKey(suggestion: Suggestion, index: number) {
+    return `${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`;
 }
 
 function suggestionIcon(suggestion: Suggestion) {
@@ -545,8 +571,9 @@ function withFullTextSearchRow(rows: Suggestion[], query: string): Suggestion[] 
         noteTitle: query,
         highlightedNotePathTitle: t("note_autocomplete.include-note-contents", { term: escapeHtml(query) })
     };
-    const last = rows.at(-1);
-    return last?.action === "search-notes" ? [ ...rows.slice(0, -1), row, last ] : [ ...rows, row ];
+    // Right after the notes: ahead of the row opening the full search and of the creation rows.
+    const at = rows.findIndex((suggestion) => rowGroup(suggestion) !== "note");
+    return at < 0 ? [ ...rows, row ] : [ ...rows.slice(0, at), row, ...rows.slice(at) ];
 }
 
 /**

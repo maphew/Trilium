@@ -654,6 +654,33 @@ describe("NoteAutocomplete's suggestion list", () => {
             });
         });
 
+        it("opens on the first note, with the creation rows last and a line of their own", async () => {
+            getNoteSuggestions.mockResolvedValue([ ...notes, searchRow, createRow ]);
+            const input = await mount();
+            await type(input, "al");
+
+            expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+            const dividers = [ ...document.querySelectorAll(".note-autocomplete-menu .dropdown-divider") ];
+            expect(dividers).toHaveLength(2);
+            expect(dividers[0].nextElementSibling).toBe(fullTextRow());
+            expect(dividers[1].previousElementSibling?.querySelector(".bx-file-find")).not.toBeNull();
+            expect(dividers[1].nextElementSibling?.querySelector(".bx-plus")).not.toBeNull();
+
+            // Up from the first note wraps to the creation row, the search rows having keys of their own.
+            await press(input, "ArrowUp");
+            expect(allRows().at(-1)?.querySelector(".bx-plus")).not.toBeNull();
+            expect(allRows().at(-1)?.classList.contains("tn-menu-active")).toBe(true);
+        });
+
+        it("opens on creating the note when no note matches, past the search rows ahead of it", async () => {
+            getNoteSuggestions.mockResolvedValue([ searchRow, createRow ]);
+            const input = await mount();
+            await type(input, "New");
+
+            const active = allRows().find((row) => row.classList.contains("tn-menu-active"));
+            expect(active?.querySelector(".bx-plus")).not.toBeNull();
+        });
+
         it("sets both search rows apart from the notes with one line", async () => {
             getNoteSuggestions.mockResolvedValue([ ...notes, searchRow ]);
             const input = await mount();
