@@ -53,8 +53,11 @@ declare global {
         getAttachmentHref(attachmentId: string): Promise<string | null>;
         /** The note the editor holds. Hosts without a note of their own leave it out. */
         getNoteId?(): string | undefined;
-        /** The box size the user gives a new include. Hosts without includes leave it out. */
-        getIncludeNoteDefaultBoxSize?(): string;
+        /**
+         * The box size of a new embed of a file being uploaded, from its media type. Hosts without
+         * includes leave it out.
+         */
+        getEmbedBoxSize?(mime: string): string;
         /**
          * Reads a page's preview metadata through the host. Never rejects: any failure — network
          * error, HTTP error, unparseable page — resolves as `{ unresolved: true }` with

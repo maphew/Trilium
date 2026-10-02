@@ -11,12 +11,21 @@ An [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) ca
 
 ## Box sizes
 
-The box size sets how much of the included note is shown. Choose it in the dialog that includes the note, or later by selecting the include and using the _Box size_ menu in its toolbar. The size chosen in the dialog becomes the default for the next include.
+The box size sets how much of the included note is shown.
 
 *   _Tiny_ shows a single row instead of the content: the note's icon, its title with the path to the note above it, and buttons to act on the note.
 *   _Small_ and _Medium_ show the content in a box of limited height, which scrolls.
 *   _Full_ shows the whole content.
 *   _Expandable_ shows only the title until its <span class="tn-icon bx bx-chevron-right"></span> arrow is pressed.
+
+A new include gets the size that suits what it shows:
+
+*   _Tiny_ for a note or an attachment that has no preview, such as a relation map or an archive.
+*   _Small_ for audio.
+*   _Full_ for a code note.
+*   _Medium_ for anything else.
+
+The dialog that includes a note selects that size once the note is picked, and you can choose another one there. To change the size later, select the include and use the _Box size_ menu in its toolbar.
 
 ## Opening an included note
 

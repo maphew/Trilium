@@ -316,9 +316,6 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     seenCallToActions: string;
     experimentalFeatures: string;
 
-    // Include note settings
-    includeNoteDefaultBoxSize: "tiny" | "small" | "medium" | "full" | "expandable";
-
     // AI / LLM
     /** Whether the AI/LLM features (chat sidebar, LLM chat notes) are enabled. */
     aiEnabled: boolean;

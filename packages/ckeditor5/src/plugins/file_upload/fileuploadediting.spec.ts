@@ -593,7 +593,7 @@ describe("FileUploadEditing with embeds", () => {
         const loadIncludedAttachment = vi.fn();
         installGlobMock({
             getComponentByEl: () => ({
-                getIncludeNoteDefaultBoxSize: () => "small",
+                getEmbedBoxSize: () => "small",
                 loadIncludedAttachment
             })
         });

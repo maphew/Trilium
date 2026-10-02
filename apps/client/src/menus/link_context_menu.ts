@@ -3,10 +3,10 @@ import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import type { GeoMouseEvent } from "../widgets/collections/geomap/map.js";
 
 import appContext, { type CommandNames } from "../components/app_context.js";
+import type FAttachment from "../entities/fattachment.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import type { ViewScope } from "../services/link.js";
-import options from "../services/options.js";
 import utils, { isMobile } from "../services/utils.js";
 import { getClosestNtxId } from "../widgets/widget_utils.js";
 import contextMenu, {
@@ -159,27 +159,31 @@ async function getAttachmentItems(
         }))
     ]);
 
-    const conversionItems = [ getConvertToEmbedItem(e, editor), getConvertToLinkItem(e, editor) ]
+    const embedItem = await getConvertToEmbedItem(e, editor, attachment);
+    const conversionItems = [ embedItem, getConvertToLinkItem(e, editor) ]
         .filter((item) => item !== null);
     return [ ...actionItems, ...conversionItems ];
 }
 
 /** "Convert link to an embed", for an attachment link in a text note open for editing. */
-function getConvertToEmbedItem(
+async function getConvertToEmbedItem(
     e: ContextMenuEvent,
-    editor: CKTextEditor | null
-): MenuItem<CommandNames> | null {
+    editor: CKTextEditor | null,
+    attachment: FAttachment
+): Promise<MenuItem<CommandNames> | null> {
     const link = getTarget(e)?.closest<HTMLElement>("a.reference-link");
     if (!link || !editor?.commands.get("embedAttachmentLink")?.isEnabled) {
         return null;
     }
 
+    // Imported on demand: `content_renderer` imports `link`, which imports this module.
+    const { getIncludeBoxSize } = await import("../services/content_renderer.js");
     return {
         title: t("link_context_menu.convert_link_to_embed"),
         uiIcon: "bx bx-window-alt",
         handler: () => editor.execute("embedAttachmentLink", {
             domElement: link,
-            boxSize: options.get("includeNoteDefaultBoxSize")
+            boxSize: getIncludeBoxSize(attachment)
         })
     };
 }

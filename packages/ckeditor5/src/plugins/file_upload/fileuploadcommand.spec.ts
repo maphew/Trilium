@@ -146,9 +146,11 @@ describe("FileUploadCommand", () => {
         ));
     });
 
-    it("inserts an embed placeholder per file, each a block in the host's default size", () => {
+    it("inserts an embed placeholder per file, in the size the host gives its type", () => {
         installGlobMock({
-            getComponentByEl: () => ({ getIncludeNoteDefaultBoxSize: () => "expandable" })
+            getComponentByEl: () => ({
+                getEmbedBoxSize: (mime: string) => (mime === "image/png" ? "medium" : "tiny")
+            })
         });
         setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
 
@@ -162,15 +164,15 @@ describe("FileUploadCommand", () => {
 
         expect(getModelData(editor.model)).toMatch(new RegExp(
             "^<paragraph>foo</paragraph>" +
-            "<includeNote boxSize=\"expandable\" uploadFileName=\"a.txt\" uploadId=\"\\w+\">" +
+            "<includeNote boxSize=\"tiny\" uploadFileName=\"a.txt\" uploadId=\"\\w+\">" +
             "</includeNote>" +
-            "<includeNote boxSize=\"expandable\" uploadFileName=\"b.png\" uploadId=\"\\w+\">" +
+            "<includeNote boxSize=\"medium\" uploadFileName=\"b.png\" uploadId=\"\\w+\">" +
             "</includeNote>" +
             "<paragraph>\\[\\]bar</paragraph>$"
         ));
     });
 
-    it("sizes the embeds medium for a host that names no default size", () => {
+    it("sizes the embeds medium for a host that names no size", () => {
         installGlobMock({ getComponentByEl: () => ({}) });
         setModelData(editor.model, "<paragraph>[]</paragraph>");
 

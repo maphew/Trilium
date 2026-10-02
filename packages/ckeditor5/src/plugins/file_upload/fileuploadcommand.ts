@@ -24,7 +24,6 @@ export default class FileUploadCommand extends Command {
     override execute({ file: files, asEmbed }: FileUploadOptions) {
         const model = this.editor.model;
         const fileRepository = this.editor.plugins.get(FileRepository);
-        const boxSize = asEmbed ? getDefaultBoxSize(this.editor) : undefined;
 
         model.change((writer) => {
             for (const file of files) {
@@ -35,7 +34,8 @@ export default class FileUploadCommand extends Command {
                 }
 
                 uploadAsLink(loader);
-                if (boxSize) {
+                if (asEmbed) {
+                    const boxSize = getEmbedBoxSize(this.editor, file);
                     insertEmbedPlaceholder(writer, model, loader.id, file.name, boxSize);
                 } else {
                     insertPlaceholder(writer, model, loader.id, file.name);
@@ -75,8 +75,8 @@ function insertEmbedPlaceholder(
     model.insertObject(placeholder, model.document.selection, null, { setSelection: "after" });
 }
 
-/** The box size the user gives a new include, `medium` when the host does not say. */
-function getDefaultBoxSize(editor: Editor) {
+/** The box size the host gives an embed of `file`, `medium` when the host does not say. */
+function getEmbedBoxSize(editor: Editor, file: File) {
     const component = glob.getComponentByEl<EditorComponent>(editor.editing.view.getDomRoot());
-    return component.getIncludeNoteDefaultBoxSize?.() ?? "medium";
+    return component.getEmbedBoxSize?.(file.type) ?? "medium";
 }

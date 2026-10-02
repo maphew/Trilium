@@ -2,6 +2,7 @@ import "./content_renderer.css";
 
 import {
     attachmentIcon,
+    isAcceptedImageMime,
     isImageAttachmentRole,
     isOfficeMimeType,
     normalizeMimeTypeForCKEditor,
@@ -16,6 +17,7 @@ import imageContextMenuService from "../menus/image_context_menu.js";
 import { t } from "../services/i18n.js";
 import { type MediaEnvironment, showsFileActions } from "../widgets/type_widgets/file/media_environment.js";
 import type { LlmChatContent, StoredMessage } from "../widgets/type_widgets/llm_chat/llm_chat_types.js";
+import type { BoxSize } from "../widgets/type_widgets/text/CKEditorWithWatchdog.js";
 import renderText, { postProcessRichContent, renderChildrenList } from "./content_renderer_text.js";
 import renderDoc from "./doc_renderer.js";
 import { getMermaidConfig, postprocessMermaidSvg } from "./mermaid.js";
@@ -82,6 +84,15 @@ export interface RenderOptions {
 }
 
 const CODE_MIME_TYPES = new Set(["application/json"]);
+
+/**
+ * The content types that an interactive `getRenderedContent()` previews; it shows any other as an
+ * icon, or as the actions of a file. Keep in step with the branches there.
+ */
+const PREVIEWED_TYPES = new Set([
+    "book", "search", "text", "markdown", "code", "iconPack", "image", "canvas", "mindMap",
+    "spreadsheet", "office", "pdf", "audio", "video", "mermaid", "render", "doc", "llmChat"
+]);
 
 export async function getRenderedContent(this: {} | { ctx: string }, entity: FNote | FAttachment, options: RenderOptions = {}) {
 
@@ -660,52 +671,82 @@ async function showRenderError($content: JQuery<HTMLElement>, error: unknown, no
     }
 }
 
+/**
+ * The box size a new include of `entity` starts with: `tiny` when the include shows no preview of
+ * it, `small` for audio, `full` for code and `medium` for the rest.
+ */
+export function getIncludeBoxSize(entity: FNote | FAttachment): BoxSize {
+    const type = getContentType(entity);
+    const hasPreview = type === "webView"
+        ? entity instanceof FNote && entity.hasLabel("webViewSrc")
+        : PREVIEWED_TYPES.has(type);
+
+    return getBoxSize(type, hasPreview);
+}
+
+/** The box size of a new embed of a file being uploaded, from the attachment it becomes. */
+export function getUploadBoxSize(mime: string): BoxSize {
+    const type = isAcceptedImageMime(mime) ? "image" : getFileContentType("file", mime);
+    return getBoxSize(type, PREVIEWED_TYPES.has(type));
+}
+
+function getBoxSize(type: string, hasPreview: boolean): BoxSize {
+    if (!hasPreview) return "tiny";
+    if (type === "audio") return "small";
+    if (type === "code") return "full";
+    return "medium";
+}
+
 function getRenderingType(entity: FNote | FAttachment) {
-    let type: string = "";
-    if ("type" in entity) {
-        type = entity.type;
-    } else if ("role" in entity) {
-        type = entity.role;
-        // "importSource" attachments (e.g. the OneNote debug source HTML/InkML) are plain files kept
-        // for reference; render them exactly like a "file" role.
-        if (type === "importSource") {
-            type = "file";
-        } else if (isImageAttachmentRole(type)) {
-            // A link preview's "favicon" is a picture like any other as far as showing it goes; the
-            // role only says where it came from. Without this it would fall through to the unknown
-            // type and list as a file with no preview.
-            type = "image";
-        }
+    const type = getContentType(entity);
+    if (!entity.isProtected) {
+        return type;
     }
 
-    const mime = "mime" in entity && entity.mime;
-    const isIconPack = entity instanceof FNote && entity.isIconPack();
+    if (protectedSessionHolder.isProtectedSessionAvailable()) {
+        protectedSessionHolder.touchProtectedSession();
+        return type;
+    }
+    return "protectedSession";
+}
 
-    if (isIconPack) {
+/** The kind of content `entity` holds, from its note type or attachment role and its media type. */
+function getContentType(entity: FNote | FAttachment) {
+    if (entity instanceof FNote && entity.isIconPack()) {
         // Icon packs (JSON `code`/`file` notes with #iconPack) render as their glyph grid, not as raw JSON.
-        type = "iconPack";
-    } else if (type === "file" && mime === "application/pdf") {
-        type = "pdf";
-    } else if (type === "code" && entity instanceof FNote && entity.isMarkdown()) {
-        type = "markdown";
-    } else if ((type === "file" || type === "viewConfig") && mime && CODE_MIME_TYPES.has(mime)) {
-        type = "code";
-    } else if (type === "file" && mime && mime.startsWith("audio/")) {
-        type = "audio";
-    } else if (type === "file" && mime && mime.startsWith("video/")) {
-        type = "video";
-    } else if (type === "file" && mime && isOfficeMimeType(mime)) {
-        type = "office";
+        return "iconPack";
+    }
+    if (entity instanceof FNote && entity.isMarkdown()) {
+        return "markdown";
+    }
+    if ("type" in entity) {
+        return getFileContentType(entity.type, entity.mime);
+    }
+    if (!("role" in entity)) {
+        return "";
     }
 
-    if (entity.isProtected) {
-        if (protectedSessionHolder.isProtectedSessionAvailable()) {
-            protectedSessionHolder.touchProtectedSession();
-        } else {
-            type = "protectedSession";
-        }
+    // "importSource" attachments (e.g. the OneNote debug source HTML/InkML) are plain files kept
+    // for reference; render them exactly like a "file" role.
+    if (entity.role === "importSource") {
+        return getFileContentType("file", entity.mime);
     }
+    // A link preview's "favicon" is a picture like any other as far as showing it goes; the
+    // role only says where it came from. Without this it would fall through to the unknown
+    // type and list as a file with no preview.
+    if (isImageAttachmentRole(entity.role)) {
+        return "image";
+    }
+    return getFileContentType(entity.role, entity.mime);
+}
 
+/** Narrows a file, or a `viewConfig` attachment, to the kind of file its media type names. */
+function getFileContentType(type: string, mime: string) {
+    if (type === "file" && mime === "application/pdf") return "pdf";
+    if ((type === "file" || type === "viewConfig") && CODE_MIME_TYPES.has(mime)) return "code";
+    if (type === "file" && mime.startsWith("audio/")) return "audio";
+    if (type === "file" && mime.startsWith("video/")) return "video";
+    if (type === "file" && isOfficeMimeType(mime)) return "office";
     return type;
 }
 

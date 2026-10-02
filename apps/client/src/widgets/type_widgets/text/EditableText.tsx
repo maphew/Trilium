@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import { consumeBookmark } from "../../../services/bookmark_jump";
+import { getUploadBoxSize } from "../../../services/content_renderer";
 import dateNoteService from "../../../services/date_notes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -196,9 +197,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         getNoteId() {
             return note.noteId;
         },
-        getIncludeNoteDefaultBoxSize() {
-            return options.get("includeNoteDefaultBoxSize");
-        },
+        getEmbedBoxSize: getUploadBoxSize,
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {

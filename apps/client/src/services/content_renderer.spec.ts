@@ -111,7 +111,12 @@ vi.mock("@triliumnext/commons/src/lib/markdown_renderer", async (orig) => ({
 import appContext from "../components/app_context.js";
 import FAttachment from "../entities/fattachment.js";
 import { buildNote } from "../test/easy-froca.js";
-import { disposeInteractiveContent, getRenderedContent as rawGetRenderedContent } from "./content_renderer.js";
+import {
+    disposeInteractiveContent,
+    getIncludeBoxSize,
+    getRenderedContent as rawGetRenderedContent,
+    getUploadBoxSize
+} from "./content_renderer.js";
 import froca from "./froca.js";
 import server from "./server.js";
 
@@ -149,6 +154,54 @@ beforeEach(() => {
     vi.clearAllMocks();
     isProtectedSessionAvailable.mockReturnValue(false);
     (window as any).electronApi = undefined;
+});
+
+describe("getIncludeBoxSize", () => {
+    it("sizes an include by what it previews: none, audio, code or anything else", () => {
+        const protectedCode = buildNote({ title: "Secret", type: "code", mime: "text/javascript" });
+        protectedCode.isProtected = true;
+
+        expect([
+            buildNote({ title: "Map", type: "relationMap" }),
+            buildNote({ title: "Launcher", type: "launcher" }),
+            buildNote({ title: "Blank page", type: "webView" }),
+            buildNote({ title: "Archive", type: "file", mime: "application/zip" }),
+            buildAttachment({ role: "file", mime: "application/zip" }),
+            buildAttachment({ role: "canvasLibraryItem", mime: "application/json" })
+        ].map(getIncludeBoxSize)).toEqual(Array(6).fill("tiny"));
+
+        expect([
+            buildNote({ title: "Song", type: "file", mime: "audio/mpeg" }),
+            buildAttachment({ role: "file", mime: "audio/ogg" })
+        ].map(getIncludeBoxSize)).toEqual([ "small", "small" ]);
+
+        expect([
+            buildNote({ title: "Script", type: "code", mime: "text/javascript" }),
+            protectedCode,
+            buildAttachment({ role: "file", mime: "application/json" })
+        ].map(getIncludeBoxSize)).toEqual([ "full", "full", "full" ]);
+        expect(touchProtectedSession).not.toHaveBeenCalled();
+
+        expect([
+            buildNote({ title: "Text", type: "text" }),
+            buildNote({ title: "Readme", type: "code", mime: "text/x-markdown" }),
+            buildNote({ title: "Books", type: "book" }),
+            buildNote({ title: "Diagram", type: "mermaid" }),
+            buildNote({ title: "Site", type: "webView", "#webViewSrc": "https://example.com" }),
+            buildNote({ title: "Clip", type: "file", mime: "video/mp4" }),
+            buildAttachment({ role: "file", mime: "application/pdf" }),
+            buildAttachment({ role: "image", mime: "image/png" })
+        ].map(getIncludeBoxSize)).toEqual(Array(8).fill("medium"));
+    });
+
+    it("sizes an upload by its media type, as the attachment it becomes", () => {
+        expect([
+            "application/zip", "", "audio/mpeg", "application/json", "application/pdf",
+            "image/png", "video/mp4"
+        ].map(getUploadBoxSize)).toEqual([
+            "tiny", "tiny", "small", "full", "medium", "medium", "medium"
+        ]);
+    });
 });
 
 describe("getRenderedContent dispatch", () => {

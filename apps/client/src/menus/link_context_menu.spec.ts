@@ -16,14 +16,15 @@ const mocks = vi.hoisted(() => ({
     hasActiveContext: true,
     getAttachmentOfNote: vi.fn(),
     getAttachmentActionGroups: vi.fn(),
-    getTextEditorContaining: vi.fn()
+    getTextEditorContaining: vi.fn(),
+    getIncludeBoxSize: vi.fn()
 }));
 
 vi.mock("./text_editor_context_menu", () => ({
     getTextEditorContaining: mocks.getTextEditorContaining
 }));
 
-vi.mock("../services/options", () => ({ default: { get: () => "expandable" } }));
+vi.mock("../services/content_renderer", () => ({ getIncludeBoxSize: mocks.getIncludeBoxSize }));
 
 vi.mock("./context_menu", () => ({ default: { show: mocks.show } }));
 
@@ -256,7 +257,9 @@ describe("openContextMenu", () => {
 
     it("ends with converting an attachment link to an embed, only in a note being edited", async () => {
         const execute = vi.fn();
-        mocks.getAttachmentOfNote.mockResolvedValue({ attachmentId: "att-1" });
+        const attachment = { attachmentId: "att-1" };
+        mocks.getAttachmentOfNote.mockResolvedValue(attachment);
+        mocks.getIncludeBoxSize.mockReturnValue("small");
         mocks.getAttachmentActionGroups.mockReturnValue([
             [ { title: "Download", icon: "bx bx-download", run: vi.fn() } ]
         ]);
@@ -280,9 +283,10 @@ describe("openContextMenu", () => {
             { title: "link_context_menu.convert_link_to_embed" }
         ]);
         items.at(-1).handler();
+        expect(mocks.getIncludeBoxSize).toHaveBeenCalledWith(attachment);
         expect(execute).toHaveBeenCalledWith("embedAttachmentLink", {
             domElement: link,
-            boxSize: "expandable"
+            boxSize: "small"
         });
 
         editable.removeAttribute("contenteditable");
