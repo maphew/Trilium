@@ -61,7 +61,7 @@ function toMarkdown(content: string, options: ToMarkdownOptions = {}) {
             codeBlockStyle: "fenced",
             headerlessTables,
             blankReplacement(_content, node) {
-                if (node.nodeName === "SECTION" && node.classList.contains("include-note")) {
+                if (isContentEmbed(node)) {
                     return node.outerHTML;
                 }
 
@@ -293,13 +293,19 @@ function buildInlineLinkFilter(): Rule {
 function buildFigureFilter(): Rule {
     return {
         filter(node, options) {
-            return node.nodeName === 'FIGURE'
-                && node.classList.contains("image");
+            return (node.nodeName === "FIGURE" && node.classList.contains("image"))
+                || isContentEmbed(node);
         },
         replacement(content, node) {
             return (node as HTMLElement).outerHTML;
         }
     };
+}
+
+/** Whether `node` is an embed. Embeds saved before captions existed are `<section>`s. */
+function isContentEmbed(node: Pick<LinkPreviewNodeLike, "nodeName" | "classList">) {
+    return (node.nodeName === "FIGURE" || node.nodeName === "SECTION")
+        && node.classList.contains("include-note");
 }
 
 /**

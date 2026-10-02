@@ -329,7 +329,6 @@ const defaultOptions: DefaultOption[] = [
     // them is worse than their absence. See `textNoteHtmlSupportEnabled` for what turning it off costs.
     { name: "textNoteHtmlSupportEnabled", value: "false", isSynced: true },
     { name: "clipboardImageEmbedEnabled", value: "true", isSynced: true },
-    { name: "includeNoteDefaultBoxSize", value: "medium", isSynced: true },
 
     // HTML import configuration
     { name: "layoutOrientation", value: "vertical", isSynced: false },

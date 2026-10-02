@@ -45,7 +45,7 @@ import internalLinkIcon from "../../icons/trilium.svg?raw";
 import { ADMONITION_TYPE_NAMES, type AdmonitionType } from "../admonition/admonition_command.js";
 import { getAdmonitionTitle } from "../admonition/admonition_ui.js";
 import aiIcon from "../ai_assistant/theme/icons/ai.svg?raw";
-import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from "../includenote.js";
+import { COMMAND_NAME as CONTENT_EMBED_COMMAND } from "../content_embed/content_embed.js";
 import { INSERT_ICON_COMMAND } from "../inline_icon/inline_icon_editing.js";
 import InlineIconUI from "../inline_icon/inline_icon_ui.js";
 import InsertDateTimePlugin, { COMMAND_NAME as INSERT_DATE_TIME_COMMAND, getDateTimeFormatOptions } from "../insert_date_time.js";
@@ -381,9 +381,9 @@ export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinitio
             aliases: [ "attachment", "upload", "embed" ],
             icon: IconPaperClip,
             commandName: "fileUpload",
-            // Embedding goes wherever the "Include note" button can insert an include.
+            // Embedding goes wherever the "Include note" button can insert an embed.
             isEnabled: (target: Editor) => !!target.commands.get("fileUpload")?.isEnabled
-                && !!target.commands.get(INCLUDE_NOTE_COMMAND)?.isEnabled,
+                && !!target.commands.get(CONTENT_EMBED_COMMAND)?.isEnabled,
             execute: (target: Editor) => pickFiles("", (files) => {
                 target.execute("fileUpload", { file: files, asEmbed: true });
                 target.editing.view.focus();
@@ -398,11 +398,11 @@ export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinitio
             execute: (target: Editor) => target.plugins.get(MathUI)._showUI()
         },
         {
-            id: "include-note",
+            id: "content-embed",
             title: t("Include note"),
             description: t("Display the content of another note in this note"),
             icon: noteIcon,
-            commandName: INCLUDE_NOTE_COMMAND
+            commandName: CONTENT_EMBED_COMMAND
         },
         {
             id: "page-break",

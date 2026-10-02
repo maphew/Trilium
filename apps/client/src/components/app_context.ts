@@ -20,9 +20,9 @@ import { ReactWrappedWidget } from "../widgets/basic_widget.js";
 import type RootContainer from "../widgets/containers/root_container.js";
 import { AddLinkOpts } from "../widgets/dialogs/add_link.jsx";
 import type { ConfirmWithMessageOptions, ConfirmWithTitleOptions } from "../widgets/dialogs/confirm.js";
+import { ContentEmbedOpts } from "../widgets/dialogs/content_embed.jsx";
 import type { ResolveOptions } from "../widgets/dialogs/delete_notes.js";
 import { IconPickerOpts } from "../widgets/dialogs/icon_picker.jsx";
-import { IncludeNoteOpts } from "../widgets/dialogs/include_note.jsx";
 import type { InfoProps } from "../widgets/dialogs/info.jsx";
 import type { LightboxOptions } from "../widgets/dialogs/lightbox.jsx";
 import type { MarkdownImportOpts } from "../widgets/dialogs/markdown_import.jsx";
@@ -270,7 +270,7 @@ export type CommandMappings = {
     showPasswordNotSet: CommandData;
     showProtectedSessionPasswordDialog: CommandData;
     showUploadAttachmentsDialog: CommandData & { noteId: string };
-    showIncludeNoteDialog: CommandData & IncludeNoteOpts;
+    showContentEmbedDialog: CommandData & ContentEmbedOpts;
     showAddLinkDialog: CommandData & AddLinkOpts;
     showIconPickerDialog: CommandData & IconPickerOpts;
     showPasteMarkdownDialog: CommandData & MarkdownImportOpts;
@@ -471,7 +471,7 @@ type EventMappings = {
     notesReloaded: {
         noteIds: string[];
     };
-    refreshIncludedNote: {
+    refreshEmbeddedNote: {
         noteId: string;
     };
     apiLogMessages: {
@@ -595,7 +595,7 @@ type EventMappings = {
     relationMapResetZoomOut: { ntxId: string | null | undefined };
     activeNoteChanged: {ntxId: string | null | undefined};
     showAddLinkDialog: AddLinkOpts;
-    showIncludeDialog: IncludeNoteOpts;
+    showContentEmbedDialog: ContentEmbedOpts;
     openBulkActionsDialog: {
         selectedOrActiveNoteIds: string[];
     };

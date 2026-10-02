@@ -45,7 +45,7 @@ describe("content_renderer", () => {
             expect(result.content).toStrictEqual(content);
         });
 
-        it("renders included notes", () => {
+        it("renders embedded notes", () => {
             buildShareNotes([
                 { id: "subnote1", content: `<p>Foo</p><div>Bar</div>` },
                 { id: "subnote2", content: `<strong>Baz</strong>` }
@@ -68,7 +68,51 @@ describe("content_renderer", () => {
             `);
         });
 
-        it("renders only the first level of nested includes on the share view (nested include becomes a reference link)", () => {
+        it("keeps the caption of an embed under its content", () => {
+            buildShareNotes([ { id: "subnote1", content: `<p>Foo</p>` } ]);
+            const note = buildShareNote({
+                id: "note1",
+                content: `<figure class="include-note" data-note-id="subnote1"`
+                    + ` data-box-size="medium"><figcaption>A <strong>caption</strong></figcaption>`
+                    + `</figure>`
+            });
+
+            expect(getContent(note).content).toStrictEqual(
+                `<figure class="include-note" data-note-id="subnote1" data-box-size="medium">`
+                + `<p>Foo</p><figcaption>A <strong>caption</strong></figcaption></figure>`
+            );
+        });
+
+        it("renders a Tiny embed as a link, without the content it shows", () => {
+            buildShareNotes([
+                { id: "tinyNote1", title: "Tiny note", content: "<p>Not rendered</p>" }
+            ]);
+            const note = buildShareNote({
+                content: `<figure class="include-note" data-note-id="tinyNote1"`
+                    + ` data-box-size="tiny"><figcaption>Tiny caption</figcaption></figure>`
+                    + `<figure class="include-note" data-attachment-id="tinyPic1"`
+                    + ` data-box-size="tiny"></figure>`,
+                attachments: [
+                    { id: "tinyPic1", role: "image", mime: "image/png", title: "my photo.png" }
+                ]
+            });
+            const tinyNote = shaca.getNote("tinyNote1");
+            if (!tinyNote) throw new Error("Expected the embedded note.");
+            const getNoteContent = vi.spyOn(tinyNote, "getContent");
+
+            const content = getContent(note).content as string;
+
+            expect(getNoteContent).not.toHaveBeenCalled();
+            expect(content).not.toContain("include-note");
+            expect(content).not.toContain("Not rendered");
+            expect(content).not.toContain("Tiny caption");
+            expect(content).not.toContain("<img");
+            expect(content).toContain("reference-link");
+            expect(content).toContain("Tiny note");
+            expect(content).toContain(`href="api/attachments/tinyPic1/download"`);
+        });
+
+        it("renders only the first level of nested embeds on the share view (nested embed becomes a reference link)", () => {
             buildShareNote({ id: "nestC2", title: "Note C", content: "<p>C body</p>" });
             buildShareNote({
                 id: "nestB2",
@@ -88,7 +132,7 @@ describe("content_renderer", () => {
             expect(result.content).toContain("Note C");
         });
 
-        it("expands nested includes recursively when exporting (expandNestedIncludes)", () => {
+        it("expands nested embeds recursively when exporting (expandNestedEmbeds)", () => {
             buildShareNote({ id: "expC", title: "Note C", content: "<p>C body</p>" });
             buildShareNote({
                 id: "expB",
@@ -98,7 +142,7 @@ describe("content_renderer", () => {
                 id: "expA",
                 content: `<p>A body</p><section class="include-note" data-note-id="expB" data-box-size="medium">&nbsp;</section>`
             });
-            const result = getContent(noteA, { expandNestedIncludes: true });
+            const result = getContent(noteA, { expandNestedEmbeds: true });
             if (typeof result.content !== "string") throw new Error("expected string content");
             expect(result.content).toContain("B body");
             expect(result.content).toContain("C body");
@@ -113,14 +157,14 @@ describe("content_renderer", () => {
                 id: "dagA",
                 content: `<section class="include-note" data-note-id="dagB" data-box-size="medium">&nbsp;</section><section class="include-note" data-note-id="dagC" data-box-size="medium">&nbsp;</section>`
             });
-            const result = getContent(noteA, { expandNestedIncludes: true });
+            const result = getContent(noteA, { expandNestedEmbeds: true });
             if (typeof result.content !== "string") throw new Error("expected string content");
             // Diamond A→{B,C}→D: D is not a cycle, so it expands in both branches.
             expect((result.content.match(/D body/g) ?? []).length).toBe(2);
             expect(result.content).not.toContain("reference-link");
         });
 
-        it("does not loop on a circular include chain when expanding recursively", () => {
+        it("does not loop on a circular embed chain when expanding recursively", () => {
             buildShareNote({
                 id: "cycB",
                 content: `<p>B body</p><section class="include-note" data-note-id="cycA" data-box-size="medium">&nbsp;</section>`
@@ -129,15 +173,15 @@ describe("content_renderer", () => {
                 id: "cycA",
                 content: `<p>A body</p><section class="include-note" data-note-id="cycB" data-box-size="medium">&nbsp;</section>`
             });
-            const result = getContent(noteA, { expandNestedIncludes: true });
+            const result = getContent(noteA, { expandNestedEmbeds: true });
             if (typeof result.content !== "string") throw new Error("expected string content");
-            // A expands B; B's re-include of A is broken by the cycle guard (reference link), no hang.
+            // A expands B; B's re-embed of A is broken by the cycle guard (reference link), no hang.
             expect(result.content).toContain("A body");
             expect(result.content).toContain("B body");
             expect(result.content).toContain("reference-link");
         });
 
-        it("replaces an include of a shareCredentials-protected note with a placeholder when the caller lacks access", () => {
+        it("replaces an embed of a shareCredentials-protected note with a placeholder when the caller lacks access", () => {
             buildShareNote({
                 id: "credSecret",
                 title: "Quarterly figures",
@@ -149,20 +193,20 @@ describe("content_renderer", () => {
                 content: `<p>public</p><section class="include-note" data-note-id="credSecret" data-box-size="medium">&nbsp;</section>`
             });
 
-            const denied = getContent(host, { canAccessInclude: (note) => note.getCredentials().length === 0 });
+            const denied = getContent(host, { canAccessEmbed: (note) => note.getCredentials().length === 0 });
             if (typeof denied.content !== "string") throw new Error("expected string content");
             expect(denied.content).toContain("public");
             expect(denied.content).not.toContain("secret body");
-            // The title is withheld as well: an included note need not be visible in the share tree.
+            // The title is withheld as well: an embedded note need not be visible in the share tree.
             expect(denied.content).not.toContain("Quarterly figures");
             expect(denied.content).toContain("include-note-forbidden");
 
-            const allowed = getContent(host, { canAccessInclude: () => true });
+            const allowed = getContent(host, { canAccessEmbed: () => true });
             if (typeof allowed.content !== "string") throw new Error("expected string content");
             expect(allowed.content).toContain("secret body");
         });
 
-        it("applies the include access check at every nesting level and to the reference-link fallback", () => {
+        it("applies the embed access check at every nesting level and to the reference-link fallback", () => {
             buildShareNote({
                 id: "credDeep",
                 title: "Deep secret",
@@ -177,11 +221,11 @@ describe("content_renderer", () => {
                 id: "credOuter",
                 content: `<section class="include-note" data-note-id="credMiddle" data-box-size="medium">&nbsp;</section>`
             });
-            const canAccessInclude = (note: SNote) => note.getCredentials().length === 0;
+            const canAccessEmbed = (note: SNote) => note.getCredentials().length === 0;
 
             // Live share view: the second level would degrade to a reference link, which must not
             // leak the protected note's title either.
-            const shareView = getContent(host, { canAccessInclude });
+            const shareView = getContent(host, { canAccessEmbed });
             if (typeof shareView.content !== "string") throw new Error("expected string content");
             expect(shareView.content).toContain("middle body");
             expect(shareView.content).not.toContain("deep body");
@@ -189,7 +233,7 @@ describe("content_renderer", () => {
             expect(shareView.content).not.toContain("reference-link");
 
             // Recursive expansion carries the check down with it.
-            const expanded = getContent(host, { expandNestedIncludes: true, canAccessInclude });
+            const expanded = getContent(host, { expandNestedEmbeds: true, canAccessEmbed });
             if (typeof expanded.content !== "string") throw new Error("expected string content");
             expect(expanded.content).toContain("middle body");
             expect(expanded.content).not.toContain("deep body");
@@ -230,7 +274,7 @@ describe("content_renderer", () => {
             expect(result.content).not.toContain("reference-link");
         });
 
-        it("renders an included large code note without hanging or re-parsing it as HTML (#9717)", () => {
+        it("renders an embedded large code note without hanging or re-parsing it as HTML (#9717)", () => {
             // ~2 MiB of angle-bracket-heavy code that previously exploded node-html-parser.
             const codeLine = `const x: Array<Map<string, List<number>>> = a < b && c > d; // <div>\n`;
             const bigCode = codeLine.repeat(Math.ceil((2 * 1024 * 1024) / codeLine.length));
@@ -310,7 +354,7 @@ describe("content_renderer", () => {
             expect(auto.innerHTML).toContain("hljs-tag");
         });
 
-        it("highlights an included code note in its own language", async () => {
+        it("highlights an embedded code note in its own language", async () => {
             await ensureShareHighlighting();
             buildShareNotes([
                 { id: "pycode", type: "code", mime: "text/x-python", content: `<t t-name="x"></t>` }

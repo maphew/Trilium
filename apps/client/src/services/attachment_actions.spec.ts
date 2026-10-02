@@ -137,6 +137,18 @@ describe("getAttachmentActionGroups", () => {
         expect(copyReference).toHaveBeenCalledOnce();
     });
 
+    it("offers only the actions leaving the attachment unchanged for a read-only note", () => {
+        const image = attachmentOf("image", "image/png");
+        const groups = getAttachmentActionGroups(image, { isReadOnly: true });
+
+        expect(groups.map((group) => group.map((action) => action.title))).toEqual([ [
+            "attachments_actions.open_externally",
+            "attachments_actions.open_custom",
+            "attachments_actions.download",
+            "ocr.view_extracted_text"
+        ] ]);
+    });
+
     it("renames, deletes and converts only once the user has agreed", async () => {
         const actions = actionsOf(attachmentOf("file"));
         mocks.dialog.prompt.mockResolvedValueOnce("  ").mockResolvedValueOnce("Renamed");

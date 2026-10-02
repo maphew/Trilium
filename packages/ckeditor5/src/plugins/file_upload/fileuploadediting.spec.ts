@@ -21,7 +21,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import { installGlobMock } from "../../../test/globals-test-kit.js";
-import IncludeNote from "../includenote.js";
+import ContentEmbed from "../content_embed/content_embed.js";
 import FileUploadEditing, {
     isHtmlIncluded,
     type FileUploadData,
@@ -590,16 +590,16 @@ class ReferenceSchema extends Plugin {
 
 describe("FileUploadEditing with embeds", () => {
     it("completes an embed placeholder with the attachment it uploaded", async () => {
-        const loadIncludedAttachment = vi.fn();
+        const loadEmbeddedAttachment = vi.fn();
         installGlobMock({
             getComponentByEl: () => ({
-                getIncludeNoteDefaultBoxSize: () => "small",
-                loadIncludedAttachment
+                getEmbedBoxSize: () => "small",
+                loadEmbeddedAttachment
             })
         });
         const editor = await createTestEditor([
             Essentials, Paragraph, FileRepository, Notification, Clipboard, ReferenceSchema,
-            IncludeNote, FileUploadEditing
+            ContentEmbed, FileUploadEditing
         ]);
         const controls = installUploadAdapter(editor);
         setModelData(editor.model, "<paragraph>[]</paragraph>");
@@ -611,10 +611,10 @@ describe("FileUploadEditing with embeds", () => {
         await waitFor(() => !getModelData(editor.model).includes("uploadId"));
 
         expect(getModelData(editor.model)).toBe(
-            "<includeNote attachmentId=\"att1\" boxSize=\"small\"></includeNote>" +
+            "<contentEmbed attachmentId=\"att1\" boxSize=\"small\"></contentEmbed>" +
             "<paragraph>[]</paragraph>"
         );
         editor.editing.view.getDomRoot()?.querySelectorAll("div.include-note-wrapper");
-        expect(loadIncludedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
+        expect(loadEmbeddedAttachment).toHaveBeenCalledWith("att1", expect.anything(), "small");
     });
 });

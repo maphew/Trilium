@@ -8,7 +8,7 @@ import { getLanguage, highlight, highlightAuto, syncMimeTypes } from "@triliumne
 import ejs from "ejs";
 import escapeHtml from "escape-html";
 import { t } from "i18next";
-import { HTMLElement, Options, parse, TextNode } from "node-html-parser";
+import { HTMLElement, type Node as ParsedNode, Options, parse, TextNode } from "node-html-parser";
 
 import becca from "../becca/becca.js";
 import type BAttachment from "../becca/entities/battachment.js";
@@ -37,7 +37,7 @@ export const assetUrlFragment = `assets/v${appInfo.appVersion}`;
  * Maximum number of lines a code block may have before server-side syntax highlighting is skipped.
  * Mirrors the editor's per-block cutoff (HIGHLIGHT_MAX_BLOCK_COUNT in the ckeditor5 syntax
  * highlighting plugin); beyond it `highlightAuto` is too slow and would block the event loop on
- * large shared/included code notes (#9717).
+ * large shared/embedded code notes (#9717).
  */
 const HIGHLIGHT_MAX_LINE_COUNT = 500;
 
@@ -139,7 +139,7 @@ export function renderNoteForExport(note: BNote, parentBranch: BBranch, basePath
     });
 }
 
-export function renderNoteContent(note: SNote, canAccessInclude?: CanAccessInclude) {
+export function renderNoteContent(note: SNote, canAccessEmbed?: CanAccessEmbed) {
     const subRoot = getSharedSubTreeRoot(note);
 
     const ancestors: string[] = [];
@@ -183,7 +183,7 @@ export function renderNoteContent(note: SNote, canAccessInclude?: CanAccessInclu
         logoUrl,
         ancestors,
         isStatic: false,
-        canAccessInclude,
+        canAccessEmbed,
         faviconUrl: note.hasRelation("shareFavicon") ? `api/notes/${note.getRelationValue("shareFavicon")}/download` : `../favicon.ico`,
         iconPackCss: [
             ...iconPacks.map(p => iconPackService.generateCss(p, p.builtin
@@ -207,7 +207,7 @@ interface RenderArgs {
     logoUrl: string;
     ancestors: string[];
     isStatic: boolean;
-    canAccessInclude?: CanAccessInclude;
+    canAccessEmbed?: CanAccessEmbed;
     faviconUrl: string;
     iconPackCss: string;
     iconPackSupportedPrefixes: string[];
@@ -223,10 +223,10 @@ function renderNoteContentInternal(note: SNote | BNote, renderArgs: RenderArgs) 
         return note.getContent() ?? "";
     }
 
-    // Static export preserves full include-note nesting; the live share view renders only the first level.
+    // Static export preserves full embed nesting; the live share view renders only the first level.
     const { header, content, isEmpty } = getContent(note, {
-        expandNestedIncludes: renderArgs.isStatic,
-        canAccessInclude: renderArgs.canAccessInclude
+        expandNestedEmbeds: renderArgs.isStatic,
+        canAccessEmbed: renderArgs.canAccessEmbed
     });
     const showLoginInShareTheme = options.getOptionBool("showLoginInShareTheme");
     const opts = {
@@ -301,27 +301,27 @@ function getShareAssetPath() {
 }
 
 /**
- * Decides whether the caller is allowed to read a note that an include pulls in. The share routes
- * pass their `shareCredentials` check here so that an include cannot hand out a note the same
+ * Decides whether the caller is allowed to read a note that an embed pulls in. The share routes
+ * pass their `shareCredentials` check here so that an embed cannot hand out a note the same
  * caller would be refused on a direct request. Omitted by the static export, whose caller is the
  * already-authenticated instance owner.
  */
-export type CanAccessInclude = (note: SNote) => boolean;
+export type CanAccessEmbed = (note: SNote) => boolean;
 
 export interface ShareRenderOptions {
     /**
-     * Keep expanding include-note sections recursively at every depth. Used for static export, which
+     * Keep expanding embeds recursively at every depth. Used for static export, which
      * preserves full nesting. When false (the default for the on-screen share view), only the first
-     * level of inclusion is rendered and deeper include-note sections are replaced with a reference
+     * level of embedding is rendered and deeper embeds are replaced with a reference
      * link.
      */
-    expandNestedIncludes?: boolean;
-    /** Internal: render this note's own include-note sections as reference links instead of expanding. */
-    includesAsReferenceLinks?: boolean;
-    /** Internal: note IDs already rendered on the current include path, used as a recursion cycle guard. */
+    expandNestedEmbeds?: boolean;
+    /** Internal: render this note's own embeds as reference links instead of expanding. */
+    embedsAsReferenceLinks?: boolean;
+    /** Internal: note IDs already rendered on the current embed path, used as a recursion cycle guard. */
     seenNoteIds?: Set<string>;
-    /** See {@link CanAccessInclude}. When omitted, every included note is expanded. */
-    canAccessInclude?: CanAccessInclude;
+    /** See {@link CanAccessEmbed}. When omitted, every embedded note is expanded. */
+    canAccessEmbed?: CanAccessEmbed;
 }
 
 export function getContent(note: SNote | BNote, options: ShareRenderOptions = {}) {
@@ -478,10 +478,10 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
         }
     }
 
-    // Process include notes. The share view renders only the first level of inclusion; static export
-    // (expandNestedIncludes) keeps expanding recursively. seenNoteIds tracks the current ancestor
+    // Process embeds. The share view renders only the first level of embedding; static export
+    // (expandNestedEmbeds) keeps expanding recursively. seenNoteIds tracks the current ancestor
     // path (cloned per descent below) so the recursive path can break cycles without treating a note
-    // included in two sibling sub-trees as circular.
+    // embedded in two sibling sub-trees as circular.
     const getNote: GetNoteFunction = note instanceof BNote
         ? (noteId: string) => becca.getNote(noteId)
         : (noteId: string) => shaca.getNote(noteId);
@@ -491,45 +491,52 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
 
     const seenNoteIds = new Set(options.seenNoteIds);
     seenNoteIds.add(note.noteId);
-    for (const includeNoteEl of document.querySelectorAll("section.include-note")) {
-        const attachmentId = includeNoteEl.getAttribute("data-attachment-id");
+    for (const embedEl of document.querySelectorAll(".include-note")) {
+        // A Tiny embed shows only a title, so it links to what it shows instead of rendering it.
+        const asLink = !!options.embedsAsReferenceLinks
+            || embedEl.getAttribute("data-box-size") === "tiny";
+        const attachmentId = embedEl.getAttribute("data-attachment-id");
         if (attachmentId) {
             const attachment = getAttachment(attachmentId);
-            const asLink = !!options.includesAsReferenceLinks;
             const html = attachment ? renderAttachmentEmbed(attachmentId, attachment, asLink) : "";
-            includeNoteEl.replaceWith(...parse(html, parseOpts).childNodes);
+            const embed = parse(html, parseOpts).childNodes;
+            if (attachment && !asLink && isImageAttachmentRole(attachment.role)) {
+                replaceEmbedContent(embedEl, embed);
+            } else {
+                embedEl.replaceWith(...embed);
+            }
             continue;
         }
 
-        const noteId = includeNoteEl.getAttribute("data-note-id");
+        const noteId = embedEl.getAttribute("data-note-id");
         if (!noteId) continue;
 
-        const includedNote = shaca.getNote(noteId);
-        if (!includedNote) continue;
+        const embeddedNote = shaca.getNote(noteId);
+        if (!embeddedNote) continue;
 
-        // An include must not disclose what a direct request for the same note would refuse: a note
+        // An embed must not disclose what a direct request for the same note would refuse: a note
         // carrying `shareCredentials` the caller has not presented becomes a placeholder, and its
-        // title is withheld too, since an included note need not appear in the visible share tree.
-        if (options.canAccessInclude && !options.canAccessInclude(includedNote)) {
-            includeNoteEl.replaceWith(...parse(`<p class="include-note-forbidden">${escapeHtml(t("content_renderer.included-note-requires-credentials"))}</p>`, parseOpts).childNodes);
+        // title is withheld too, since an embedded note need not appear in the visible share tree.
+        if (options.canAccessEmbed && !options.canAccessEmbed(embeddedNote)) {
+            embedEl.replaceWith(...parse(`<p class="include-note-forbidden">${escapeHtml(t("content_renderer.included-note-requires-credentials"))}</p>`, parseOpts).childNodes);
             continue;
         }
 
-        // Deeper-than-first-level includes (and any cycle in the recursive path) degrade to a
-        // reference link that the link-processing passes below resolve to the shared note.
-        if (options.includesAsReferenceLinks || seenNoteIds.has(noteId)) {
-            includeNoteEl.replaceWith(...parse(`<a class="reference-link" href="#root/${escapeHtml(noteId)}">${escapeHtml(includedNote.title)}</a>`, parseOpts).childNodes);
+        // Tiny embeds, deeper-than-first-level embeds and any cycle in the recursive path degrade
+        // to a reference link that the link-processing passes below resolve to the shared note.
+        if (asLink || seenNoteIds.has(noteId)) {
+            embedEl.replaceWith(...parse(`<a class="reference-link" href="#root/${escapeHtml(noteId)}">${escapeHtml(embeddedNote.title)}</a>`, parseOpts).childNodes);
             continue;
         }
 
-        const includedResult = getContent(includedNote, options.expandNestedIncludes
-            ? { expandNestedIncludes: true, seenNoteIds: new Set(seenNoteIds), canAccessInclude: options.canAccessInclude }
-            : { includesAsReferenceLinks: true, seenNoteIds: new Set(seenNoteIds), canAccessInclude: options.canAccessInclude });
-        if (typeof includedResult.content !== "string") continue;
+        const embeddedResult = getContent(embeddedNote, options.expandNestedEmbeds
+            ? { expandNestedEmbeds: true, seenNoteIds: new Set(seenNoteIds), canAccessEmbed: options.canAccessEmbed }
+            : { embedsAsReferenceLinks: true, seenNoteIds: new Set(seenNoteIds), canAccessEmbed: options.canAccessEmbed });
+        if (typeof embeddedResult.content !== "string") continue;
 
-        const includedDocument = parse(includedResult.content, parseOpts).childNodes;
-        if (includedDocument) {
-            includeNoteEl.replaceWith(...includedDocument);
+        const embeddedDocument = parse(embeddedResult.content, parseOpts).childNodes;
+        if (embeddedDocument) {
+            replaceEmbedContent(embedEl, embeddedDocument);
         }
     }
 
@@ -573,10 +580,25 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
 }
 
 /**
+ * Puts `content` in place of an embed. An embed with a caption stays a `<figure>`, holding
+ * `content` and then the caption.
+ */
+function replaceEmbedContent(embedEl: HTMLElement, content: ParsedNode[]) {
+    const caption = embedEl.childNodes.find((child) =>
+        child instanceof HTMLElement && child.tagName === "FIGCAPTION");
+    if (caption) {
+        embedEl.set_content([ ...content, caption ]);
+    } else {
+        embedEl.replaceWith(...content);
+    }
+}
+
+/**
  * The markup that stands in for an embedded attachment: a picture as an image, anything else as the
  * attachment link that `handleAttachmentLink` then resolves.
  *
- * @param asLink renders a picture as a link too, for an embed below the first level of inclusion.
+ * @param asLink renders a picture as a link too, for a Tiny embed or one below the first level of
+ * embedding.
  */
 function renderAttachmentEmbed(
     attachmentId: string,
@@ -798,7 +820,7 @@ export function renderCode(result: Result, mime?: string) {
         result.isEmpty = true;
     } else {
         // Escape the raw code so that any `<`/`>` it contains are not later re-parsed as HTML.
-        // When such a code note is included into a shared text note, renderText re-parses the
+        // When such a code note is embedded into a shared text note, renderText re-parses the
         // resulting HTML; with unescaped angle brackets (e.g. generics, comparisons, JSX) a large
         // code note would explode into a pathological node-html-parser tree and hang the event
         // loop (#9717). The <code> wrapper and its `language-*` class additionally let renderText

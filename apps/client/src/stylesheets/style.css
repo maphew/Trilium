@@ -1330,12 +1330,38 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note {
-    margin-bottom: 10px;
-    border-radius: 8px;
-    border: 1px solid var(--card-border-color, var(--main-border-color));
+    --ck-color-focus-border: var(--link-color);
+
+    margin: 0 0 10px;
+    border-radius: var(--_include-note-top-border-radius, 8px)
+                   var(--_include-note-top-border-radius, 8px)
+                   var(--_include-note-bottom-border-radius, 8px)
+                   var(--_include-note-bottom-border-radius, 8px);
     background-color: var(--card-background-color, var(--accented-background-color));
     display: flex; /* see https://github.com/zadam/trilium/issues/1590 */
+    flex-direction: column;
     transition: background-color 200ms ease-out;
+}
+
+/* On the wrapper: the editor gives the caption a border of its own for the focus ring. */
+.include-note-wrapper:has(+ figcaption) {
+    border-bottom: 2px solid var(--main-background-color);
+}
+
+.include-note > figcaption {
+    padding: 6px 1rem;
+    font-size: .8em;
+    text-align: center;
+}
+
+/* Includes in a series share flush edges, as link previews and collapsible blocks do. */
+.include-note + .include-note {
+    --_include-note-top-border-radius: 0;
+}
+
+.include-note:has(+ .include-note) {
+    --_include-note-bottom-border-radius: 0;
+    margin-bottom: 3px;
 }
 
 /* CKEditor counts only non-UIElements as content (see `hasContent` in the
@@ -1414,6 +1440,28 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     height: 20em;
 }
 
+/* Pictures, diagrams and players fit the box height, where text scrolls in it. */
+.include-note[data-box-size="small"] {
+    --include-note-media-max-height: 10em;
+}
+
+.include-note[data-box-size="medium"] {
+    --include-note-media-max-height: 20em;
+}
+
+.include-note[data-box-size] .include-note-content:is(
+    .type-image, .type-canvas, .type-mindMap, .type-spreadsheet, .type-mermaid, .type-video
+) {
+    max-height: none;
+}
+
+.include-note-content:not(:fullscreen) :is(
+    .rendered-content > img, .rendered-content > svg, .image-viewer-content > img,
+    .video-preview-wrapper:not(:fullscreen) > .video-preview
+) {
+    max-height: var(--include-note-media-max-height, none);
+}
+
 .include-note-wrapper {
     width: 100%;
     display: flex;
@@ -1421,18 +1469,16 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     min-width: 0;
 }
 
-/* Header: the standalone title (non-expandable) and the title row (expandable)
-   both act as the card header, mirroring the grid/list note-book-card header. */
+/* The header: the title row, or the bare title of an embed whose upload is under way. */
 .include-note-wrapper > .include-note-title,
 .include-note-title-row {
     display: flex;
     align-items: center;
     gap: 8px;
     margin: 0;
-    padding: .5rem 1rem;
+    padding: .75rem 1rem;
     font-size: 1em;
     font-weight: 500;
-    border-bottom: 1px solid var(--card-border-color, var(--main-border-color));
 }
 
 /* createLink wraps the icon and anchor in a single <span>; lay it out as a flex
@@ -1462,12 +1508,14 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 /* Expandable include note styles */
-.include-note-title-row {
+.include-note[data-box-size="expandable"] .include-note-title-row {
     cursor: pointer;
 }
 
 /* The title inside the expandable row defers its header styling to the row. */
 .include-note-title-row .include-note-title {
+    display: flex;
+    align-items: center;
     margin: 0;
     padding: 0;
     border-bottom: none;
@@ -1477,34 +1525,121 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     flex-grow: 1;
 }
 
-.include-note-toggle {
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    font-size: 1.2em;
-    color: var(--muted-text-color);
-    transition: transform 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.include-note-title-row > .icon-action {
     flex-shrink: 0;
 }
 
-.include-note-toggle:hover {
-    color: var(--main-link-color);
+.include-note-toggle {
+    transition: transform 0.2s ease;
 }
 
 .include-note-toggle.expanded {
     transform: rotate(90deg);
 }
 
+/* The selector must outrank the `display` that the icon pack sets on its own class. */
+.include-note-title-row > .include-note-icon {
+    --size: calc(1em + 12px);
+
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: center;
+    margin-inline-end: 4px;
+    border-radius: 50%;
+    width: var(--size);
+    height: var(--size);
+    background: var(--note-list-view-large-icon-background, var(--main-background-color));
+    font-size: 1.2em;
+    color: var(--note-list-view-large-icon-color, var(--muted-text-color));
+}
+
+/* The glyph and its circle differ by a whole, even number of pixels. */
+@supports (width: round(1px, 1px)) {
+    .include-note-title-row > .include-note-icon {
+        font-size: round(1.2em, 1px);
+    }
+}
+
+.include-note-heading {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+
+    /* The note path from createLink() goes above the title. */
+    .include-note-title > span {
+        flex-direction: column-reverse;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    small {
+        font-size: .7em;
+        font-weight: 500;
+        line-height: 1;
+        letter-spacing: .5pt;
+        opacity: .5;
+    }
+
+    .include-note-description {
+        margin-top: 4px;
+    }
+}
+
+.include-note-body {
+    position: relative;
+}
+
 .include-note-content {
+    /* Keeps the z-indexes inside the content, such as those of map panes, under the backdrop. */
+    isolation: isolate;
+    border-top: 2px solid var(--main-background-color);
     padding: .75rem 1rem;
 }
 
 .include-note-content > .rendered-content > *:last-child {
     margin-bottom: 0;
+}
+
+/* Takes the wheel and the touch gestures for the page until the content has the focus. */
+.include-note-backdrop {
+    position: absolute;
+    inset: 0;
+}
+
+.include-note-content:focus {
+    outline: none;
+}
+
+/* Outlined as a selected widget in the editor. */
+.include-note:has(> .include-note-wrapper > .include-note-body.active) {
+    /* The editor shows a selected widget as blurred while the focus is in its content. */
+    --ck-color-widget-blurred-border: var(--ck-color-focus-border);
+
+    outline: var(--ck-widget-outline-thickness, 3px) solid var(--ck-color-focus-border);
+}
+
+/* Hides what a larger box size drew, until the Tiny row replaces it. */
+.include-note[data-box-size="tiny"] > .include-note-wrapper > .include-note-body {
+    display: none;
+}
+
+.include-note[data-box-size="tiny"] > .include-note-wrapper > .include-note-title-row {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.include-note[data-hide-title="true"]:not([data-box-size="tiny"], [data-box-size="expandable"]) {
+    > .include-note-wrapper > .include-note-title-row {
+        display: none;
+    }
+
+    > .include-note-wrapper > .include-note-body > .include-note-content:not(:fullscreen) {
+        border-top: none;
+        border-radius: var(--_include-note-top-border-radius, 8px)
+                       var(--_include-note-top-border-radius, 8px) 0 0;
+    }
 }
 
 /* Media that renders edge-to-edge (iframes, images, video, full-height collection views) shouldn't
@@ -1519,8 +1654,33 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     padding: 0;
 }
 
-.include-note[data-box-size="expandable"] .include-note-content {
-    padding-top: 0;
+.include-note-content:fullscreen {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--main-background-color);
+}
+
+/* Scrolls in place of the fullscreen box, so that the exit button stays put. */
+.include-note-content:fullscreen > .rendered-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.include-note-content:not(:fullscreen) > .include-note-fullscreen-controls {
+    display: none;
+}
+
+.include-note-exit-fullscreen {
+    --overlay-group-inset-top:
+        calc(var(--safe-area-inset-top, env(safe-area-inset-top)) + var(--overlay-group-inset));
+    --overlay-group-inset-end:
+        calc(var(--safe-area-inset-right, env(safe-area-inset-right)) + var(--overlay-group-inset));
+    z-index: 1;
+}
+
+.include-note-exit-fullscreen > button {
+    gap: 8px;
 }
 
 .alert {

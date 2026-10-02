@@ -146,7 +146,7 @@ export default class FileUploadEditing extends Plugin {
 			} )
 			.then( data => {
 				model.enqueueChange( { isUndoable: false }, writer => {
-					if ( fileElement.is( 'element', 'includeNote' ) ) {
+					if ( fileElement.is( 'element', 'contentEmbed' ) ) {
 						const attachmentId = getAttachmentId( data.default );
 						writer.setAttribute( 'attachmentId', attachmentId, fileElement );
 					} else {
@@ -211,5 +211,6 @@ export function isHtmlIncluded( dataTransfer: DataTransfer ) {
 function getUploadPlaceholders( editor: Editor, item: ModelItem ) {
 	return Array.from( editor.model.createRangeOn( item ) )
 		.map( value => value.item )
-		.filter( node => node.is( 'element', 'reference' ) || node.is( 'element', 'includeNote' ) );
+		.filter( node => node.is( 'element', 'reference' )
+			|| node.is( 'element', 'contentEmbed' ) );
 }

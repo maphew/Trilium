@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
 import { installGlobMock } from "../../test/globals-test-kit.js";
-import ReferenceLink, { getAttachmentId } from "./referencelink.js";
+import ReferenceLink, { getAttachmentId, getNoteId } from "./referencelink.js";
 
 describe("ReferenceLink", () => {
     let editor: ClassicEditor;
@@ -261,6 +261,14 @@ describe("ReferenceLink", () => {
         expect(getAttachmentId("#root/owner?viewMode=attachments&attachmentId=att1")).toBe("att1");
         expect(getAttachmentId("#root/noteAbc")).toBeNull();
         expect(getAttachmentId(undefined)).toBeNull();
+    });
+
+    it("reads the note a link points to, or the attachment's owner, from its note path", () => {
+        expect(getNoteId("#root/parentAbc/noteAbc")).toBe("noteAbc");
+        expect(getNoteId("#root/owner?viewMode=attachments&attachmentId=att1")).toBe("owner");
+        expect(getNoteId("#root")).toBe("root");
+        expect(getNoteId("")).toBeNull();
+        expect(getNoteId(undefined)).toBeNull();
     });
 
     it("dataDowncasts a reference back to an anchor, resolving the title synchronously", () => {

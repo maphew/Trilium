@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import { consumeBookmark } from "../../../services/bookmark_jump";
+import { getUploadBoxSize } from "../../../services/content_renderer";
 import dateNoteService from "../../../services/date_notes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -36,10 +37,12 @@ import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
 import {
     getAttachmentHref,
-    loadIncludedAttachment,
-    loadIncludedNote,
-    refreshIncludedNote,
-    setupImageOpening
+    loadEmbeddedAttachment,
+    loadEmbeddedNote,
+    openContentEmbedMenu,
+    refreshEmbeddedNote,
+    setupImageOpening,
+    watchContentEmbeds
 } from "./utils";
 
 /**
@@ -55,6 +58,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     const contentNoteIdRef = useRef<string>();
     const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
     const watchdogRef = useRef<EditorWatchdog>(null);
+    const stopWatchingEmbedsRef = useRef<() => void>();
     const editorApiRef = useRef<CKEditorApi>(null);
     /** The open icon picker request and its balloon container, or `null` when none is open. */
     const [ iconPickerRequest, setIconPickerRequest ] = useState<IconPickerOpts & { container: HTMLElement } | null>(null);
@@ -184,19 +188,18 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         // Include note functionality note
         addIncludeNoteToTextCommand() {
             if (!editorApiRef.current) return;
-            parentComponent?.triggerCommand("showIncludeNoteDialog", {
+            parentComponent?.triggerCommand("showContentEmbedDialog", {
                 editorApi: editorApiRef.current,
             });
         },
-        loadIncludedNote,
-        loadIncludedAttachment,
+        loadEmbeddedNote,
+        loadEmbeddedAttachment,
         getAttachmentHref,
         getNoteId() {
             return note.noteId;
         },
-        getIncludeNoteDefaultBoxSize() {
-            return options.get("includeNoteDefaultBoxSize");
-        },
+        getEmbedBoxSize: getUploadBoxSize,
+        openContentEmbedMenu,
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {
@@ -284,10 +287,12 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         }
     });
 
-    useTriliumEvent("refreshIncludedNote", ({ noteId }) => {
+    useTriliumEvent("refreshEmbeddedNote", ({ noteId }) => {
         if (!containerRef.current) return;
-        refreshIncludedNote(containerRef.current, noteId);
+        refreshEmbeddedNote(containerRef.current, noteId);
     });
+
+    useEffect(() => () => stopWatchingEmbedsRef.current?.(), []);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         const editor = watchdogRef.current?.editor as CKTextEditor | null | undefined;
@@ -530,6 +535,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                 onEditorInitialized={(editor) => {
                     if (containerRef.current) {
                         setupImageOpening(containerRef.current, false);
+                        stopWatchingEmbedsRef.current?.();
+                        stopWatchingEmbedsRef.current = watchContentEmbeds(containerRef.current);
                     }
 
                     editor.plugins.get("FileUploadEditing")

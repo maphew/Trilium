@@ -43,8 +43,8 @@ declare global {
         formatDateTime(date: Date, format?: string): string;
         loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string): Promise<void>;
         createNoteForReferenceLink(title: string, intoInbox: boolean): Promise<string | undefined>;
-        loadIncludedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string): void;
-        loadIncludedAttachment(
+        loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string): void;
+        loadEmbeddedAttachment(
             attachmentId: string,
             $el: JQuery<HTMLElement>,
             boxSize?: string
@@ -53,8 +53,16 @@ declare global {
         getAttachmentHref(attachmentId: string): Promise<string | null>;
         /** The note the editor holds. Hosts without a note of their own leave it out. */
         getNoteId?(): string | undefined;
-        /** The box size the user gives a new include. Hosts without includes leave it out. */
-        getIncludeNoteDefaultBoxSize?(): string;
+        /**
+         * The box size of a new embed of a file being uploaded, from its media type. Hosts without
+         * embeds leave it out.
+         */
+        getEmbedBoxSize?(mime: string): string;
+        /**
+         * Opens the context menu of what `embed` shows, below `anchor`. Hosts without embeds
+         * leave it out.
+         */
+        openContentEmbedMenu?(embed: HTMLElement, anchor: HTMLElement): void;
         /**
          * Reads a page's preview metadata through the host. Never rejects: any failure — network
          * error, HTTP error, unparseable page — resolves as `{ unresolved: true }` with

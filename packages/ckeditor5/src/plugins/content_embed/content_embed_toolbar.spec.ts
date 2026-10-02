@@ -1,16 +1,20 @@
 import { ClassicEditor, Essentials, Paragraph, Plugin, toWidget, Widget, WidgetToolbarRepository, _setModelData as setModelData } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createTestEditor } from "../../test/editor-kit.js";
-import { installGlobMock } from "../../test/globals-test-kit.js";
-import IncludeNote, { CONVERT_EMBED_TO_LINK_COMMAND } from "./includenote.js";
-import IncludeNoteBoxSizeDropdown from "./include_note_box_size_dropdown.js";
-import IncludeNoteToolbar from "./include_note_toolbar.js";
-import LinkEmbed from "./link_embed/link_embed.js";
+import { createTestEditor } from "../../../test/editor-kit.js";
+import { installGlobMock } from "../../../test/globals-test-kit.js";
+import LinkEmbed from "../link_embed/link_embed.js";
+import ContentEmbed, {
+    CONVERT_EMBED_TO_LINK_COMMAND,
+    CONTENT_EMBED_MENU,
+    TOGGLE_CAPTION_COMMAND_NAME,
+    TOGGLE_TITLE_COMMAND_NAME
+} from "./content_embed.js";
+import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
+import ContentEmbedToolbar from "./content_embed_toolbar.js";
 
 // ---------------------------------------------------------------------------
-// Minimal inline plugin that registers a section widget WITHOUT a class
-// attribute, allowing us to exercise the `|| ""` branch in isIncludeNoteWidget.
+// Minimal inline plugin that registers a widget without a class attribute.
 // ---------------------------------------------------------------------------
 
 class SectionNoClassWidget extends Plugin {
@@ -41,7 +45,6 @@ class SectionNoClassWidget extends Plugin {
         editor.conversion.for("editingDowncast").elementToElement({
             model: "sectionNoClass",
             view: (_modelEl, { writer }) => {
-                // Intentionally no class attribute — exercises the `|| ""` branch.
                 const section = writer.createContainerElement("section", {});
                 return toWidget(section, writer, { label: "section no class widget" });
             }
@@ -59,75 +62,93 @@ function getRelatedElementFn(ed: ClassicEditor): (selection: unknown) => unknown
             getRelatedElement: (selection: unknown) => unknown;
         }>;
     };
-    const def = repository._toolbarDefinitions.get("includeNote");
+    const def = repository._toolbarDefinitions.get("contentEmbed");
     if (!def) {
-        throw new Error("IncludeNote toolbar definition not found in WidgetToolbarRepository.");
+        throw new Error("ContentEmbed toolbar definition not found in WidgetToolbarRepository.");
     }
     return def.getRelatedElement;
 }
 
+/** A selection on nothing, standing in for the view selection. */
+const EMPTY_SELECTION = { getSelectedElement: () => null, getFirstPosition: () => null };
+
 // ---------------------------------------------------------------------------
-// Suite 1: basic plugin registration (IncludeNote only, no LinkEmbed)
+// Suite 1: basic plugin registration (ContentEmbed only, no LinkEmbed)
 // ---------------------------------------------------------------------------
 
-describe("IncludeNoteToolbar", () => {
+describe("ContentEmbedToolbar", () => {
     let editor: ClassicEditor;
 
     beforeEach(async () => {
-        const loadIncludedNote = vi.fn();
+        const loadEmbeddedNote = vi.fn();
         installGlobMock({
-            getComponentByEl: () => ({ loadIncludedNote })
+            getComponentByEl: () => ({ loadEmbeddedNote })
         });
 
-        editor = await createTestEditor([Essentials, Paragraph, Widget, IncludeNote, IncludeNoteBoxSizeDropdown, IncludeNoteToolbar]);
+        editor = await createTestEditor([Essentials, Paragraph, Widget, ContentEmbed, ContentEmbedBoxSizeDropdown, ContentEmbedToolbar]);
     });
 
     it("loads the plugin", () => {
-        expect(editor.plugins.get(IncludeNoteToolbar)).toBeInstanceOf(IncludeNoteToolbar);
+        expect(editor.plugins.get(ContentEmbedToolbar)).toBeInstanceOf(ContentEmbedToolbar);
     });
 
-    it("declares the required plugins including WidgetToolbarRepository, IncludeNote, and IncludeNoteBoxSizeDropdown", () => {
-        const requires = IncludeNoteToolbar.requires;
+    it("declares the required plugins including WidgetToolbarRepository, ContentEmbed, and ContentEmbedBoxSizeDropdown", () => {
+        const requires = ContentEmbedToolbar.requires;
         expect(requires).toContain(WidgetToolbarRepository);
-        expect(requires).toContain(IncludeNote);
-        expect(requires).toContain(IncludeNoteBoxSizeDropdown);
+        expect(requires).toContain(ContentEmbed);
+        expect(requires).toContain(ContentEmbedBoxSizeDropdown);
     });
 
-    it("offers, next to the box size, the way from an attachment embed back to a link", () => {
+    it("offers the box size, the title, the caption, the link conversion and the menu", () => {
         const repository = editor.plugins.get(WidgetToolbarRepository) as unknown as {
             _toolbarDefinitions: Map<string, { itemsConfig: string[] }>;
         };
 
-        expect(repository._toolbarDefinitions.get("includeNote")?.itemsConfig)
-            .toEqual([ "includeNoteBoxSizeDropdown", CONVERT_EMBED_TO_LINK_COMMAND ]);
-    });
-
-    it("registers the includeNote toolbar in WidgetToolbarRepository", () => {
-        const repository = editor.plugins.get(WidgetToolbarRepository) as unknown as {
-            _toolbarDefinitions: Map<string, unknown>;
-        };
-        expect(repository._toolbarDefinitions.has("includeNote")).toBe(true);
+        expect(repository._toolbarDefinitions.get("contentEmbed")?.itemsConfig).toEqual([
+            "contentEmbedBoxSizeDropdown",
+            TOGGLE_TITLE_COMMAND_NAME,
+            TOGGLE_CAPTION_COMMAND_NAME,
+            CONVERT_EMBED_TO_LINK_COMMAND,
+            CONTENT_EMBED_MENU
+        ]);
     });
 
     describe("getRelatedElement", () => {
-        it("returns the include-note widget element when an includeNote model element is selected", () => {
+        it("returns the include-note widget element when an contentEmbed model element is selected", () => {
             editor.model.change((writer) => {
                 const root = editor.model.document.getRoot();
                 if (!root) {
                     throw new Error("No root");
                 }
-                const includeNoteEl = writer.createElement("includeNote", {
+                const embedEl = writer.createElement("contentEmbed", {
                     noteId: "test-note",
                     boxSize: "small"
                 });
-                writer.insert(includeNoteEl, root, 0);
-                writer.setSelection(includeNoteEl, "on");
+                writer.insert(embedEl, root, 0);
+                writer.setSelection(embedEl, "on");
             });
 
             const fn = getRelatedElementFn(editor);
             const viewSelection = editor.editing.view.document.selection;
             const result = fn(viewSelection);
             expect(result).not.toBeNull();
+        });
+
+        it("stays on the embed while its caption is edited", () => {
+            editor.setData("<figure class=\"include-note\" data-note-id=\"n1\""
+                + " data-box-size=\"medium\"><figcaption>Caption</figcaption></figure>");
+            editor.model.change((writer) => {
+                const embed = editor.model.document.getRoot()?.getChild(0);
+                const caption = embed?.is("element") ? embed.getChild(0) : null;
+                if (!caption?.is("element", "caption")) {
+                    throw new Error("Expected a caption.");
+                }
+                writer.setSelection(caption, 2);
+            });
+
+            const result = getRelatedElementFn(editor)(editor.editing.view.document.selection);
+
+            expect(result).toBe(editor.editing.view.document.getRoot()?.getChild(0));
         });
 
         it("returns null when selection is inside a plain paragraph (not an include-note widget)", () => {
@@ -139,38 +160,29 @@ describe("IncludeNoteToolbar", () => {
             expect(result).toBeNull();
         });
 
-        it("returns null when getSelectedElement returns null", () => {
-            const fn = getRelatedElementFn(editor);
-            const fakeSelection = { getSelectedElement: () => null };
-            const result = fn(fakeSelection);
-            expect(result).toBeNull();
+        it("returns null when the selection is on nothing", () => {
+            expect(getRelatedElementFn(editor)(EMPTY_SELECTION)).toBeNull();
         });
     });
 });
 
 // ---------------------------------------------------------------------------
-// Suite 2: || "" fallback branch (line 43) — widget section with no class attr
+// Suite 2: a widget without a class attribute
 // ---------------------------------------------------------------------------
 
-describe("isIncludeNoteWidget — section widget without a class attribute (|| '' branch)", () => {
+describe("isContentEmbedWidget — widget without a class attribute", () => {
     let editor: ClassicEditor;
 
     beforeEach(async () => {
-        const loadIncludedNote = vi.fn();
+        const loadEmbeddedNote = vi.fn();
         installGlobMock({
-            getComponentByEl: () => ({ loadIncludedNote })
+            getComponentByEl: () => ({ loadEmbeddedNote })
         });
 
-        editor = await createTestEditor([Essentials, Paragraph, Widget, IncludeNote, IncludeNoteBoxSizeDropdown, IncludeNoteToolbar, SectionNoClassWidget]);
+        editor = await createTestEditor([Essentials, Paragraph, Widget, ContentEmbed, ContentEmbedBoxSizeDropdown, ContentEmbedToolbar, SectionNoClassWidget]);
     });
 
-    it("returns null for a section widget that has no class attribute (exercises the || '' fallback at line 43)", () => {
-        // The SectionNoClassWidget editing downcast creates a real CKEditor widget (toWidget)
-        // wrapping a <section> element with NO class attribute.  When that widget is selected:
-        //   isWidget(element)          → true  (real widget marker)
-        //   element.is("element","section") → true
-        //   element.getAttribute("class")   → null/undefined  →  || ""  → ""
-        //   "".includes("include-note")     → false  →  return false
+    it("returns null for a selected widget that has no class attribute", () => {
         editor.model.change((writer) => {
             const root = editor.model.document.getRoot();
             if (!root) {
@@ -183,25 +195,22 @@ describe("isIncludeNoteWidget — section widget without a class attribute (|| '
 
         const fn = getRelatedElementFn(editor);
         const viewSelection = editor.editing.view.document.selection;
-        const result = fn(viewSelection);
-        // No "include-note" class → must return null.
-        expect(result).toBeNull();
+        expect(fn(viewSelection)).toBeNull();
     });
 });
 
 // ---------------------------------------------------------------------------
-// Suite 3: isIncludeNoteWidget branches — uses LinkEmbed to get real widgets
-// that pass isWidget() but are NOT include-note sections.
+// Suite 3: real widgets that are not embeds
 // ---------------------------------------------------------------------------
 
-describe("isIncludeNoteWidget — real non-include-note widgets (branch coverage)", () => {
+describe("isContentEmbedWidget — real non-include-note widgets", () => {
     let editor: ClassicEditor;
 
     beforeEach(async () => {
-        const loadIncludedNote = vi.fn();
+        const loadEmbeddedNote = vi.fn();
         installGlobMock({
             getComponentByEl: () => ({
-                loadIncludedNote,
+                loadEmbeddedNote,
                 renderLinkEmbed: vi.fn(),
                 renderLinkMention: vi.fn(),
                 fetchLinkMetadata: async () => ({
@@ -217,32 +226,25 @@ describe("isIncludeNoteWidget — real non-include-note widgets (branch coverage
             })
         });
 
-        editor = await createTestEditor([Essentials, Paragraph, Widget, IncludeNote, IncludeNoteBoxSizeDropdown, IncludeNoteToolbar, LinkEmbed]);
+        editor = await createTestEditor([Essentials, Paragraph, Widget, ContentEmbed, ContentEmbedBoxSizeDropdown, ContentEmbedToolbar, LinkEmbed]);
     });
 
-    it("returns null when getSelectedElement returns a non-widget element (covers the !isWidget branch at line 35-36)", () => {
-        // To hit `return false` at line 36 in isIncludeNoteWidget we need a non-null
-        // selected element for which isWidget() returns false.  A plain JS object
-        // that looks like a ViewElement but lacks the CKEditor widget marker is sufficient.
-        const fn = getRelatedElementFn(editor);
-
-        // Fake element: is("element","section") would be true, getAttribute returns
-        // "include-note", but isWidget() checks for an internal custom property symbol
-        // that is absent here → isWidget returns false → isIncludeNoteWidget returns false.
+    it("returns null when the selected element is not a widget", () => {
+        // isWidget() checks for a custom property that this lookalike lacks.
         const fakeNonWidget = {
-            is: (type: string, name: string) => type === "element" && name === "section",
-            getAttribute: (attr: string) => attr === "class" ? "include-note" : null,
+            is: (type: string) => type === "element",
+            hasClass: (className: string) => className === "include-note",
             getCustomProperty: (_key: unknown) => undefined
         };
 
-        const result = fn({ getSelectedElement: () => fakeNonWidget });
+        const result = getRelatedElementFn(editor)({
+            ...EMPTY_SELECTION,
+            getSelectedElement: () => fakeNonWidget
+        });
         expect(result).toBeNull();
     });
 
-    it("returns null for a span.link-mention widget (isWidget=true but element is not a section — covers line 39-40)", () => {
-        // span.link-mention is a real CKEditor inline widget wrapping a <span>.
-        // isWidget() returns true for it, but element.is("element", "section") is false →
-        // isIncludeNoteWidget returns false at line 40.
+    it("returns null for a selected span.link-mention widget", () => {
         editor.setData('<p><span class="link-mention" data-url="https://example.com">example</span></p>');
 
         editor.model.change((writer) => {
@@ -263,16 +265,10 @@ describe("isIncludeNoteWidget — real non-include-note widgets (branch coverage
 
         const fn = getRelatedElementFn(editor);
         const viewSelection = editor.editing.view.document.selection;
-        const result = fn(viewSelection);
-        // span.link-mention passes isWidget() but is not a section → returns null.
-        expect(result).toBeNull();
+        expect(fn(viewSelection)).toBeNull();
     });
 
-    it("returns null for a section.link-embed widget (isWidget=true, is section, but class lacks 'include-note' — covers line 43-44)", () => {
-        // section.link-embed is a real CKEditor block widget wrapping a <section>.
-        // isWidget() returns true, element.is("element", "section") is true, but the class
-        // attribute is "link-embed" which does NOT include "include-note" →
-        // isIncludeNoteWidget returns false at line 44.
+    it("returns null for a selected section.link-embed widget", () => {
         editor.setData(
             '<section class="link-embed" data-url="https://example.com" data-embed-type="opengraph"></section>'
         );
@@ -291,10 +287,7 @@ describe("isIncludeNoteWidget — real non-include-note widgets (branch coverage
 
         const fn = getRelatedElementFn(editor);
         const viewSelection = editor.editing.view.document.selection;
-        const result = fn(viewSelection);
-        // section.link-embed passes isWidget() and is a section, but the class
-        // does not contain "include-note" → returns null.
-        expect(result).toBeNull();
+        expect(fn(viewSelection)).toBeNull();
     });
 
     it("returns the include-note element when a real include-note widget is selected (full happy path)", () => {
@@ -303,17 +296,16 @@ describe("isIncludeNoteWidget — real non-include-note widgets (branch coverage
             if (!root) {
                 throw new Error("No root");
             }
-            const includeNoteEl = writer.createElement("includeNote", {
+            const embedEl = writer.createElement("contentEmbed", {
                 noteId: "abc",
                 boxSize: "full"
             });
-            writer.insert(includeNoteEl, root, 0);
-            writer.setSelection(includeNoteEl, "on");
+            writer.insert(embedEl, root, 0);
+            writer.setSelection(embedEl, "on");
         });
 
         const fn = getRelatedElementFn(editor);
         const viewSelection = editor.editing.view.document.selection;
-        const result = fn(viewSelection);
-        expect(result).not.toBeNull();
+        expect(fn(viewSelection)).not.toBeNull();
     });
 });

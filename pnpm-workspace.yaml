@@ -38,7 +38,7 @@ overrides:
   # copies in the tree mean two declarations of the `unique symbol` that marks a `Schema`, so a tool
   # built by one provider stops being assignable to the ToolSet `ai` expects (TS2322 on the Anthropic
   # web-search tool). Pin the version `ai` itself is built against, and raise it with the next bump.
-  "@ai-sdk/provider-utils": "5.0.49"
+  "@ai-sdk/provider-utils": "5.0.51"
   # The Codex provider runs the adapter against the user's own `codex` (CODEX_PATH), so the
   # 300-400 MB native Codex build the adapter depends on is never used.
   "@agentclientprotocol/codex-acp>@openai/codex": "-"
@@ -127,6 +127,7 @@ ignoredOptionalDependencies:
 patchedDependencies:
   '@excalidraw/excalidraw@0.18.1': patches/@excalidraw__excalidraw@0.18.1.patch
   html@1.0.0: patches/html@1.0.0.patch
+  react-zoom-pan-pinch@4.2.0: patches/react-zoom-pan-pinch@4.2.0.patch
 
 allowBuilds:
   "@parcel/watcher": false

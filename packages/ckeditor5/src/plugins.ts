@@ -20,7 +20,7 @@ import TriliumEmojiMention from "./plugins/mention/emoji_mention.js";
 import TriliumMentionUI from "./plugins/mention/trilium_mention_ui.js";
 import TriliumSlashCommands from "./plugins/mention/slash_commands.js";
 import TriliumFormatPainter from "./plugins/format_painter/format_painter.js";
-import IncludeNote from "./plugins/includenote.js";
+import ContentEmbed from "./plugins/content_embed/content_embed.js";
 import InlineIcon from "./plugins/inline_icon/inline_icon.js";
 import LinkEmbed from "./plugins/link_embed/link_embed.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
@@ -51,8 +51,9 @@ import InlineCodeNoSpellcheck from "./plugins/inline_code_no_spellcheck.js";
 import InlineCodeToolbar from "./plugins/inline_code_toolbar.js";
 import AdmonitionTypeDropdown from "./plugins/admonition/admonition_type_dropdown.js";
 import AdmonitionToolbar from "./plugins/admonition/admonition_toolbar.js";
-import IncludeNoteBoxSizeDropdown from "./plugins/include_note_box_size_dropdown.js";
-import IncludeNoteToolbar from "./plugins/include_note_toolbar.js";
+import ContentEmbedBoxSizeDropdown
+    from "./plugins/content_embed/content_embed_box_size_dropdown.js";
+import ContentEmbedToolbar from "./plugins/content_embed/content_embed_toolbar.js";
 import LinkEmbedToolbar from "./plugins/link_embed/link_embed_toolbar.js";
 import TodoListMultistate from "./plugins/todo_list_multistate/todo_list_multistate.js";
 import TodoListUncheckOnEnter from "./plugins/todo_list_uncheck_on_enter.js";
@@ -79,7 +80,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     RemoveFormatLinksPlugin,
     IndentBlockShortcutPlugin,
     MarkdownImportPlugin,
-    IncludeNote,
+    ContentEmbed,
     InlineIcon,
     LinkEmbed,
     Uploadfileplugin,
@@ -94,8 +95,8 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     InlineCodeToolbar,
     AdmonitionTypeDropdown,
     AdmonitionToolbar,
-    IncludeNoteBoxSizeDropdown,
-    IncludeNoteToolbar,
+    ContentEmbedBoxSizeDropdown,
+    ContentEmbedToolbar,
     LinkEmbedToolbar,
     TodoListMultistate,
     CollapsibleListItems,

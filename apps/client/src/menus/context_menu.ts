@@ -14,6 +14,8 @@ export interface ContextMenuOptions<T> {
     items: MenuItem<T>[];
     /** On mobile, if set to `true` then the context menu is shown near the element. If `false` (default), then the context menu is shown at the bottom of the screen. */
     forcePositionOnMobile?: boolean;
+    /** Called with the element the menu renders into, before the menu takes the focus. */
+    onShow?: (container: HTMLElement) => void;
     onHide?: () => void;
 }
 
@@ -148,6 +150,7 @@ class ContextMenu {
         // inside it.
         this.host = document.createElement("div");
         (document.fullscreenElement ?? document.body).append(this.host);
+        options.onShow?.(this.host);
         this.cover?.classList.add("show");
         document.body.classList.add("context-menu-shown");
         // A mobile menu is a sheet or placed at the press depending on the layout, decided here,

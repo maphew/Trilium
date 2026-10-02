@@ -51,13 +51,13 @@ export default class FileUploadUI extends Plugin {
                 this.createListButton(locale, t("Attach file as a link"), bxLink, {})
             ];
 
-            // Embedding goes wherever the "Include note" button can insert an include.
-            const includeCommand = editor.commands.get("insertIncludeNote");
-            if (includeCommand) {
+            // Embedding goes wherever the "Include note" button can insert an embed.
+            const embedCommand = editor.commands.get("insertContentEmbed");
+            if (embedCommand) {
                 const embedButton = this.createListButton(
                     locale, t("Attach and embed file"), bxShapeSquare, { asEmbed: true }
                 );
-                embedButton.bind("isEnabled").to(includeCommand);
+                embedButton.bind("isEnabled").to(embedCommand);
                 buttons.push(embedButton);
             }
 
