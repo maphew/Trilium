@@ -1,9 +1,4 @@
 .search-string-editor {
-    /* The mention autocomplete's colours. The Next theme swaps in the hover pair from
-       `theme-next/ribbon.css`; the legacy themes define those as transparent. */
-    --search-completion-selected-background: var(--active-item-background-color, color-mix(in srgb, var(--main-text-color) 15%, transparent));
-    --search-completion-selected-text: var(--active-item-text-color, inherit);
-
     .cm-editor {
         background: transparent;
         max-height: 12em;
@@ -48,7 +43,7 @@
         border-radius: var(--dropdown-border-radius, var(--bs-border-radius));
         box-shadow: 0 5px 10px rgba(0, 0, 0, var(--dropdown-shadow-opacity, 0.2));
         overflow: hidden;
-        padding: 4px;
+        padding: var(--suggestion-list-padding);
 
         /* CodeMirror sets monospace on the popup; the field itself is in the UI font. */
         & > ul {
@@ -56,13 +51,12 @@
             max-height: 18em;
         }
 
-        /* A mention row's metrics: `ul.ck.ck-list button.ck-button` in the Next theme, over the
-           1.84/13px line CKEditor gives `.ck-button__label`. 28px bare, 46px with a description. */
+        /* A mention row's metrics, over the 1.84/13px line CKEditor gives `.ck-button__label`. */
         & > ul > li {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            padding: 2px 16px;
+            padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
             border-radius: 6px;
             line-height: calc(1.84 * 13px);
         }
@@ -84,8 +78,8 @@
         }
 
         & > ul > li[aria-selected] {
-            background: var(--search-completion-selected-background);
-            color: var(--search-completion-selected-text);
+            background: var(--suggestion-active-background-color);
+            color: var(--suggestion-active-text-color);
         }
     }
 

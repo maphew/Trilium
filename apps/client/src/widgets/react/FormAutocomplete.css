@@ -7,8 +7,8 @@
 /*
  * The suggestion list, dressed as one of the application's menus — the same metrics the mention list
  * in a text note is given, since both are a list of choices floating over the thing being edited.
- * Every variable below is defined by each theme; the two the older themes leave out (the inner
- * padding and the corner radius) fall back to the values those themes use for their own menus.
+ * Every variable below is defined by each theme; the corner radius, which the older themes leave
+ * out, falls back to the value those themes use for their own menus.
  */
 .form-autocomplete-dropdown {
     position: fixed;
@@ -16,7 +16,7 @@
     margin: 0;
     /* The entries sit inside the rounded border rather than against it, so a highlighted one is a
        rounded chip within the menu instead of a band across it. */
-    padding: var(--menu-padding-size, 6px);
+    padding: var(--suggestion-list-padding);
     list-style: none;
     overflow-y: auto;
     font-size: 0.9rem;
@@ -31,7 +31,7 @@
 
 .form-autocomplete-dropdown .form-autocomplete-item {
     cursor: pointer;
-    padding: 4px 8px;
+    padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
     margin: 0;
     border-radius: 6px;
     white-space: nowrap;
@@ -41,13 +41,13 @@
 
 /* Pointer and keyboard share the one highlight: hovering an entry makes it the active one. */
 .form-autocomplete-dropdown .form-autocomplete-item.active {
-    color: var(--active-item-text-color);
-    background-color: var(--active-item-background-color);
+    color: var(--suggestion-active-text-color);
+    background-color: var(--suggestion-active-background-color);
 }
 
 /* A heading over the entries below it, not one of them (see `isHeading`). */
 .form-autocomplete-dropdown .form-autocomplete-heading {
-    padding: 8px 8px 2px;
+    padding: 8px var(--suggestion-item-padding-inline) 2px;
     font-size: 0.8em;
     font-weight: 600;
     text-transform: uppercase;

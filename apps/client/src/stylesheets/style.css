@@ -1297,7 +1297,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .ck-mentions .ck-button {
     font-size: var(--detail-font-size) !important;
-    padding: 5px;
+    padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
 }
 
 .ck-mentions .ck-button b {
@@ -1305,9 +1305,9 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .ck-mentions {
-    --ck-color-list-button-on-background: var(--active-item-background-color);
+    --ck-color-list-button-on-background: var(--suggestion-active-background-color);
     --ck-color-list-button-on-background-focus: var(--ck-color-list-button-on-background);
-    --ck-color-list-button-on-text: var(--active-item-text-color);
+    --ck-color-list-button-on-text: var(--suggestion-active-text-color);
 }
 
 .ck-mentions .ck-button b {

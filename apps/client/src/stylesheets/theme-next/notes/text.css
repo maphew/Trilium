@@ -551,8 +551,6 @@ div.ck-template-form .ck-search__info span:nth-child(2) {
 /* Mention list (the autocompletion list for emojis, labels and relations)  */
 
 :root .ck-mentions {
-    --ck-color-list-button-on-background: var(--hover-item-background-color);
-    --ck-color-list-button-on-text: var(--hover-item-text-color);
     --ck-color-list-button-hover-background: var(--ck-editor-toolbar-dropdown-button-open-background);
     --ck-focus-ring: 1px solid transparent;
 }

@@ -22,6 +22,13 @@
 :root {
     color-scheme: var(--theme-style);
 
+    --suggestion-active-text-color: var(--hover-item-text-color);
+    --suggestion-active-background-color: var(--hover-item-background-color);
+    /* Match `ul.ck.ck-list button.ck-button` and `--ck-editor-popup-padding` in `notes/text.css`. */
+    --suggestion-item-padding-block: 2px;
+    --suggestion-item-padding-inline: 16px;
+    --suggestion-list-padding: 4px;
+
     --main-font-family: "Inter", sans-serif;
 
     --main-font-size: normal;
