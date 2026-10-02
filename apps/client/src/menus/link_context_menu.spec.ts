@@ -308,6 +308,7 @@ describe("openContextMenu", () => {
         ]);
         mocks.getTextEditorContaining.mockResolvedValue({
             commands: { get: () => ({ isEnabled: true }) },
+            plugins: { get: () => ({ canConvertLinkToEmbed: () => true }) },
             execute
         });
         const editable = document.createElement("div");
@@ -339,24 +340,26 @@ describe("openContextMenu", () => {
         expect(mocks.getTextEditorContaining).toHaveBeenCalledTimes(1);
     });
 
-    it("ends with converting a note link to an embed, but not one inside an embed", async () => {
+    it("ends with converting a note link to an embed, if the editor can convert it", async () => {
         const execute = vi.fn();
+        const canConvertLinkToEmbed = vi.fn(() => true);
         const note = { noteId: "n1" };
         mocks.getNote.mockResolvedValue(note);
         mocks.getEmbedBoxSize.mockReturnValue("full");
         mocks.getTextEditorContaining.mockResolvedValue({
             commands: { get: () => ({ isEnabled: true }) },
+            plugins: { get: () => ({ canConvertLinkToEmbed }) },
             execute
         });
         const editable = document.createElement("div");
         editable.className = "ck-editor__editable";
         editable.setAttribute("contenteditable", "true");
-        editable.innerHTML = `<p><a class="reference-link" href="#root/n1">Note</a></p>`
-            + `<figure class="include-note"><div class="include-note-content">`
-            + `<a class="reference-link" href="#root/n1">Note</a></div></figure>`;
-        const [ link, embeddedLink ] = editable.querySelectorAll("a");
+        editable.innerHTML = `<p><a class="reference-link" href="#root/n1">Note</a></p>`;
+        const link = editable.querySelector("a");
+        if (!link) return;
 
         await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(link));
+        expect(canConvertLinkToEmbed).toHaveBeenCalledWith(link);
         const { items } = mocks.show.mock.calls[0][0];
         expect(items.slice(4)).toMatchObject([
             { kind: "separator" },
@@ -370,7 +373,9 @@ describe("openContextMenu", () => {
             boxSize: "full"
         });
 
-        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(embeddedLink));
+        // Such as one with a query, which names a part of the note.
+        canConvertLinkToEmbed.mockReturnValue(false);
+        await linkContextMenu.openContextMenu("root/n1", contextMenuEvent(link));
         expect(mocks.show.mock.calls[1][0].items).toHaveLength(4);
     });
 

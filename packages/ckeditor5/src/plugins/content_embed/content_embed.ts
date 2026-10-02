@@ -124,6 +124,11 @@ export default class ContentEmbed extends Plugin {
 		};
 	}
 
+	/** Whether `domElement` is a reference link that `convertLinkToEmbed` turns into an embed. */
+	canConvertLinkToEmbed( domElement: HTMLElement ): boolean {
+		return !!getLinkToEmbed( this.editor, domElement );
+	}
+
 	/** The box sizes, with the labels the toolbar gives them. */
 	getBoxSizes(): { value: BoxSizeValue; label: string }[] {
 		return BOX_SIZES.map( value => ( { value, label: getBoxSizeLabel( this.editor.t, value ) } ) );
@@ -688,22 +693,15 @@ class ConvertLinkToEmbedCommand extends Command {
 	 */
 	override execute( { domElement, boxSize }: { domElement: HTMLElement; boxSize?: string } ) {
 		const editor = this.editor;
-		const viewElement = editor.editing.view.domConverter.mapDomToView( domElement );
-		const reference = viewElement?.is( 'element' )
-			? editor.editing.mapper.toModelElement( viewElement )
-			: undefined;
-		const href = reference?.is( 'element', 'reference' )
-			? reference.getAttribute( 'href' )
-			: null;
-		const attachmentId = getAttachmentId( href );
-		const noteId = getNoteId( href );
-		if ( !reference || !noteId ) {
+		const link = getLinkToEmbed( editor, domElement );
+		if ( !link ) {
 			return;
 		}
 
+		const { reference, embedded } = link;
 		editor.model.change( writer => {
 			const embed = writer.createElement( 'contentEmbed', {
-				...( attachmentId ? { attachmentId } : { noteId } ),
+				...embedded,
 				boxSize: boxSize ?? 'medium'
 			} );
 			const range = writer.createRangeOn( reference );
@@ -750,6 +748,30 @@ class ConvertEmbedToLinkCommand extends Command {
 			writer.setSelection( reference, 'after' );
 		} );
 	}
+}
+
+/**
+ * The reference link that `domElement` renders, and the attributes of an embed showing what it
+ * points to, or `null`. A link to a note with a query points to a part of the note, such as a
+ * board card, which an embed does not show.
+ */
+function getLinkToEmbed( editor: Editor, domElement: HTMLElement ) {
+	const viewElement = editor.editing.view.domConverter.mapDomToView( domElement );
+	const reference = viewElement?.is( 'element' )
+		? editor.editing.mapper.toModelElement( viewElement )
+		: undefined;
+	if ( !reference?.is( 'element', 'reference' ) ) {
+		return null;
+	}
+
+	const href = reference.getAttribute( 'href' );
+	const attachmentId = getAttachmentId( href );
+	if ( attachmentId ) {
+		return { reference, embedded: { attachmentId } };
+	}
+
+	const noteId = typeof href === 'string' && !href.includes( '?' ) ? getNoteId( href ) : null;
+	return noteId ? { reference, embedded: { noteId } } : null;
 }
 
 /** The embed the selection is on or inside, or `null`. */

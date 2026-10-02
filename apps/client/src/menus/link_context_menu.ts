@@ -284,8 +284,7 @@ function runEmbedCommand(
 
 /**
  * The item titled `title` that converts a link to a note or an attachment into an embed, in a
- * text note open for editing. A link in the content of an embed is not part of the note, and
- * offers none.
+ * text note open for editing, for a link that the editor can convert.
  */
 async function getConvertToEmbedItem(
     e: LinkMenuOrigin,
@@ -294,8 +293,8 @@ async function getConvertToEmbedItem(
     getLinkedEntity: () => Promise<FNote | FAttachment | null>
 ): Promise<MenuItem<CommandNames> | null> {
     const link = getTarget(e)?.closest<HTMLElement>("a.reference-link");
-    if (!link || link.closest(".include-note")
-            || !editor?.commands.get("convertLinkToEmbed")?.isEnabled) {
+    if (!link || !editor?.commands.get("convertLinkToEmbed")?.isEnabled
+            || !editor.plugins.get("ContentEmbed").canConvertLinkToEmbed(link)) {
         return null;
     }
 

@@ -738,26 +738,49 @@ describe("ContentEmbed with attachments", () => {
     });
 
     it("turns a link to a note into an embed of the note, and leaves anything else alone", () => {
+        const cardHref = "#root/boardAbc?card=cardAbc";
         editor.setData(
             `<p>Before <a class="reference-link" href="#root/parentAbc/noteAbc">x</a> after</p>`
+            + `<p><a class="reference-link" href="${cardHref}">card</a></p>`
+            + `<p><a class="reference-link" href="${LINK_HREF}">file</a></p>`
         );
         const before = getModelData(editor.model, { withoutSelection: true });
         const domRoot = editor.editing.view.getDomRoot();
+        const [ link, cardLink, attachmentLink ] =
+            domRoot?.querySelectorAll<HTMLElement>("a.reference-link") ?? [];
         const paragraph = domRoot?.querySelector("p");
         const detached = document.createElement("a");
+        if (!link || !cardLink || !attachmentLink || !paragraph) {
+            throw new Error("Expected the links and their paragraph.");
+        }
+        const plugin = editor.plugins.get(ContentEmbed);
 
-        for (const domElement of [ paragraph, detached ]) {
+        // A note link with a query names a part of the note, which an embed does not show.
+        expect([ link, cardLink, attachmentLink, paragraph, detached ]
+            .map((domElement) => plugin.canConvertLinkToEmbed(domElement)))
+            .toEqual([ true, false, true, false, false ]);
+        for (const domElement of [ cardLink, paragraph, detached ]) {
             editor.execute(CONVERT_LINK_TO_EMBED_COMMAND, { domElement });
         }
         expect(getModelData(editor.model, { withoutSelection: true })).toBe(before);
 
-        const link = domRoot?.querySelector("a.reference-link");
         editor.execute(CONVERT_LINK_TO_EMBED_COMMAND, { domElement: link, boxSize: "full" });
         expect(getModelData(editor.model, { withoutSelection: true })).toBe(
             "<paragraph>Before </paragraph>" +
             "<contentEmbed boxSize=\"full\" noteId=\"noteAbc\"></contentEmbed>" +
-            "<paragraph> after</paragraph>"
+            "<paragraph> after</paragraph>" +
+            `<paragraph><reference href="${cardHref}"></reference></paragraph>` +
+            `<paragraph><reference href="${LINK_HREF}"></reference></paragraph>`
         );
+
+        // A link in the content of an embed is not part of the note.
+        const wrapper = domRoot?.querySelector("div.include-note-wrapper");
+        if (!wrapper) {
+            throw new Error("Expected the wrapper of the embed.");
+        }
+        wrapper.innerHTML = `<a class="reference-link" href="#root/otherAbc">other</a>`;
+        const embeddedLink = wrapper.querySelector("a");
+        expect(embeddedLink && plugin.canConvertLinkToEmbed(embeddedLink)).toBe(false);
     });
 
     it("loads an embed that names nothing, as one saved mid-upload, as an empty box", () => {
