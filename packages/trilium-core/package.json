@@ -43,7 +43,7 @@
     "@types/escape-html": "1.0.4",
     "@types/html-to-text": "9.0.4",
     "@types/mime-types": "3.0.1",
-    "@types/sanitize-html": "2.16.1",
+    "@types/sanitize-html": "2.16.2",
     "@types/xml2js": "0.4.14"
   }
 }
