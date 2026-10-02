@@ -292,8 +292,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       force-graph:
-        specifier: 1.51.4
-        version: 1.51.4(preact-render-to-string@6.7.0)
+        specifier: 1.52.0
+        version: 1.52.0(preact-render-to-string@6.7.0)
       fullcalendar:
         specifier: 7.1.0
         version: 7.1.0(preact-render-to-string@6.7.0)(temporal-polyfill@1.0.5)
@@ -921,8 +921,8 @@ importers:
         specifier: 0.8.3
         version: 0.8.3
       force-graph:
-        specifier: 1.51.4
-        version: 1.51.4(preact-render-to-string@6.7.0)
+        specifier: 1.52.0
+        version: 1.52.0(preact-render-to-string@6.7.0)
       fullcalendar:
         specifier: 7.1.0
         version: 7.1.0(preact-render-to-string@6.7.0)(temporal-polyfill@1.0.5)
@@ -7514,8 +7514,8 @@ packages:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
 
-  force-graph@1.51.4:
-    resolution: {integrity: sha512-TdJ2KbkoiDQ7NIRx8IPGD0mAXXpLhamS7c+b7W98b0MHG7lphnda1VOQX/98UDTsttIAdH4TcP0l0MauSnLK8w==}
+  force-graph@1.52.0:
+    resolution: {integrity: sha512-0fpxrZzW6qwm9zM7wgh54d7GbxQfQSDV71I0apo+75PVYQPpPHGVPQFLsE9WAu+hOS4VdLd53g0Hua/bxDJKSg==}
     engines: {node: '>=12'}
 
   form-data@4.0.6:
@@ -19414,7 +19414,7 @@ snapshots:
     dependencies:
       is-callable: 1.2.7
 
-  force-graph@1.51.4(preact-render-to-string@6.7.0):
+  force-graph@1.52.0(preact-render-to-string@6.7.0):
     dependencies:
       '@tweenjs/tween.js': 25.0.0
       accessor-fn: 1.5.3
