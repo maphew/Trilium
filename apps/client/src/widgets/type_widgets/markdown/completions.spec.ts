@@ -189,6 +189,18 @@ describe("markdownCompletionAt", () => {
         expect(at("@a and @b c")).toEqual({ kind: "note", from: 7, query: "b c" });
         // An address is no mention.
         expect(at("mail me@example.com")).toBeNull();
+    });
+
+    it("finds a note after [[, as a Wikilink is typed, until its brackets close", () => {
+        expect(at("see [[")).toEqual({ kind: "note", from: 4, query: "" });
+        expect(at("see [[My meeting no")).toEqual({ kind: "note", from: 4, query: "My meeting no" });
+        expect(at("word[[Al")).toEqual({ kind: "note", from: 4, query: "Al" });
+        expect(at("see [[Al]] then")).toBeNull();
+        expect(at("see [Al")).toBeNull();
+        // The marker nearest the caret wins.
+        expect(at("[[My @Al")).toEqual({ kind: "note", from: 5, query: "Al" });
+        expect(at("@My [[Al")).toEqual({ kind: "note", from: 4, query: "Al" });
+        expect(at("`[[Al` b", 5)).toBeNull();
         expect(at("text `a @` b", 9)).toBeNull();
     });
 
@@ -329,7 +341,7 @@ describe("useMarkdownCompletions", () => {
         editor.destroy();
     });
 
-    it("lists the notes for what follows an @, as the text editor does, and links the one picked or created", async () => {
+    it("lists the notes for what follows an @ or a [[, as the text editor does, and links the one picked or created", async () => {
         getNoteSuggestions.mockResolvedValue([
             { notePath: "root/projects/abc123", noteTitle: "Alpha", notePathTitle: "Projects / Alpha", highlightedNotePathTitle: "<b>Al</b>pha" },
             { action: "create-child-note", noteTitle: "Al", parentNoteId: "parent", highlightedNotePathTitle: "Create child note" }
@@ -363,6 +375,18 @@ describe("useMarkdownCompletions", () => {
         editor.contentDOM.blur();
         created("root/parent/new1");
         await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[abc123]] [[new1]]"));
+
+        // After [[ the same list opens, and a pick inside a link already closed takes its brackets too.
+        editor.focus();
+        editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: "see [[Al" }, selection: { anchor: 8 } });
+        await vi.waitFor(() => expect(rows()).toHaveLength(2));
+        press("Enter");
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[abc123]]"));
+        editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: "see [[Al]] x" }, selection: { anchor: 8 } });
+        await vi.waitFor(() => expect(rows()).toHaveLength(2));
+        press("Enter");
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[abc123]] x"));
+        expect(editor.state.selection.main.head).toBe(14);
 
         act(() => render(null, container));
         editor.destroy();

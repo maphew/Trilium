@@ -175,13 +175,15 @@ The list shows each command by its title, as in Text notes. Typing a command's t
 
 Note that slash commands only work outside of code blocks and inline code.
 
-#### Linking notes with `@`
+#### Linking notes with `@` or `[[`
 
 As in <a class="reference-link" href="Text.md">Text</a> notes, typing `@` at the start of a line or after a space opens the note search. Picking a note replaces what was typed with a link to it in the Wikilinks-like format (`[[noteId]]`), which the preview shows as an <a class="reference-link" href="Text/Links/Internal%20(reference)%20links.md">internal link</a> with the note's title.
 
 The search runs on everything typed after the `@`, spaces included, so a title such as `@My meeting notes` can be typed out; press <kbd>Esc</kbd> to close the list and go on writing. If no note fits, the list offers to create one, as a child of the Markdown note or in the inbox; the link is inserted once the note is created.
 
-Like slash commands, `@` does nothing inside code blocks and inline code.
+You can also start typing the link directly: `[[` opens the same list, and closing the brackets yourself dismisses it. To change where an existing link points, place the cursor inside it and pick another note.
+
+Like slash commands, `@` and `[[` do nothing inside code blocks and inline code.
 
 #### Code block language auto-completion
 

@@ -36,11 +36,11 @@ export interface SlashCommand extends CommandEntry {
     apply: HostedCompletionApply;
 }
 
-/** A `/command` or an `@` note typed before the caret, from its `/` or its `@`. */
+/** A `/command` or a note typed before the caret, from its `/`, its `@` or its `[[`. */
 export interface MarkdownCompletionMatch {
     kind: "command" | "note";
     from: number;
-    /** What follows the `/` or the `@`, which the list filters by, as the text editor's do. */
+    /** What follows the `/`, the `@` or the `[[`, which the list filters by, as the text editor's do. */
     query: string;
 }
 
@@ -55,8 +55,9 @@ export interface SlashCommandContext {
 }
 
 /**
- * Lists the `/` commands and the `@` notes typed at the start of a line or after whitespace in
- * the text editor's lists, through `hostedCompletion()`. A note picked is linked as `[[noteId]]`,
+ * Lists the `/` commands and the `@` notes typed at the start of a line or after whitespace, and
+ * the notes typed after a Wikilink's `[[`, in the text editor's lists, through
+ * `hostedCompletion()`. A note picked is linked as `[[noteId]]`,
  * and one created goes under the note at `getNotePath()`. The code-fence languages stay with
  * CodeMirror's own completion.
  */
@@ -115,23 +116,32 @@ export function useMarkdownCompletions(
 
 /**
  * The `/command` or the `@` note typed before the caret, at the start of a line or after whitespace,
- * or `null` in a code block or a code span, where either is part of the code.
+ * or the note typed after a `[[`, the marker nearest the caret where both stand; or `null` in a code
+ * block or a code span, where any of them is part of the code.
  */
 export function markdownCompletionAt(before: string, _explicit: boolean, state: EditorState): MarkdownCompletionMatch | null {
     const command = COMMAND_TYPED.exec(before);
-    const typed = command ?? NOTE_TYPED.exec(before);
+    const mention = NOTE_TYPED.exec(before);
+    const wikilink = WIKILINK_TYPED.exec(before);
+    const note = mention && wikilink
+        ? (mention.index > wikilink.index ? mention : wikilink)
+        : mention ?? wikilink;
+    const typed = command ?? note;
     if (!typed) return null;
 
     for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(state.selection.main.head, -1); node; node = node.parent) {
         if (node.name.includes("Code")) return null;
     }
 
-    return { kind: command ? "command" : "note", from: typed.index, query: typed[0].slice(1) };
+    const markerLength = typed === wikilink ? 2 : 1;
+    return { kind: command ? "command" : "note", from: typed.index, query: typed[0].slice(markerLength) };
 }
 
 const COMMAND_TYPED = new RegExp(`${SLASH_COMMAND_REGEX.source}$`);
 /** An `@`, and the note title typed after it, spaces included, as the text editor's `@` allows. */
 const NOTE_TYPED = /(?:^|(?<=\s))@[^@]*$/;
+/** A Wikilink's `[[`, anywhere, and the note title typed after it, until a bracket ends it. */
+const WIKILINK_TYPED = /\[\[[^[\]]*$/;
 
 /**
  * The commands the `/` list offers, titled, described, found by the same words and drawn with the same
@@ -376,7 +386,7 @@ function createMarkdownCompletionList(commands: () => SlashCommand[], getParentN
                     allowCreatingNotes
                     parentNotePath={getParentNotePath()}
                     onPick={(notePath) => state.commit(typeof notePath === "string"
-                        ? noteLink(notePath)
+                        ? linkTo(notePath)
                         : notePath.then((path) => path ? noteLink(path) : undefined))}
                 />
             );
@@ -393,6 +403,23 @@ function createMarkdownCompletionList(commands: () => SlashCommand[], getParentN
             />
         );
     });
+}
+
+/**
+ * Puts the link to the note at `notePath` in place of the typed note. Where the caret is inside a
+ * Wikilink already closed, the rest of the link up to its `]]` goes too.
+ */
+function linkTo(notePath: string): HostedCompletionApply {
+    return (view, from, to) => {
+        const isWikilink = view.state.sliceDoc(from, from + 2) === "[[";
+        const rest = isWikilink ? /^[^[\]\n]*\]\]/.exec(view.state.sliceDoc(to, view.state.doc.lineAt(to).to)) : null;
+        const link = noteLink(notePath);
+        view.dispatch({
+            changes: { from, to: to + (rest?.[0].length ?? 0), insert: link },
+            selection: { anchor: from + link.length },
+            userEvent: "input.complete"
+        });
+    };
 }
 
 /** The reference link to the note at `notePath`, which the preview renders with the note's title. */

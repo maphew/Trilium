@@ -211,7 +211,7 @@
   title, its keyword (as listed above) or a related word such as <code>latex</code> or <code>grid</code> finds
   it.</p>
 <p>Note that slash commands only work outside of code blocks and inline code.</p>
-<h4>Linking notes with <code>@</code></h4>
+<h4>Linking notes with <code>@</code> or <code>[[</code></h4>
 <p>As in <a class="reference-link" href="#root/_help_iPIMuisry3hd">Text</a> notes,
   typing <code>@</code> at the start of a line or after a space opens the note
   search. Picking a note replaces what was typed with a link to it in the
@@ -223,8 +223,11 @@
   close the list and go on writing. If no note fits, the list offers to create
   one, as a child of the Markdown note or in the inbox; the link is inserted
   once the note is created.</p>
-<p>Like slash commands, <code>@</code> does nothing inside code blocks and
-  inline code.</p>
+<p>You can also start typing the link directly: <code>[[</code> opens the same
+  list, and closing the brackets yourself dismisses it. To change where an
+  existing link points, place the cursor inside it and pick another note.</p>
+<p>Like slash commands, <code>@</code> and <code>[[</code> do nothing inside
+  code blocks and inline code.</p>
 <h4>Code block language auto-completion</h4>
 <p>Starting with v0.104.0, typing ``` to insert a code block will automatically
   open a list of suggested language types which have syntax highlighting.</p>
