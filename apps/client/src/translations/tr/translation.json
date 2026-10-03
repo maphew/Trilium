@@ -624,8 +624,7 @@
     "button_include": "Not ekle"
   },
   "jump_to_note": {
-    "search_placeholder": "Notu adına veya türüne göre ara > komutlar için...",
-    "search_button": "Tüm metinde ara"
+    "search_placeholder": "Notu adına veya türüne göre ara > komutlar için..."
   },
   "markdown_editor": {
     "image_upload_failed": "\"{{name}}\" görseli yüklenemiyor."
@@ -3039,12 +3038,9 @@
     "zoom-factor": "Yakınlaştırma oranı"
   },
   "note_autocomplete": {
-    "search-for": "\"{{term}}\" için ara",
     "create-note": "\"{{term}}\" alt notunu oluştur ve bağlantı ver",
     "insert-external-link": "\"{{term}}\" için harici bağlantı ekle",
-    "clear-text-field": "Metin alanını temizle",
-    "show-recent-notes": "Son notları göster",
-    "full-text-search": "Tam metin arama"
+    "clear-text-field": "Metin alanını temizle"
   },
   "note_tooltip": {
     "note-has-been-deleted": "Not silindi.",

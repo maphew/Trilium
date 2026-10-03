@@ -278,7 +278,6 @@
     "copy_to_clipboard": "In Zwischenablage kopieren"
   },
   "jump_to_note": {
-    "search_button": "Suche im Volltext",
     "search_placeholder": "Notiz anhand ihres Titels suchen oder > für Befehle eingeben..."
   },
   "markdown_import": {
@@ -2111,12 +2110,9 @@
     "zoom-factor": "Zoomfaktor"
   },
   "note_autocomplete": {
-    "search-for": "Suche nach „{{term}}“",
     "create-note": "Untergeordnete Notiz „{{term}}“ erstellen und verlinken",
     "insert-external-link": "Externen Link zu „{{term}}“ einfügen",
-    "clear-text-field": "Textfeldinhalt löschen",
-    "show-recent-notes": "Aktuelle Notizen anzeigen",
-    "full-text-search": "Volltextsuche"
+    "clear-text-field": "Textfeldinhalt löschen"
   },
   "note_tooltip": {
     "note-has-been-deleted": "Notiz wurde gelöscht.",

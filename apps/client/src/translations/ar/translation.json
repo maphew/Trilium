@@ -1842,9 +1842,6 @@
   },
   "note_autocomplete": {
     "clear-text-field": "مسح حقل النص",
-    "show-recent-notes": "عرض الملاحظات الاخيرة",
-    "full-text-search": "البحث بالنص الكامل",
-    "search-for": "بحث ل \"{{term}}\"",
     "insert-external-link": "إدراج رابط خارجي إلى \"{{term}}\"",
     "create-note": "إنشاء ملاحظة فرعية وربطها \"{{term}}\""
   },
@@ -1908,7 +1905,6 @@
     "slide-overview": "تبديل عرض نظرة عامة على الشرائح"
   },
   "jump_to_note": {
-    "search_button": "البحث في النص الكامل",
     "search_placeholder": "ابحث عن ملاحظة حسب اسمها أو نوعها > للأوامر..."
   },
   "password_not_set": {
