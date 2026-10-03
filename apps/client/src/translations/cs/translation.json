@@ -248,8 +248,7 @@
     "copy_to_clipboard": "Kopírovat do schránky"
   },
   "jump_to_note": {
-    "search_placeholder": "Hledat poznámku podle jména nebo typu > pro příkazy...",
-    "search_button": "Hledat v celém textu"
+    "search_placeholder": "Hledat poznámku podle jména nebo typu > pro příkazy..."
   },
   "markdown_import": {
     "dialog_title": "Markdown import",
@@ -1843,12 +1842,9 @@
     "zoom-factor": "Míra přiblížení"
   },
   "note_autocomplete": {
-    "search-for": "Hledat \"{{term}}\"",
     "create-note": "Vytvořit a propojit dceřinnou poznámku \"{{term}}\"",
     "insert-external-link": "Vložit externí odkaz na \"{{term}}\"",
-    "clear-text-field": "Vymazat textové pole",
-    "show-recent-notes": "Zobrazit nedávné poznámky",
-    "full-text-search": "Vyhledávání v celém textu"
+    "clear-text-field": "Vymazat textové pole"
   },
   "note_tooltip": {
     "note-has-been-deleted": "Poznámka byla smazána.",

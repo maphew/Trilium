@@ -1,3 +1,4 @@
+import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import { attachmentIcon } from "@triliumnext/commons";
 import type { VNode } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +40,7 @@ import { getDownloadAction, getOpenExternallyAction } from "../../../services/at
 import content_renderer from "../../../services/content_renderer";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
+import { registerContentEmbedTools } from "./content_embed_tools";
 import ContentEmbed, {
     getNoteActions,
     type ContentEmbedAction,
@@ -200,6 +202,22 @@ describe("loadEmbeddedAttachment", () => {
         });
     });
 
+    it("passes the attachment editor to the renderer, and the focus to the box", async () => {
+        const attachmentEditor = { canEdit: vi.fn() } as never;
+
+        await loadEmbeddedAttachment("att1", $(createWrapper()), "medium", {
+            attachmentEditor,
+            isFocused: true
+        });
+
+        expect(content_renderer.getRenderedContent).toHaveBeenCalledWith(attachment, {
+            interactive: true,
+            mediaEnvironment: "embedded",
+            attachmentEditor
+        });
+        expect(lastMount().props).toMatchObject({ isFocusedOnMount: true });
+    });
+
     it("leaves the box alone for a deleted attachment", async () => {
         vi.mocked(froca.getAttachment).mockResolvedValue(null);
 
@@ -336,6 +354,8 @@ describe("refreshEmbeddedNote", () => {
 
 describe("watchContentEmbeds", () => {
     let container: HTMLElement;
+    const update = vi.fn();
+    const editor = { ui: { update } } as unknown as CKTextEditor;
 
     beforeEach(() => {
         container = document.createElement("div");
@@ -382,6 +402,29 @@ describe("watchContentEmbeds", () => {
         container.querySelector("blockquote")?.remove();
         await flush();
         expect(disposed()).toHaveLength(2);
+    });
+
+    it("updates the editor when content in an embed adds buttons to its toolbar", () => {
+        const provider = { getTools: () => [], execute: vi.fn(), subscribe: () => () => {} };
+        const [ inside, outside ] = [ container, document.body ].map((parent) => {
+            const element = document.createElement("div");
+            parent.append(element);
+            return element;
+        });
+        update.mockClear();
+        const stop = watchContentEmbeds(container, editor);
+
+        const unregister = [ registerContentEmbedTools(inside, provider) ];
+        expect(update).toHaveBeenCalledTimes(1);
+        unregister.push(registerContentEmbedTools(outside, provider));
+        stop();
+        unregister.push(registerContentEmbedTools(inside, provider));
+        expect(update).toHaveBeenCalledTimes(1);
+
+        for (const stopRegistration of unregister) {
+            stopRegistration();
+        }
+        outside.remove();
     });
 });
 

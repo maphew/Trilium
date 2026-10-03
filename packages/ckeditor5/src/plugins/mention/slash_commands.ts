@@ -30,6 +30,7 @@ import bxError from "boxicons/svg/regular/bx-error.svg?raw";
 import bxErrorCircle from "boxicons/svg/regular/bx-error-circle.svg?raw";
 import bxInfoCircle from "boxicons/svg/regular/bx-info-circle.svg?raw";
 import bxNetworkChart from "boxicons/svg/regular/bx-network-chart.svg?raw";
+import bxPen from "boxicons/svg/regular/bx-pen.svg?raw";
 import bxSticker from "boxicons/svg/regular/bx-sticker.svg?raw";
 import { BookmarkUI, type Editor, type MentionFeedObjectItem, Plugin } from "ckeditor5";
 
@@ -44,6 +45,7 @@ import { ADMONITION_TYPE_NAMES, type AdmonitionType } from "../admonition/admoni
 import { getAdmonitionTitle } from "../admonition/admonition_ui.js";
 import aiIcon from "../ai_assistant/theme/icons/ai.svg?raw";
 import { COMMAND_NAME as CONTENT_EMBED_COMMAND } from "../content_embed/content_embed.js";
+import { insertDrawingCanvas } from "../file_upload/file_upload_ui.js";
 import { INSERT_ICON_COMMAND } from "../inline_icon/inline_icon_editing.js";
 import InlineIconUI from "../inline_icon/inline_icon_ui.js";
 import InsertDateTimePlugin, { COMMAND_NAME as INSERT_DATE_TIME_COMMAND, getDateTimeFormatOptions } from "../insert_date_time.js";
@@ -330,6 +332,16 @@ export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinitio
         ...buildListSlashCommands(editor),
         ...buildAlignmentSlashCommands(editor),
         ...buildAdmonitionSlashCommands(editor),
+        {
+            id: "drawing-canvas",
+            title: t("Drawing canvas"),
+            description: t("Insert a canvas to draw on."),
+            aliases: [ "excalidraw", "sketch", "whiteboard" ],
+            icon: bxPen,
+            commandName: "fileUpload",
+            isEnabled: canEmbedFiles,
+            execute: insertDrawingCanvas
+        },
         ...buildMermaidSlashCommands(editor),
         {
             id: "ai-assistant",
@@ -385,9 +397,7 @@ export function buildTriliumSlashCommands(editor: Editor): SlashCommandDefinitio
             aliases: [ "attachment", "upload", "embed" ],
             icon: IconPaperClip,
             commandName: "fileUpload",
-            // Embedding goes wherever the "Include note" button can insert an embed.
-            isEnabled: (target: Editor) => !!target.commands.get("fileUpload")?.isEnabled
-                && !!target.commands.get(CONTENT_EMBED_COMMAND)?.isEnabled,
+            isEnabled: canEmbedFiles,
             execute: (target: Editor) => pickFiles("", (files) => {
                 target.execute("fileUpload", { file: files, asEmbed: true });
                 target.editing.view.focus();
@@ -740,6 +750,12 @@ function buildImageUploadCommand(editor: Editor): SlashCommandDefinition {
             });
         }
     };
+}
+
+/** Whether files can be embedded at the selection: wherever "Include note" can insert an embed. */
+function canEmbedFiles(target: Editor) {
+    return !!target.commands.get("fileUpload")?.isEnabled
+        && !!target.commands.get(CONTENT_EMBED_COMMAND)?.isEnabled;
 }
 
 /**

@@ -236,7 +236,10 @@ function getMenuEmbed(e: LinkMenuOrigin, editor: CKTextEditor): MenuEmbed | null
     return state ? { editor, element, state } : null;
 }
 
-/** The commands that the toolbar of an embed offers, with what each shows checked. */
+/**
+ * The commands that the toolbar of an embed offers, with what each shows checked. Editable is
+ * offered only for content that has an editable mode.
+ */
 function getEmbedItems(embed: MenuEmbed): MenuItem<CommandNames>[] {
     const { editor, state } = embed;
     const sizeItems = editor.plugins.get("ContentEmbed").getBoxSizes()
@@ -245,8 +248,15 @@ function getEmbedItems(embed: MenuEmbed): MenuItem<CommandNames>[] {
             trailingIcon: value === state.boxSize ? CHECK_ICON : undefined,
             handler: () => runEmbedCommand(embed, "contentEmbedBoxSize", { value })
         }));
+    const editableItems: MenuItem<CommandNames>[] = state.isEditableToggleable ? [ {
+        title: t("link_context_menu.editable"),
+        uiIcon: "bx bx-edit-alt",
+        trailingIcon: state.isEditable ? CHECK_ICON : undefined,
+        handler: () => runEmbedCommand(embed, "toggleContentEmbedEditable")
+    } ] : [];
 
     return [
+        ...editableItems,
         submenuItem({
             title: t("link_context_menu.include_size"),
             uiIcon: "bx bx-expand-vertical"

@@ -30,7 +30,9 @@ import { useEditorSpacedUpdate, useLegacyImperativeHandlers, useNoteLabel, useSe
 import IconPicker from "../../react/IconPicker";
 import { setEditorNoteId } from "../../react/NoteStore";
 import { TypeWidgetProps } from "../type_widget";
+import AttachmentSaves from "./attachment_saves";
 import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationEventInfo } from "./CKEditorWithWatchdog";
+import { getContentEmbedTools } from "./content_embed_tools";
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
@@ -56,6 +58,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     /** The note `contentRef` holds the content of, so a restarted editor can be marked as holding it. */
     const contentNoteIdRef = useRef<string>();
     const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
+    /** The attachment whose embed takes the focus when it renders next. */
+    const focusedAttachmentIdRef = useRef<string>();
     const watchdogRef = useRef<EditorWatchdog>(null);
     const stopWatchingEmbedsRef = useRef<() => void>();
     const editorApiRef = useRef<CKEditorApi>(null);
@@ -71,6 +75,8 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         textNoteEditorType
     });
     const initialized = useRef(deferred<void>());
+    const [ attachmentSaves ] = useState(() =>
+        new AttachmentSaves(() => spacedUpdate.scheduleUpdate()));
     const spacedUpdate = useEditorSpacedUpdate({
         note,
         noteContext,
@@ -83,14 +89,17 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             }
 
             const content = editor.getData() ?? "";
+            const attachments = attachmentSaves.collect();
 
             // if content is only tags/whitespace (typically <p>&nbsp;</p>), then just make it empty,
             // this is important when setting a new note to code
             return {
-                content: utils.isHtmlEmpty(content) ? "" : content
+                content: utils.isHtmlEmpty(content) ? "" : content,
+                ...(attachments.length ? { attachments } : {})
             };
         },
         onContentChange(newContent) {
+            attachmentSaves.setNoteId(note?.noteId);
             contentRef.current = newContent;
             contentNoteIdRef.current = note?.noteId;
             const editor = watchdogRef.current?.editor;
@@ -118,6 +127,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             // Store back the saved data in order to retrieve it in case the CKEditor crashes.
             contentRef.current = savedData.content;
             contentNoteIdRef.current = note?.noteId;
+            attachmentSaves.markSaved(savedData.attachments);
         }
     });
     const templates = useTemplates();
@@ -192,13 +202,26 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             });
         },
         loadEmbeddedNote,
-        loadEmbeddedAttachment,
+        loadEmbeddedAttachment(attachmentId: string, $el: JQuery<HTMLElement>, boxSize?: string) {
+            const isFocused = focusedAttachmentIdRef.current === attachmentId;
+            if (isFocused) {
+                focusedAttachmentIdRef.current = undefined;
+            }
+            return loadEmbeddedAttachment(attachmentId, $el, boxSize, {
+                attachmentEditor: attachmentSaves,
+                isFocused
+            });
+        },
+        focusContentEmbed(attachmentId: string) {
+            focusedAttachmentIdRef.current = attachmentId;
+        },
         getAttachmentHref,
         getNoteId() {
             return note.noteId;
         },
         getEmbedBoxSize: getUploadBoxSize,
         openContentEmbedMenu,
+        getContentEmbedTools,
         // Link preview functionality. The insert flow itself lives in the editor (a balloon form),
         // so the host only has to supply the metadata and the rendering.
         async fetchLinkMetadata(url: string) {
@@ -522,7 +545,10 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                     if (containerRef.current) {
                         setupImageOpening(containerRef.current, false);
                         stopWatchingEmbedsRef.current?.();
-                        stopWatchingEmbedsRef.current = watchContentEmbeds(containerRef.current);
+                        stopWatchingEmbedsRef.current = watchContentEmbeds(
+                            containerRef.current,
+                            editor
+                        );
                     }
 
                     editor.plugins.get("FileUploadEditing")
@@ -695,7 +721,8 @@ interface PendingAttachmentChanges {
 
 /**
  * Passes the attachments changed in `loadResults` to the editor's reference links, so a link shows
- * the new title of its attachment or goes away with it.
+ * the new title of its attachment or goes away with it. Changes that this editor saved, such as a
+ * canvas drawing, are skipped: redrawing an embed remounts what it shows.
  *
  * When `loadResults` also reloads the note's content, the changes wait in `pending` until
  * `applyPendingAttachmentChanges()` runs on the reloaded content.
@@ -709,7 +736,8 @@ export function notifyAttachmentChanges(
     componentId: string | undefined,
     pending: { current: PendingAttachmentChanges | undefined }
 ) {
-    const changes = loadResults.getAttachmentRows().flatMap(({ attachmentId, isDeleted }) =>
+    const rows = loadResults.getAttachmentRows(componentId);
+    const changes = rows.flatMap(({ attachmentId, isDeleted }) =>
         attachmentId ? [ { attachmentId, isDeleted: !!isDeleted } ] : []
     );
     if (!changes.length) {

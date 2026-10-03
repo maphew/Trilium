@@ -1066,7 +1066,8 @@
     "box_size_small": "スモール (~ 10 行)",
     "box_size_medium": "ミディアム (~ 30 行)",
     "box_size_full": "フル (ボックスに全文が表示されます)",
-    "box_size_expandable": "展開可能 (デフォルトでは折りたたまれています)"
+    "box_size_expandable": "展開可能 (デフォルトでは折りたたまれています)",
+    "box_size_tiny": "コンパクト（タイトルとアクションを 1 行に表示）"
   },
   "ancestor": {
     "placeholder": "ノート名で検索",
@@ -1699,11 +1700,18 @@
     "open_note_in_new_split": "新しく分割してノートを開く",
     "open_note_in_new_window": "新しいウィンドウでノートを開く",
     "open_note_in_other_split": "他の分割画面でノートを開く",
-    "open_note": "ノートを開く"
+    "open_note": "ノートを開く",
+    "convert_link_to_embed": "リンクを埋め込みに変換",
+    "convert_link_to_included_note": "リンクを埋め込みノートに変換",
+    "convert_embed_to_link": "リンクに変換",
+    "include_size": "サイズ",
+    "show_title": "タイトルを表示",
+    "show_caption": "キャプションを表示"
   },
   "note_tooltip": {
     "quick-edit": "クイック編集",
-    "note-has-been-deleted": "ノートは削除されました。"
+    "note-has-been-deleted": "ノートは削除されました。",
+    "attachment-info": "添付ファイル • {{size}}"
   },
   "protect_note": {
     "toggle-on": "ノートを保護",
@@ -1742,7 +1750,13 @@
     "placeholder": "クイック検索",
     "searching": "検索中...",
     "no-results": "結果は見つかりませんでした",
-    "show-in-full-search": "検索結果をすべて表示"
+    "show-in-full-search": "検索結果をすべて表示",
+    "hints": {
+      "title": "クイック検索結果",
+      "to_results": "検索結果へ移動",
+      "page": "検索結果ページを移動",
+      "close": "検索結果を閉じる"
+    }
   },
   "note_tree": {
     "collapse-title": "ノートツリーを折りたたむ",
@@ -2137,7 +2151,11 @@
     "connection_exists": "これらのノート間の接続 '{{name}}' は既に存在します。",
     "start_dragging_relations": "ここからリレーションをドラッグして、別のノートにドロップします。",
     "note_already_in_diagram": "ノート「{{title}}」はすでに図に含まれています。",
-    "rename_relation": "リレーション名の変更"
+    "rename_relation": "リレーション名の変更",
+    "rename": "名前を変更",
+    "new_relation": "新しいリレーション",
+    "create_relation": "リレーションを作成",
+    "relation_name_placeholder": "リレーション名"
   },
   "database_anonymization": {
     "title": "データベースの匿名化",
@@ -2193,7 +2211,8 @@
       "completions": "候補を表示",
       "new_line": "改行",
       "run_search": "検索を実行"
-    }
+    },
+    "error_title": "検索エラー"
   },
   "delete_revisions": {
     "delete_note_revisions": "ノートの変更履歴を削除",
@@ -2224,8 +2243,7 @@
     "title": "ズーム倍率（デスクトップビルドのみ）"
   },
   "jump_to_note": {
-    "search_placeholder": "名前またはタイプでノートを検索 > コマンドを検索...",
-    "search_button": "全文検索"
+    "search_placeholder": "名前またはタイプでノートを検索 > コマンドを検索..."
   },
   "markdown_import": {
     "dialog_title": "マークダウンをインポート",
@@ -2295,7 +2313,8 @@
     "editor_crashed_details_button": "詳細を見る...",
     "editor_crashed_details_intro": "このエラーが何度も発生する場合は、以下の情報を貼り付けて GitHub に報告することを検討してください。",
     "editor_crashed_details_title": "技術情報",
-    "nothing_selected_to_cut": "まずテキストを選択して、サブノートとして切り出してください。"
+    "nothing_selected_to_cut": "まずテキストを選択して、サブノートとして切り出してください。",
+    "uploading_attachment": "添付ファイルをアップロード中"
   },
   "empty": {
     "open_note_instruction": "以下の入力欄にノートのタイトルを入力するか、ツリー内のノートを選択してノートを開きます。",
@@ -2483,16 +2502,28 @@
     "copy_image_to_clipboard": "画像をクリップボードにコピー"
   },
   "note_autocomplete": {
-    "search-for": "「{{term}}」を検索",
     "create-note": "ノート \"{{term}}\" を作成",
     "insert-external-link": "「{{term}}」への外部リンクを挿入",
     "clear-text-field": "テキストフィールドをクリア",
-    "show-recent-notes": "最近のノートを表示",
-    "full-text-search": "全文検索",
     "create-note-into": "{{parentTitle}} 内にノート \"{{term}}\" を作成",
     "create-note-into-day-note": "今日の日ノート内にノート \"{{term}}\" を作成",
     "create-note-into-root": "トップレベルにノート \"{{term}}\" を作成",
-    "create-child-note": "子ノート \"{{term}}\" を作成"
+    "create-child-note": "子ノート \"{{term}}\" を作成",
+    "show-in-full-search": "\"{{term}}\" の全検索結果を表示",
+    "include-note-contents": "\"{{term}}\" の検索結果にノートの内容を含める",
+    "include-contents": "ノートの内容を含める",
+    "hints": {
+      "title": "ノートの検索結果",
+      "move": "検索結果を移動",
+      "open": "ハイライトされた結果を開く"
+    },
+    "recent": {
+      "today": "今日",
+      "yesterday": "昨日",
+      "past_week": "過去 7 日間",
+      "past_month": "過去 30 日間",
+      "older": "それ以前"
+    }
   },
   "geo-map": {
     "create-child-note-title": "新しい子ノートを作成し、マップに追加する",
@@ -3502,7 +3533,9 @@
     "save": "保存",
     "cancel": "キャンセル",
     "fullscreen": "全画面表示",
-    "exit_fullscreen": "全画面表示を終了"
+    "exit_fullscreen": "全画面表示を終了",
+    "open_in_new_tab": "新しいタブで開く",
+    "more_actions": "その他のアクション"
   },
   "spreadsheet": {
     "read-only": "このノートは読み取り専用です。",
@@ -3727,12 +3760,26 @@
       "sort": "並べ替え",
       "ascending": "昇順",
       "descending": "降順",
-      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "結合されたセルによって互いに関連付けられているため、一部の行はまとめて並べ替えられました"
+      "some-rows-were-sorted-together-because-merged-cells-tie-them-to-each-other": "結合されたセルによって互いに関連付けられているため、一部の行はまとめて並べ替えられました",
+      "attach-and-embed-file": "ファイルを添付して埋め込む",
+      "attach-file": "ファイルを添付",
+      "attach-file-as-a-link": "ファイルをリンクとして添付",
+      "convert-to-link": "リンクに変換",
+      "upload-files-as-attachments-and-insert-embeds": "ファイルを添付ファイルとしてアップロードし、埋め込みを挿入する。",
+      "upload-files-as-attachments-and-insert-links": "ファイルを添付ファイルとしてアップロードし、リンクを挿入する。",
+      "caption-for-the-included-note": "埋め込みノートのキャプション",
+      "enter-caption": "キャプションを入力",
+      "tiny": "コンパクト",
+      "show-title": "タイトルを表示",
+      "more-actions": "その他のアクション"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",
       "insert": "挿入",
       "alignment": "行揃え"
+    },
+    "colors": {
+      "pink": "ピンク"
     }
   },
   "security": {

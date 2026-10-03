@@ -97,6 +97,14 @@ vi.mock("../widgets/collections/NoteList", () => ({ EmbeddedNoteList: embeddedNo
 const iconPackPreviewComponent = vi.fn((_props: any) => null);
 vi.mock("../widgets/type_widgets/icon_pack/IconPackPreview", () => ({ IconPackPreview: iconPackPreviewComponent }));
 
+const canvasDrawingComponent = vi.fn((_props: any): VNode<any> =>
+    h("span", { class: "mock-canvas-drawing-marker" }));
+const renderCanvasDrawingPicture = vi.fn(async (_entity: unknown): Promise<Element | null> => null);
+vi.mock("../widgets/type_widgets/canvas/CanvasDrawing", () => ({
+    default: canvasDrawingComponent,
+    renderCanvasDrawingPicture: (entity: unknown) => renderCanvasDrawingPicture(entity)
+}));
+
 const chatPreviewComponent = vi.fn((props: any): VNode<any> =>
     h("span", { class: "mock-chat-marker" }, `messages:${props.messages.length}`));
 vi.mock("../widgets/type_widgets/llm_chat/ChatPreview", () => ({ default: chatPreviewComponent }));
@@ -119,7 +127,8 @@ import {
     disposeInteractiveContent,
     getEmbedBoxSize,
     getRenderedContent as rawGetRenderedContent,
-    getUploadBoxSize
+    getUploadBoxSize,
+    hasRenderedPreview
 } from "./content_renderer.js";
 import froca from "./froca.js";
 import server from "./server.js";
@@ -194,17 +203,35 @@ describe("getEmbedBoxSize", () => {
             buildNote({ title: "Site", type: "webView", "#webViewSrc": "https://example.com" }),
             buildNote({ title: "Clip", type: "file", mime: "video/mp4" }),
             buildAttachment({ role: "file", mime: "application/pdf" }),
-            buildAttachment({ role: "image", mime: "image/png" })
-        ].map(getEmbedBoxSize)).toEqual(Array(8).fill("medium"));
+            buildAttachment({ role: "image", mime: "image/png" }),
+            buildAttachment({ role: "file", mime: "application/vnd.excalidraw+json" })
+        ].map(getEmbedBoxSize)).toEqual(Array(9).fill("medium"));
     });
 
     it("sizes an upload by its media type, as the attachment it becomes", () => {
         expect([
             "application/zip", "", "audio/mpeg", "application/json", "application/pdf",
-            "image/png", "video/mp4"
+            "image/png", "video/mp4", "application/vnd.excalidraw+json"
         ].map(getUploadBoxSize)).toEqual([
-            "tiny", "tiny", "small", "full", "medium", "medium", "medium"
+            "tiny", "tiny", "small", "full", "medium", "medium", "medium", "medium"
         ]);
+    });
+});
+
+describe("hasRenderedPreview", () => {
+    it("tells a file it draws, such as a canvas drawing, from one it shows as an icon", () => {
+        expect([
+            buildAttachment({ role: "file", mime: "application/vnd.excalidraw+json" }),
+            buildAttachment({ role: "importSource", mime: "application/json" }),
+            buildAttachment({ role: "file", mime: "application/pdf" }),
+            buildNote({ title: "Site", type: "webView", "#webViewSrc": "https://example.com" })
+        ].map(hasRenderedPreview)).toEqual([ true, true, true, true ]);
+
+        expect([
+            buildAttachment({ role: "file", mime: "text/plain" }),
+            buildAttachment({ role: "file", mime: "application/zip" }),
+            buildNote({ title: "Blank page", type: "webView" })
+        ].map(hasRenderedPreview)).toEqual([ false, false, false ]);
     });
 });
 
@@ -848,6 +875,44 @@ describe("generic FNote fallback / webView", () => {
 
         expect(chatPreviewComponent).not.toHaveBeenCalled();
         expect($renderedContent.html()).toBe("");
+    });
+});
+
+describe("getRenderedContent canvas drawing rendering", () => {
+    const canvasMime = "application/vnd.excalidraw+json";
+
+    it("mounts the editor for an interactive attachment, with its saving editor", async () => {
+        const att = buildAttachment({ role: "file", mime: canvasMime });
+        const attachmentEditor = { canEdit: vi.fn() } as any;
+
+        const { type, $renderedContent } = await getRenderedContent(att, {
+            interactive: true,
+            attachmentEditor
+        });
+
+        expect(type).toBe("canvasDrawing");
+        const $drawing = $renderedContent.find(".canvas-drawing[data-interactive-mount]");
+        expect($drawing.find(".mock-canvas-drawing-marker").length).toBe(1);
+        expect(canvasDrawingComponent).toHaveBeenCalledWith(
+            { attachment: att, editor: attachmentEditor }, expect.anything());
+        expect(renderCanvasDrawingPicture).not.toHaveBeenCalled();
+    });
+
+    it("shows a picture of the drawing elsewhere, and an icon for an empty drawing", async () => {
+        const att = buildAttachment({ role: "file", mime: canvasMime });
+        const picture = document.createElement("svg");
+        renderCanvasDrawingPicture.mockResolvedValueOnce(picture);
+
+        const { type, $renderedContent } = await getRenderedContent(att);
+        expect(type).toBe("canvasDrawing");
+        expect($renderedContent.children().get(0)).toBe(picture);
+        expect(canvasDrawingComponent).not.toHaveBeenCalled();
+
+        const note = buildNote({ title: "Drawing", type: "file", mime: canvasMime });
+        const { $renderedContent: $empty } = await getRenderedContent(note, { interactive: true });
+        expect(renderCanvasDrawingPicture).toHaveBeenLastCalledWith(note);
+        expect($empty.hasClass("no-preview")).toBe(true);
+        expect($empty.find(".bx-pen").length).toBe(1);
     });
 });
 

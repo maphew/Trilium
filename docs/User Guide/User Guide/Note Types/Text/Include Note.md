@@ -29,6 +29,19 @@ A new include gets the size that suits what it shows:
 
 The dialog that includes a note selects that size once the note is picked, and you can choose another one there. To change the size later, select the include and use the _Box size_ menu in its toolbar, or the _Size_ submenu of its _More actions_ menu.
 
+## Resizing
+
+A _Small_, _Medium_ or _Expandable_ include can be resized to any width and height. A _Tiny_ or _Full_ include always fits its content.
+
+*   To resize an include, select it and drag the handle in its bottom-right corner. To change only the width or only the height, drag the middle of its right or bottom edge instead, where a touch screen shows a handle too. In right-to-left text, the handle is in the bottom-left corner and the width changes from the left edge.
+*   Resizing works with a mouse, a pen or a finger.
+*   While the height changes, moving the handle near the top or the bottom of the note scrolls the note.
+*   An include narrower than the note is centered, so changing its width moves both of its sides. Making it as wide as the note returns it to the full width.
+*   To cancel a resize, press <kbd>Esc</kbd> before releasing the handle.
+*   To reset the size, double-click the corner handle, or double-tap it on a touch screen. Double-clicking the right or bottom edge resets only the width or the height.
+*   Choosing a box size resets the height. Choosing _Tiny_ or _Full_ resets the width too.
+*   While an _Expandable_ include is collapsed, only its width can be changed.
+
 ## Caption
 
 An include can have a caption, shown centered at the bottom of its box. The caption is part of the text note, so it can be formatted like the rest of the text, for example in bold or with a link.
@@ -51,7 +64,7 @@ To open an included note in a new tab, press the <span class="tn-icon bx bx-link
 
 The <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button at the end of the title row opens the same menu as right-clicking anywhere on the title row: the other places to open the note in and, for an embedded attachment, the actions on the attachment.
 
-In a note being edited, the menu also has the commands of the include's toolbar: the _Size_ submenu, _Show title_ and _Show caption_, each checked while it is in effect, and _Convert to link_ at the end. For an embedded attachment they follow its first group of actions; for an included note they end the menu.
+In a note being edited, the menu also has the commands of the include's toolbar: the _Size_ submenu, _Show title_ and _Show caption_, each checked while it is in effect, and _Convert to link_ at the end. A drawing canvas also has _Editable_, above _Size_. For an embedded attachment they follow its first group of actions; for an included note they end the menu.
 
 To show an include of size _Medium_ or _Full_ on the whole screen, press the <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_ button at the end of its title. To return, press <span class="tn-icon bx bx-exit"></span> _Exit fullscreen_ in the top-right corner, or <kbd>Esc</kbd>.
 
@@ -88,3 +101,22 @@ An included image, whether an image note or an image attachment, is shown in the
 *   To return to the fitted size, double-click the image.
 
 In a _Small_ or _Medium_ box, the image is scaled down to fit the height of the box. In fullscreen, it fits the screen.
+
+## Drawing canvases
+
+A drawing canvas is an Excalidraw canvas, like the one of a <a class="reference-link" href="../Canvas.md">Canvas</a> note, drawn directly in the text note. It is not a note of its own: the drawing is kept in a `Canvas.excalidraw` [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) of the text note and is saved together with the text.
+
+*   To insert a drawing canvas, open the <span class="tn-icon cke cke-plus"></span> _Insert_ menu of the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a> and choose <span class="tn-icon bx bx-pen"></span> _Drawing canvas_, above _Mermaid diagram_. It is also available as _Drawing canvas_ in the <a class="reference-link" href="Slash%20Commands.md">Slash Commands</a>. The canvas is added empty and editable, in a _Medium_ box with its title hidden, and takes the focus, ready for drawing.
+*   To draw on a canvas that does not have the focus, click it first. Until then, the mouse wheel and touch gestures scroll the note. The canvas then has the tools, menus and keyboard shortcuts of a Canvas note. The toolbars, the menus and the properties of the selected shapes show only while the canvas has the focus, so elsewhere the drawing reads like a picture in the text.
+*   A new drawing has the background color of the note. A background chosen from the Excalidraw menu replaces it.
+*   To protect a finished drawing from accidental changes, select it and turn off the <span class="tn-icon bx bx-edit-alt"></span> _Editable_ button at the start of its toolbar, or uncheck _Editable_ in its <span class="tn-icon cke cke-three-vertical-dots"></span> _More actions_ menu. The drawing can then be panned and zoomed but not changed, and its toolbar holds only the zoom buttons. To draw again, turn _Editable_ back on.
+*   The box sizes, resizing, the caption and the title work as for an included note, but the toolbar of a drawing leaves the box size, _Show title_ and _Convert to link_ to its _More actions_ menu.
+*   In the desktop layout, Excalidraw keeps its desktop interface however small the box is. In the mobile layout, a narrow or short box switches it to a compact interface. For more room, choose _Full_, or show the title and press <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_.
+*   Pictures added to the drawing are stored in the same attachment.
+*   In a [read-only note](../../Basic%20Concepts%20and%20Features/Notes/Read-Only%20Notes.md), the drawing can be viewed but not changed.
+
+### Limitations
+
+*   The Excalidraw shape library is not saved for a drawing canvas.
+*   Outside the editor, for example in a tooltip, when printing or in the list of attachments, the drawing is shown as a picture. On a [shared page](../../Advanced%20Usage/Sharing.md), it appears as a link to download `Canvas.excalidraw`.
+*   A copy of a drawing canvas pasted in the same note shares the drawing with the original, so a change to one shows in the other only after the note is opened again. A copy pasted in another note gets a drawing of its own.

@@ -1123,7 +1123,6 @@
     "none": "niciunul"
   },
   "jump_to_note": {
-    "search_button": "Caută în întregul conținut",
     "search_placeholder": "Căutați notițe după nume sau tastați > pentru comenzi..."
   },
   "left_pane_toggle": {
@@ -2172,10 +2171,7 @@
   "note_autocomplete": {
     "clear-text-field": "Șterge conținutul casetei",
     "create-note": "Crează și inserează legătură către „{{term}}”",
-    "full-text-search": "Căutare în întregimea textului",
-    "insert-external-link": "Inserează legătură extern către „{{term}}”",
-    "search-for": "Caută „{{term}}”",
-    "show-recent-notes": "Afișează notițele recente"
+    "insert-external-link": "Inserează legătură extern către „{{term}}”"
   },
   "electron_integration": {
     "background-effects": "Activează efectele de fundal",

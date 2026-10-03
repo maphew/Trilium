@@ -100,6 +100,38 @@ describe("Enter pressed before the newer query's suggestions", () => {
     });
 });
 
+describe("Enter pressed between typing and the render it causes", () => {
+    it("is held for the text just typed, and picks among its suggestions", async () => {
+        vi.useFakeTimers();
+        const onPick = vi.fn();
+        function Field() {
+            const [ value, setValue ] = useState("");
+            return <FormAutocomplete currentValue={value} onChange={setValue} onPick={onPick} autoActivate
+                source={async (query) => [ `${query}!` ]} />;
+        }
+        const found = renderInto(<Field />).querySelector("input");
+        if (!found) throw new Error("no input rendered");
+        const input: HTMLInputElement = found;
+
+        await act(async () => {
+            input.value = "a";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+        // Outside `act`, the render for "ab" comes after the Enter.
+        input.value = "ab";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        // The first flushes the render and its effects, the second the lookup they debounce.
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+        expect(onPick).toHaveBeenCalledExactlyOnceWith("ab!");
+        vi.useRealTimers();
+    });
+});
+
 describe("an input method composing in the field", () => {
     it("looks up what the input method commits, not what it is composing, and passes the events on", async () => {
         vi.useFakeTimers();

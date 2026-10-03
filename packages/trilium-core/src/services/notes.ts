@@ -1105,6 +1105,14 @@ function updateNoteData(noteId: string, content: string, attachments: Attachment
         const existingAttachmentsByTitle = toMap(note.getAttachments(), "title");
 
         for (const { attachmentId, role, mime, title, position, content, encoding } of attachments) {
+            // An attachment deleted since the client read it, or one of another note, is not saved.
+            if (attachmentId && becca.getAttachment(attachmentId)?.ownerId !== noteId) {
+                getLog().info(
+                    `Skipped attachment '${attachmentId}', which note '${noteId}' does not own.`
+                );
+                continue;
+            }
+
             const decodedContent = encoding === "base64" && typeof content === "string"
                 ? decodeBase64(content) : content;
 

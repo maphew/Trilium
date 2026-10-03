@@ -97,6 +97,16 @@ describe("Popup", () => {
         expect(tall.style.maxHeight).toBe(`${800 - 330 - 5}px`);
     });
 
+    it("keeps to one side of a caret, never over the line typed, however long it is", async () => {
+        vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(1000);
+        const caret = { getBoundingClientRect: () => DOMRect.fromRect({ x: 100, y: 300, width: 1, height: 16 }) };
+        const popup = await open({ anchor: caret });
+
+        // Below the caret, with the room down to the viewport's edge less its gap.
+        expect(popup.style.top).toBe("316px");
+        expect(popup.style.maxHeight).toBe(`${800 - 316 - 5}px`);
+    });
+
     it("keeps clear of the screen's safe areas, such as a notch or a gesture bar", async () => {
         // The insets a device reports, as the probe reads them from the stylesheet.
         const measure = window.getComputedStyle.bind(window);

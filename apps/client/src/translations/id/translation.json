@@ -284,8 +284,7 @@
     "copy_to_clipboard": "Salin ke clipboard"
   },
   "jump_to_note": {
-    "search_placeholder": "Cari catatan berdasarkan nama atau ketik > untuk perintah...",
-    "search_button": "Cari dalam teks lengkap"
+    "search_placeholder": "Cari catatan berdasarkan nama atau ketik > untuk perintah..."
   },
   "markdown_editor": {
     "image_upload_failed": "Tidak dapat mengunggah gambar \"{{name}}\"."
@@ -2682,12 +2681,9 @@
     "zoom-factor": "Faktor zoom"
   },
   "note_autocomplete": {
-    "search-for": "Cari \"{{term}}\"",
     "create-note": "Buat catatan \"{{term}}\"",
     "insert-external-link": "Sisipkan tautan eksternal ke \"{{term}}\"",
     "clear-text-field": "Kosongkan field teks",
-    "show-recent-notes": "Tampilkan catatan terbaru",
-    "full-text-search": "Pencarian teks penuh",
     "create-note-into": "Buat catatan \"{{term}}\" di {{parentTitle}}",
     "create-note-into-day-note": "Buat catatan \"{{term}}\" dalam catatan hari ini",
     "create-note-into-root": "Buat catatan \"{{term}}\" di tingkat teratas",

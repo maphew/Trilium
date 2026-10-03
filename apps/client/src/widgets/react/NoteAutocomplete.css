@@ -51,6 +51,14 @@
     max-width: calc(100vw - 10px);
 }
 
+/*
+ * The list after an `@` has no field to take its width from, so it grows with its rows. Past this,
+ * a long path or a row of attributes wraps.
+ */
+.note-autocomplete-menu.note-mention-menu {
+    max-width: min(600px, calc(100vw - 10px));
+}
+
 .note-autocomplete-menu .dropdown-item {
     /* Outranks Bootstrap's `nowrap`, so a long note path wraps within the list's width. */
     white-space: normal;

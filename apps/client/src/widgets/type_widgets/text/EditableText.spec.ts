@@ -140,7 +140,7 @@ describe("notifyAttachmentChanges", () => {
 
     function loadResultsOf(rows: Row[], isContentReloaded = false) {
         return {
-            getAttachmentRows: () => rows,
+            getAttachmentRows: vi.fn(() => rows),
             isNoteContentReloaded: vi.fn(() => isContentReloaded)
         };
     }
@@ -164,6 +164,8 @@ describe("notifyAttachmentChanges", () => {
         notify(loadResults, { current: undefined });
 
         expect(loadResults.isNoteContentReloaded).toHaveBeenCalledWith("note1", "component1");
+        // Without the attachments that this editor saved, such as a canvas drawing.
+        expect(loadResults.getAttachmentRows).toHaveBeenCalledWith("component1");
         expect(updateAttachmentLinks).toHaveBeenCalledWith([
             { attachmentId: "renamed", isDeleted: false },
             { attachmentId: "deleted", isDeleted: true }

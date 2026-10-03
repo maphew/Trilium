@@ -15,6 +15,7 @@ import {
     Widget,
     type ModelElement
 } from "ckeditor5";
+import bxEditAlt from "boxicons/svg/regular/bx-edit-alt.svg?raw";
 import bxWindowAlt from "boxicons/svg/regular/bx-window-alt.svg?raw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,6 +30,7 @@ import ContentEmbed, {
     CONVERT_LINK_TO_EMBED_COMMAND,
     CONTENT_EMBED_MENU,
     TOGGLE_CAPTION_COMMAND_NAME,
+    TOGGLE_EDITABLE_COMMAND_NAME,
     TOGGLE_TITLE_COMMAND_NAME
 } from "./content_embed.js";
 
@@ -420,6 +422,37 @@ describe("ContentEmbed", () => {
         expect(editor.model.document.selection.getSelectedElement()).toBe(embed);
     });
 
+    it("selects the widget when its content takes the focus, which stays there", () => {
+        const embed = insertContentEmbed(editor, "noteFocus", "small");
+        editor.model.change((writer) => {
+            const paragraph = embed.nextSibling;
+            if (!paragraph) {
+                throw new Error("Expected a paragraph after the embed.");
+            }
+            writer.setSelection(paragraph, 0);
+        });
+
+        const wrapper = editor.editing.view.getDomRoot()?.querySelector("div.include-note-wrapper");
+        if (!wrapper) {
+            throw new Error("Expected the wrapper of the embed.");
+        }
+        wrapper.innerHTML = `<div class="include-note-body">`
+            + `<div class="include-note-content" tabindex="-1"><button>Draw</button></div></div>`;
+        const content = wrapper.querySelector<HTMLElement>(".include-note-content");
+        const button = wrapper.querySelector<HTMLElement>("button");
+        const viewFocus = vi.spyOn(editor.editing.view, "focus");
+
+        content?.focus();
+        expect(document.activeElement).toBe(content);
+        expect(editor.model.document.selection.getSelectedElement()).toBe(embed);
+        expect(viewFocus).not.toHaveBeenCalled();
+
+        const change = vi.spyOn(editor.model, "enqueueChange");
+        button?.focus();
+        expect(document.activeElement).toBe(button);
+        expect(change).not.toHaveBeenCalled();
+    });
+
     it("leaves a mousedown inside an embedded collection untouched so the live widget keeps working", () => {
         insertContentEmbed(editor, "noteColl", "full");
 
@@ -491,6 +524,30 @@ describe("ContentEmbed", () => {
         const keyStop = vi.spyOn(keyEvt, "stopPropagation");
         wrapper.dispatchEvent(keyEvt);
         expect(keyStop).toHaveBeenCalled();
+    });
+
+    it("lets the embedded content handle a key, then keeps it from the editor", () => {
+        insertContentEmbed(editor, "noteKeys", "small");
+
+        const domRoot = editor.editing.view.getDomRoot();
+        const wrapper = domRoot?.querySelector("div.include-note-wrapper");
+        expect(wrapper).not.toBeNull();
+        if (!domRoot || !wrapper) {
+            return;
+        }
+
+        const content = document.createElement("div");
+        wrapper.append(content);
+        const contentHeard = vi.fn();
+        const rootHeard = vi.fn();
+        content.addEventListener("keydown", contentHeard);
+        domRoot.addEventListener("keydown", rootHeard);
+
+        content.dispatchEvent(new KeyboardEvent("keydown", { key: "r", bubbles: true }));
+
+        expect(contentHeard).toHaveBeenCalledOnce();
+        expect(rootHeard).not.toHaveBeenCalled();
+        domRoot.removeEventListener("keydown", rootHeard);
     });
 
     it("does nothing on a mousedown when the wrapper has no enclosing embed", () => {
@@ -594,7 +651,7 @@ describe("ContentEmbed", () => {
         const realGet = editor.commands.get.bind(editor.commands);
         const absent: string[] = [
             COMMAND_NAME, CONVERT_EMBED_TO_LINK_COMMAND, TOGGLE_CAPTION_COMMAND_NAME,
-            TOGGLE_TITLE_COMMAND_NAME
+            TOGGLE_TITLE_COMMAND_NAME, TOGGLE_EDITABLE_COMMAND_NAME
         ];
         const getSpy = vi
             .spyOn(editor.commands, "get")
@@ -609,6 +666,8 @@ describe("ContentEmbed", () => {
             expect((caption as unknown as { label: string }).label).toBe("Toggle caption on");
             const title = editor.ui.componentFactory.create(TOGGLE_TITLE_COMMAND_NAME);
             expect((title as unknown as { label: string }).label).toBe("Show title");
+            const editable = editor.ui.componentFactory.create(TOGGLE_EDITABLE_COMMAND_NAME);
+            expect((editable as unknown as { label: string }).label).toBe("Editable");
             const menu = editor.ui.componentFactory.create(CONTENT_EMBED_MENU);
             expect((menu as unknown as { label: string }).label).toBe("More actions");
         } finally {
@@ -846,17 +905,18 @@ describe("ContentEmbed with attachments", () => {
 
         const states = [ embed, note, tiny, unsized ]
             .map((wrapper) => plugin.getEmbedStateAt(wrapper));
+        const notEditable = { isEditable: false, isEditableToggleable: false };
         expect(states).toEqual([ {
-            boxSize: "small", isTitleShown: true, isTitleToggleable: true,
+            ...notEditable, boxSize: "small", isTitleShown: true, isTitleToggleable: true,
             hasCaption: false, isCaptionToggleable: true, isConvertibleToLink: true
         }, {
-            boxSize: "medium", isTitleShown: false, isTitleToggleable: true,
+            ...notEditable, boxSize: "medium", isTitleShown: false, isTitleToggleable: true,
             hasCaption: true, isCaptionToggleable: true, isConvertibleToLink: true
         }, {
-            boxSize: "tiny", isTitleShown: true, isTitleToggleable: false,
+            ...notEditable, boxSize: "tiny", isTitleShown: true, isTitleToggleable: false,
             hasCaption: false, isCaptionToggleable: false, isConvertibleToLink: true
         }, {
-            boxSize: null, isTitleShown: true, isTitleToggleable: true,
+            ...notEditable, boxSize: null, isTitleShown: true, isTitleToggleable: true,
             hasCaption: false, isCaptionToggleable: true, isConvertibleToLink: true
         } ]);
         const paragraph = editor.editing.view.getDomRoot()?.querySelector("p") ?? embed;
@@ -1257,6 +1317,228 @@ describe("ContentEmbed title", () => {
         insertContentEmbed(editor, "n1", "medium");
         menu.fire("execute");
         expect(openContentEmbedMenu).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("ContentEmbed editable flag", () => {
+    const EDITABLE = "<figure class=\"include-note\" data-note-id=\"n1\" data-box-size=\"medium\""
+        + " data-hide-title=\"true\" data-editable=\"true\">&nbsp;</figure>";
+    let editor: ClassicEditor;
+    let loadEmbeddedNote: ReturnType<typeof vi.fn>;
+    let getContentEmbedTools: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+        loadEmbeddedNote = vi.fn();
+        getContentEmbedTools = vi.fn(() => ({ hasEditableFlag: true }));
+        installGlobMock({
+            getComponentByEl: () => ({ loadEmbeddedNote, getContentEmbedTools })
+        });
+
+        editor = await createTestEditor([ Essentials, Paragraph, Undo, Widget, ContentEmbed ]);
+    });
+
+    function getCommand() {
+        const command = editor.commands.get(TOGGLE_EDITABLE_COMMAND_NAME);
+        if (!command) {
+            throw new Error("Expected the editable command.");
+        }
+        return command;
+    }
+
+    function getRenderedEmbed() {
+        const embed = editor.editing.view.getDomRoot()?.querySelector("figure.include-note");
+        if (!embed) {
+            throw new Error("Expected a rendered embed.");
+        }
+        return embed;
+    }
+
+    it("loads and saves the flag, and marks the embed it renders", () => {
+        editor.setData(EDITABLE);
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<contentEmbed boxSize=\"medium\" editable=\"true\" hideTitle=\"true\" noteId=\"n1\">"
+            + "</contentEmbed>"
+        );
+        expect(editor.getData()).toBe(EDITABLE);
+        expect(getRenderedEmbed().getAttribute("data-editable")).toBe("true");
+
+        for (const data of [
+            EDITABLE.replace(" data-editable=\"true\"", ""),
+            EDITABLE.replace("data-editable=\"true\"", "data-editable=\"false\"")
+        ]) {
+            editor.setData(data);
+            expect(getModelData(editor.model, { withoutSelection: true }))
+                .not.toContain("editable");
+            expect(editor.getData()).not.toContain("data-editable");
+            expect(getRenderedEmbed().hasAttribute("data-editable")).toBe(false);
+        }
+    });
+
+    it("turns editing on and off as one undo step, keeping the rendered content", () => {
+        insertContentEmbed(editor, "n1", "medium");
+        const wrapper = getRenderedEmbed().querySelector(".include-note-wrapper");
+        const command = getCommand();
+        expect([ command.isEnabled, command.value ]).toEqual([ true, false ]);
+
+        editor.execute(TOGGLE_EDITABLE_COMMAND_NAME);
+        expect(command.value).toBe(true);
+        expect(getRenderedEmbed().getAttribute("data-editable")).toBe("true");
+        expect(editor.getData()).toContain("data-editable=\"true\"");
+        expect(editor.model.document.selection.getSelectedElement()?.name).toBe("contentEmbed");
+
+        editor.execute(TOGGLE_EDITABLE_COMMAND_NAME);
+        expect(command.value).toBe(false);
+        expect(getRenderedEmbed().hasAttribute("data-editable")).toBe(false);
+        expect(editor.getData()).not.toContain("data-editable");
+
+        editor.execute("undo");
+        expect(command.value).toBe(true);
+        expect(getRenderedEmbed().querySelector(".include-note-wrapper")).toBe(wrapper);
+        expect(loadEmbeddedNote).toHaveBeenCalledTimes(1);
+    });
+
+    it("is offered only for content that opts in, once its content declares it", () => {
+        setModelData(editor.model, "<paragraph>foo[]</paragraph>");
+        expect(getCommand().isEnabled).toBe(false);
+
+        // The content of an embed renders after the embed, and declares its tools then.
+        getContentEmbedTools.mockReturnValue(null);
+        insertContentEmbed(editor, "n1", "medium");
+        expect(getCommand().isEnabled).toBe(false);
+        getContentEmbedTools.mockReturnValue({ hasEditableFlag: true });
+        editor.ui.update();
+        expect(getCommand().isEnabled).toBe(true);
+        expect(getContentEmbedTools).toHaveBeenLastCalledWith(getRenderedEmbed());
+
+        getContentEmbedTools.mockReturnValue({ hasEditableFlag: false });
+        editor.ui.update();
+        expect(getCommand().isEnabled).toBe(false);
+
+        installGlobMock({ getComponentByEl: () => ({ loadEmbeddedNote }) });
+        editor.ui.update();
+        expect(getCommand().isEnabled).toBe(false);
+    });
+
+    it("offers an Editable button that shows only while the command is enabled", () => {
+        const button = editor.ui.componentFactory.create(TOGGLE_EDITABLE_COMMAND_NAME);
+        if (!(button instanceof ButtonView) || button instanceof SwitchButtonView) {
+            throw new Error("Expected a button.");
+        }
+        const focus = vi.spyOn(editor.editing.view, "focus");
+        insertContentEmbed(editor, "n1", "medium");
+        expect([ button.icon, button.withText, button.tooltip, button.isToggleable ])
+            .toEqual([ bxEditAlt, false, true, true ]);
+        expect([ button.label, button.isOn, button.isEnabled, button.isVisible ])
+            .toEqual([ "Editable", false, true, true ]);
+
+        button.fire("execute");
+        expect([ button.isOn, getCommand().value ]).toEqual([ true, true ]);
+        expect(focus).toHaveBeenCalled();
+
+        getContentEmbedTools.mockReturnValue(null);
+        editor.ui.update();
+        expect([ button.isEnabled, button.isVisible ]).toEqual([ false, false ]);
+    });
+
+    it("describes the flag of the embed an element is part of", () => {
+        editor.setData(EDITABLE + "<figure class=\"include-note\" data-note-id=\"n2\"></figure>");
+        const [ editable, readOnly ] =
+            editor.editing.view.getDomRoot()?.querySelectorAll("div.include-note-wrapper") ?? [];
+        const plugin = editor.plugins.get(ContentEmbed);
+        if (!editable || !readOnly) {
+            throw new Error("Expected two rendered embeds.");
+        }
+
+        expect(plugin.getEmbedStateAt(editable))
+            .toMatchObject({ isEditable: true, isEditableToggleable: true });
+        expect(plugin.getEmbedStateAt(readOnly))
+            .toMatchObject({ isEditable: false, isEditableToggleable: true });
+
+        getContentEmbedTools.mockReturnValue(null);
+        expect(plugin.getEmbedStateAt(editable))
+            .toMatchObject({ isEditable: true, isEditableToggleable: false });
+    });
+
+    it("changes nothing when no embed is selected", () => {
+        editor.setData(EDITABLE + "<p>after</p>");
+        setModelData(editor.model, "<paragraph>foo[]bar</paragraph>");
+        const before = editor.getData();
+
+        // The decorated `Command#execute()` skips a disabled command, so the command is forced
+        // enabled to run `execute()` with no embed selected.
+        const command = getCommand();
+        command.isEnabled = true;
+        command.execute();
+
+        expect(editor.getData()).toBe(before);
+    });
+});
+
+describe("ContentEmbed resizing", () => {
+    const RESIZED = "<figure class=\"include-note\""
+        + " style=\"--include-note-height:12.5em;--include-note-width:30em;\""
+        + " data-note-id=\"n1\" data-box-size=\"medium\">&nbsp;</figure>";
+    let editor: ClassicEditor;
+
+    beforeEach(async () => {
+        installGlobMock({ getComponentByEl: () => ({ loadEmbeddedNote: vi.fn() }) });
+        editor = await createTestEditor([ Essentials, Paragraph, Undo, Widget, ContentEmbed ]);
+    });
+
+    function getRenderedEmbed() {
+        const embed = editor.editing.view.getDomRoot()?.querySelector("figure.include-note");
+        if (!embed) {
+            throw new Error("Expected a rendered embed.");
+        }
+        return embed;
+    }
+
+    it("loads and saves the size of a resized embed", () => {
+        editor.setData(RESIZED);
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<contentEmbed boxSize=\"medium\" customHeight=\"12.5em\" customWidth=\"30em\""
+            + " noteId=\"n1\"></contentEmbed>"
+        );
+        expect(editor.getData()).toBe(RESIZED);
+    });
+
+    it("offers resizing to a Small, Medium or Expandable embed, but not to a Tiny or Full one", () => {
+        insertContentEmbed(editor, "n1", "medium");
+        const embed = getRenderedEmbed();
+        const handles = embed.querySelector(":scope > .ck-widget__resize-handles");
+        expect([ ...handles?.children ?? [] ].map((handle) => handle.className)).toEqual([
+            "ck-widget__resize-handle ck-widget__resize-handle_width",
+            "ck-widget__resize-handle ck-widget__resize-handle_height",
+            "ck-widget__resize-handle ck-widget__resize-handle_corner"
+        ]);
+
+        for (const [ boxSize, isResizable ] of [
+            [ "tiny", false ], [ "small", true ], [ "full", false ], [ "expandable", true ],
+            [ "medium", true ]
+        ] as const) {
+            editor.execute(BOX_SIZE_COMMAND_NAME, { value: boxSize });
+            expect(embed.classList.contains("ck-widget_resizable"), boxSize).toBe(isResizable);
+        }
+    });
+
+    it("resets the height on a new box size, and the width too on Tiny or Full", () => {
+        editor.setData(RESIZED);
+        const embed = findContentEmbed(editor);
+        if (!embed) {
+            throw new Error("Expected an embed.");
+        }
+        editor.model.change((writer) => writer.setSelection(embed, "on"));
+
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "small" });
+        expect(editor.getData()).toContain("style=\"--include-note-width:30em;\"");
+
+        for (const value of [ "tiny", "full" ] as const) {
+            editor.execute("undo");
+            editor.execute(BOX_SIZE_COMMAND_NAME, { value });
+            expect(editor.getData(), value).not.toContain("style=");
+        }
     });
 });
 

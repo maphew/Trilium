@@ -1121,7 +1121,8 @@ svg.ck-icon.note-icon {
     margin: 0 !important;
 }
 
-.ck-content a:hover {
+/* `:where(:not(.excalidraw *))` leaves out the menus of an embedded canvas drawing. */
+.ck-content a:hover:where(:not(.excalidraw *)) {
     text-decoration: underline;
 }
 
@@ -1349,7 +1350,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 /* Using data- attribute to support both CKEditor and readonly view */
 .include-note[data-box-size="small"] .include-note-content {
-    max-height: 10em;
+    max-height: var(--include-note-height, 10em);
     overflow: auto;
 }
 
@@ -1357,7 +1358,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
    height per box size instead of an intrinsic, content-driven one. */
 .include-note[data-box-size="small"] .include-note-content.type-pdf,
 .include-note[data-box-size="small"] .include-note-content.type-webView {
-    height: 10em;
+    height: var(--include-note-height, 10em);
 }
 
 /* The small box has room for the compact audio player's visualizer band (which carries a floor of its own) or
@@ -1372,13 +1373,13 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note[data-box-size="medium"] .include-note-content {
-    max-height: 20em;
+    max-height: var(--include-note-height, 20em);
     overflow: auto;
 }
 
 .include-note[data-box-size="medium"] .include-note-content.type-pdf .rendered-content,
 .include-note[data-box-size="medium"] .include-note-content.type-webView .rendered-content {
-    height: 20em;
+    height: var(--include-note-height, 20em);
 }
 
 .include-note[data-box-size="full"] .include-note-content.type-pdf .rendered-content,
@@ -1387,7 +1388,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note[data-box-size="expandable"] .include-note-content.type-webView .rendered-content {
-    height: 20em;
+    height: var(--include-note-height, 20em);
 }
 
 /* Full-height collection views (table, board, calendar, geo map, presentation) render their own
@@ -1396,12 +1397,12 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
    collections are content-driven and keep the generic max-height above. */
 .include-note[data-box-size="small"] .include-note-content.type-book:has(.note-list-widget.full-height),
 .include-note[data-box-size="small"] .include-note-content.type-search:has(.note-list-widget.full-height) {
-    height: 10em;
+    height: var(--include-note-height, 10em);
 }
 
 .include-note[data-box-size="medium"] .include-note-content.type-book:has(.note-list-widget.full-height),
 .include-note[data-box-size="medium"] .include-note-content.type-search:has(.note-list-widget.full-height) {
-    height: 20em;
+    height: var(--include-note-height, 20em);
 }
 
 .include-note[data-box-size="full"] .include-note-content.type-book:has(.note-list-widget.full-height),
@@ -1411,22 +1412,46 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .include-note[data-box-size="expandable"] .include-note-content.type-book:has(.note-list-widget.full-height),
 .include-note[data-box-size="expandable"] .include-note-content.type-search:has(.note-list-widget.full-height) {
-    height: 20em;
+    height: var(--include-note-height, 20em);
 }
 
 /* Pictures, diagrams and players fit the box height, where text scrolls in it. */
 .include-note[data-box-size="small"] {
-    --include-note-media-max-height: 10em;
+    --include-note-media-max-height: var(--include-note-height, 10em);
 }
 
 .include-note[data-box-size="medium"] {
-    --include-note-media-max-height: 20em;
+    --include-note-media-max-height: var(--include-note-height, 20em);
 }
 
+.include-note[data-box-size="expandable"] {
+    --include-note-media-max-height: var(--include-note-height);
+}
+
+/* Media takes a resized height inside the border and padding, as with the edge-to-edge types. */
 .include-note[data-box-size] .include-note-content:is(
-    .type-image, .type-canvas, .type-mindMap, .type-spreadsheet, .type-mermaid, .type-video
+    .type-image, .type-canvas, .type-canvasDrawing, .type-mindMap, .type-spreadsheet, .type-mermaid,
+    .type-video
 ) {
+    box-sizing: content-box;
     max-height: none;
+}
+
+/* Tiny and Full fit their content: only these box sizes take a resized size. */
+.include-note:is([data-box-size="small"], [data-box-size="medium"], [data-box-size="expandable"]) {
+    margin-inline: auto;
+    max-width: 100%;
+    width: var(--include-note-width, auto);
+
+    .include-note-content {
+        height: var(--include-note-height, auto);
+        overflow: auto;
+    }
+
+    &:has(.include-note-content[hidden]) > .ck-widget__resize-handles
+        > :not(.ck-widget__resize-handle_width) {
+        display: none;
+    }
 }
 
 .include-note-content:not(:fullscreen) :is(
@@ -1572,6 +1597,12 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     padding: .75rem 1rem;
 }
 
+/* Keeps the z-indexes of the content, such as those of a drawing's canvases, under the controls
+   of the embed, such as "Exit fullscreen". */
+.include-note-content > .rendered-content {
+    isolation: isolate;
+}
+
 .include-note-content > .rendered-content > *:last-child {
     margin-bottom: 0;
 }
@@ -1605,7 +1636,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .include-note[data-hide-title="true"]:not([data-box-size="tiny"], [data-box-size="expandable"]) {
-    > .include-note-wrapper > .include-note-title-row {
+    > .include-note-wrapper > :is(.include-note-title-row, .include-note-title) {
         display: none;
     }
 
@@ -1622,9 +1653,11 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 .include-note-content.type-image,
 .include-note-content.type-video,
 .include-note-content.type-canvas,
+.include-note-content.type-canvasDrawing,
 .include-note-content.type-webView,
 .include-note-content.type-book:has(.note-list-widget.full-height),
 .include-note-content.type-search:has(.note-list-widget.full-height) {
+    box-sizing: content-box;
     padding: 0;
 }
 
