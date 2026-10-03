@@ -155,10 +155,6 @@
         .show-in-full-search {
             margin-inline-start: auto;
         }
-
-        kbd {
-            padding: .1875rem .375rem;
-        }
     }
 
     .dropdown-item {

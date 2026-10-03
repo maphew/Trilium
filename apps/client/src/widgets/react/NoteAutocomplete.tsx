@@ -383,9 +383,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                                 className="show-in-full-search"
                                 kind="lowProfile"
                                 size="small"
-                                icon="bx-file-find"
                                 text={t("quick-search.show-in-full-search")}
-                                keyboardShortcut="Ctrl+Enter"
                                 onClick={() => showInFullSearch(value.trim())}
                             />}
                         </div>

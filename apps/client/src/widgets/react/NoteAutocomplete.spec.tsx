@@ -804,6 +804,9 @@ describe("NoteAutocomplete's suggestion list", () => {
 
             // The footer under the list opens the full search, reported for the host to close on.
             const footer = host.querySelector<HTMLButtonElement>(".note-suggestion-footer button.show-in-full-search");
+            // A plain button, as quick search's: its key is in the shortcut hints.
+            expect(footer).not.toBeNull();
+            expect(footer?.querySelector("kbd, .tn-icon")).toBeNull();
             await act(async () => { footer?.click(); });
             expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "alp" });
             expect(onChange).toHaveBeenLastCalledWith({ action: "search-notes", noteTitle: "alp" });

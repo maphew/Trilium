@@ -195,7 +195,6 @@ export default function QuickSearch() {
                         <Button
                             className="show-in-full-search"
                             text={t("quick-search.show-in-full-search")}
-                            keyboardShortcut="Ctrl+Enter"
                             size="small"
                             onClick={showInFullSearch}
                         />

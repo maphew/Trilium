@@ -371,6 +371,8 @@ describe("QuickSearch", () => {
         expect(footer?.classList.contains("quick-search-footer")).toBe(true);
         const button = footer?.querySelector<HTMLButtonElement>(".show-in-full-search");
         if (!button) throw new Error("The footer has no full search button.");
+        // Its key is in the shortcut hints, not on the button.
+        expect(button.querySelector("kbd")).toBeNull();
 
         await act(async () => button.click());
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
