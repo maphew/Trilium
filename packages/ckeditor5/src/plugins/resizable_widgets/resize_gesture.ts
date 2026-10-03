@@ -16,6 +16,8 @@ export interface ResizeGestureOptions {
     axes: ResizeAxes;
     /** The element whose width changes. Its width is full once it reaches its parent's. */
     widthTarget: HTMLElement;
+    /** Whether the width target is centered, so that its width changes on both sides. */
+    isCentered: boolean;
     /** The element whose height changes. */
     heightTarget: HTMLElement;
     /** The smallest width, in pixels. */
@@ -43,7 +45,8 @@ const AUTO_SCROLL_STEP = 16;
 
 /**
  * Resizes until the pointer pressed in `event` is released. The width grows towards the inline
- * end, the height towards the bottom, and the scroll container scrolls near its edges.
+ * end, or on both sides when centered, the height towards the bottom, and the scroll container
+ * scrolls near its edges.
  */
 export function startResizeGesture(event: PointerEvent, options: ResizeGestureOptions) {
     const { axes, widthTarget, heightTarget } = options;
@@ -52,6 +55,7 @@ export function startResizeGesture(event: PointerEvent, options: ResizeGestureOp
     const startHeight = parseFloat(getComputedStyle(heightTarget).height);
     const maxWidth = getContainerWidth(widthTarget);
     const inlineDirection = getComputedStyle(widthTarget).direction === "rtl" ? -1 : 1;
+    const widthFactor = inlineDirection * (options.isCentered ? 2 : 1);
     const scroller = findScrollContainer(heightTarget);
     const startScrollTop = scroller.scrollTop;
 
@@ -65,7 +69,7 @@ export function startResizeGesture(event: PointerEvent, options: ResizeGestureOp
     const getSize = () => {
         const size: ResizeSize = {};
         if (axes.width) {
-            const width = Math.max(startWidth + (x - startX) * inlineDirection, options.minWidth);
+            const width = Math.max(startWidth + (x - startX) * widthFactor, options.minWidth);
             size.width = width >= maxWidth ? null : width;
         }
         if (axes.height) {

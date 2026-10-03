@@ -19,6 +19,7 @@ const STYLES = `
     .test-box { width: var(--test-width, auto); }
     .test-box-content { height: var(--test-height, 50px); }
     .test-rtl .test-box { direction: rtl; }
+    .test-centered .test-box { margin-inline: auto; }
     .test-scroller .ck.ck-editor__main { height: 150px; overflow-y: auto; }
     .test-scroller .ck.ck-editor__editable { height: 1000px; }
 `;
@@ -38,7 +39,7 @@ describe("ResizableWidgets", () => {
         registerTestCleanup(() => {
             style.remove();
             capture.mockRestore();
-            document.body.classList.remove("test-rtl", "test-scroller");
+            document.body.classList.remove("test-rtl", "test-scroller", "test-centered");
         });
     });
 
@@ -207,6 +208,21 @@ describe("ResizableWidgets", () => {
         release();
 
         expect(getSize()).toBe("<testBox customWidth=\"35em\"></testBox>");
+    });
+
+    it("keeps the dragged edge of a centered widget under the pointer", async () => {
+        document.body.classList.add("test-centered");
+        await createEditor({ isCentered: true });
+        editor.setData("<div class=\"test-box\"></div>");
+        const { left, right } = getBox().getBoundingClientRect();
+
+        press(getHandle("width"));
+        move(50, 300);
+        const resized = getBox().getBoundingClientRect();
+        expect([ resized.left - left, resized.right - right ]).toEqual([ 50, -50 ]);
+        release();
+
+        expect(getSize()).toBe("<testBox customWidth=\"30em\"></testBox>");
     });
 
     it("cancels on Escape or a pointercancel, and ignores other pointers", async () => {

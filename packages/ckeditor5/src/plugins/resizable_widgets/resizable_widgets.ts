@@ -21,6 +21,8 @@ export interface ResizableWidgetConfig {
     propertyPrefix: string;
     isWidthResizable?: boolean;
     isHeightResizable?: boolean;
+    /** Whether the widget's stylesheet centers it, so that its width changes on both sides. */
+    isCentered?: boolean;
     /** A selector for the element inside the widget whose height changes, or the widget. */
     heightTarget?: string;
     /** The smallest width, in `em`. */
@@ -182,6 +184,7 @@ export default class ResizableWidgets extends Plugin {
             handle,
             axes,
             widthTarget: targets.width,
+            isCentered: !!config.isCentered,
             heightTarget: targets.height,
             minWidth: toPixels(config.minWidth ?? DEFAULT_MIN_SIZE, targets.width),
             minHeight: toPixels(config.minHeight ?? DEFAULT_MIN_SIZE, targets.height),

@@ -299,6 +299,7 @@ class ContentEmbedEditing extends Plugin {
 			propertyPrefix: '--include-note',
 			isWidthResizable: true,
 			isHeightResizable: true,
+			isCentered: true,
 			heightTarget: '.include-note-content',
 			minWidth: 10,
 			minHeight: 3,
