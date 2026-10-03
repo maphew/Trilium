@@ -156,34 +156,37 @@ export default function JumpToNoteDialogComponent() {
  * empty, so the layout keeps still.
  */
 export function JumpToNotePreview({ suggestion }: { suggestion: Suggestion | undefined }) {
-    const [ note, setNote ] = useState<FNote | null>(null);
+    // The path is kept with the note it was loaded for, so the card never pairs one note's content
+    // with the next one's path while that one loads.
+    const [ previewed, setPreviewed ] = useState<{ note: FNote; parentPath: string } | null>(null);
     const notePath = !suggestion?.action ? suggestion?.notePath : undefined;
+    // The path the row shows, as the server spelled it out: branch prefixes included, and ancestors
+    // that froca has not loaded.
+    const parentPathHtml = suggestion?.highlightedParentPathTitle ?? "";
 
     useEffect(() => {
         if (!notePath) {
-            setNote(null);
+            setPreviewed(null);
             return;
         }
 
         let cancelled = false;
         const timeout = setTimeout(async () => {
-            const loaded = await froca.getNote(notePath.split("/").at(-1) ?? "", true);
-            if (!cancelled) setNote(loaded);
+            const note = await froca.getNote(notePath.split("/").at(-1) ?? "", true);
+            if (!cancelled) setPreviewed(note ? { note, parentPath: htmlToText(parentPathHtml) } : null);
         }, PREVIEW_DELAY_MS);
         return () => {
             cancelled = true;
             clearTimeout(timeout);
         };
-    }, [ notePath ]);
+    }, [ notePath, parentPathHtml ]);
 
-    const parentTitles = note && notePath ? parentPathTitles(notePath) : [];
+    const { note, parentPath } = previewed ?? {};
 
     return (
         <div className="jump-to-note-preview">
             {note && <div key={note.noteId} className="jump-to-note-preview-card">
-                {parentTitles.length > 0 && (
-                    <div className="jump-to-note-preview-path">{parentTitles.join(" › ")}</div>
-                )}
+                {parentPath && <div className="jump-to-note-preview-path">{parentPath}</div>}
                 <h4 className="jump-to-note-preview-title">
                     <Icon icon={note.getIcon()} />
                     <span>{note.title}</span>
@@ -195,9 +198,12 @@ export function JumpToNotePreview({ suggestion }: { suggestion: Suggestion | und
     );
 }
 
-/** The titles of the notes above the last one of `notePath`, the root left out, as froca holds them. */
-function parentPathTitles(notePath: string) {
-    return notePath.split("/").slice(0, -1)
-        .filter((noteId) => noteId !== "root")
-        .map((noteId) => froca.getNoteFromCache(noteId)?.title ?? "");
+/**
+ * The text of a highlighted path from the server, its `<b>` marks and entities resolved. Parsed in
+ * a `<template>`, whose content runs no script and loads nothing.
+ */
+function htmlToText(html: string) {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    return template.content.textContent ?? "";
 }
