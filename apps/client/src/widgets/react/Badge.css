@@ -56,16 +56,20 @@
 }
 
 /*
- * An attribute a search matched: its kind's icon and its name, then its value in a tinted segment
- * reaching the badge's end. Muted unless the host sets `--color`.
+ * An attribute a search matched: its kind's icon and its name in a key shaded as a keyboard shortcut,
+ * then its value. Squared off as the app's other chips (`.tn-chip`), a pill being for a single token.
  */
 .ext-badge.attribute-badge {
     overflow: hidden;
-    border-color: var(--color, var(--muted-text-color));
+    padding-inline: 0;
+    border-radius: 6px;
+    /* The line the note autocomplete's footer and dividers are drawn with. */
+    border-color: var(--attribute-badge-line-color, var(--main-border-color));
     color: var(--color, var(--muted-text-color));
 
-    &.has-value {
-        padding-inline-end: 0;
+    /* On a highlighted row's background the border color fades out, so the lines take the text's. */
+    .dropdown-item:is(:hover, :focus, .tn-menu-active) & {
+        --attribute-badge-line-color: color-mix(in srgb, var(--main-text-color) 25%, transparent);
     }
 
     /* Centered by the badge, so it takes none of the Next theme's `.dropdown-item .tn-icon` offset. */
@@ -80,13 +84,28 @@
 
     .text {
         display: flex;
-        align-items: center;
         min-width: 0;
     }
 
-    .attribute-badge-name {
+    .attribute-badge-key {
+        display: flex;
+        align-items: center;
         flex-shrink: 0;
+        padding-inline: 6px 8px;
+        /* The shade and text of a button's keyboard shortcut (`button.btn kbd` in forms.css). */
+        background: var(
+            --cmd-button-keyboard-shortcut-background,
+            color-mix(in srgb, var(--color, var(--muted-text-color)) 15%, transparent)
+        );
+        color: var(--cmd-button-keyboard-shortcut-color, var(--main-text-color));
+    }
+
+    /* A long name leaves room for the value beside it. */
+    &.has-value .attribute-badge-key {
         max-width: 50%;
+    }
+
+    .attribute-badge-name {
         overflow: hidden;
         text-overflow: ellipsis;
     }
@@ -94,12 +113,9 @@
     .attribute-badge-value {
         display: flex;
         align-items: center;
-        align-self: stretch;
         min-width: 0;
-        margin-inline-start: 6px;
         padding-inline: 6px 8px;
-        border-inline-start: 1px solid var(--color, var(--muted-text-color));
-        background: color-mix(in srgb, var(--color, var(--muted-text-color)) 15%, transparent);
+        border-inline-start: 1px solid var(--attribute-badge-line-color, var(--main-border-color));
         color: var(--main-text-color);
 
         > span {

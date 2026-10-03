@@ -80,9 +80,12 @@ export function AttributeSnippetBadges({ snippet, className }: { snippet: string
                         key={index}
                         outline
                         className={clsx("attribute-badge", { "has-value": !!attribute.value })}
-                        icon={attribute.icon}
                         text={<>
-                            <RawHtml className="attribute-badge-name" html={attribute.name} />
+                            {/* The icon goes with the name, the two sharing the key's shading. */}
+                            <span className="attribute-badge-key">
+                                <Icon icon={attribute.icon} />
+                                <RawHtml className="attribute-badge-name" html={attribute.name} />
+                            </span>
                             {attribute.value && (
                                 // The segment spans the badge's height; the text in it can end in an
                                 // ellipsis, which a flex container's own text cannot.

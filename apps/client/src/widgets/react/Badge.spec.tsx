@@ -37,11 +37,12 @@ describe("AttributeSnippetBadges", () => {
         const [ tag, template, cut ] = container.querySelectorAll<HTMLElement>(".attrs > .ext-badge.outline");
 
         expect(tag.classList.contains("attribute-badge")).toBe(true);
-        expect(tag.querySelector(".tn-icon")?.className).toBe("bx bx-hash tn-icon");
-        expect(tag.querySelector(".attribute-badge-name")?.innerHTML).toBe("<b>tag</b>");
+        expect(tag.querySelector(".attribute-badge-key > .tn-icon")?.className).toBe("bx bx-hash tn-icon");
+        expect(tag.querySelector(".attribute-badge-key > .attribute-badge-name")?.innerHTML).toBe("<b>tag</b>");
         expect(tag.querySelector(".attribute-badge-value")).toBeNull();
 
-        expect(template.querySelector(".tn-icon")?.className).toBe("bx bx-transfer tn-icon");
+        expect(template.querySelector(".attribute-badge-key > .tn-icon")?.className)
+            .toBe("bx bx-transfer tn-icon");
         expect(template.querySelector(".attribute-badge-name")?.textContent).toBe("template");
         expect(template.querySelector(".attribute-badge-value")?.textContent).toBe("Book");
         expect(template.classList.contains("has-value")).toBe(true);
