@@ -1,7 +1,7 @@
 import { readFile, stat,writeFile } from "fs/promises";
 import { join } from "path";
 
-const scriptDir = __dirname;
+const scriptDir = import.meta.dirname;
 
 /** The Weblate components under https://hosted.weblate.org/projects/trilium/ that are gated. */
 export type WeblateProject = "readme" | "client" | "website";

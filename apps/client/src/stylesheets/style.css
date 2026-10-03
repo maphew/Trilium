@@ -775,56 +775,6 @@ pre > button.copy-button:active {
     cursor: pointer;
 }
 
-.show-recent-notes-button,
-.input-clearer-button,
-.go-to-selected-note-button {
-    padding-top: 8px;
-}
-
-.show-recent-notes-button,
-.full-text-search-button {
-    cursor: pointer;
-    font-size: 1.3em;
-    padding-inline-start: 5px;
-    padding-inline-end: 5px;
-}
-
-.input-clearer-button {
-    cursor: pointer;
-    font-size: 1.3em;
-    background: inherit !important;
-    padding-inline-start: 5px;
-    padding-inline-end: 5px;
-}
-
-.open-external-link-button {
-    cursor: pointer;
-    font-size: 1.3em;
-    padding-inline-start: 5px;
-    padding-inline-end: 5px;
-    padding-top: 8px;
-}
-
-.go-to-selected-note-button {
-    cursor: pointer;
-    font-size: 1.3em;
-    padding-inline-start: 4px;
-    padding-inline-end: 3px;
-}
-
-.go-to-selected-note-button.disabled,
-.go-to-selected-note-button.disabled:hover {
-    cursor: inherit;
-    color: var(--button-disabled-text-color) !important;
-    background-color: var(--button-disabled-background-color) !important;
-    text-decoration: none;
-}
-
-.note-autocomplete-input {
-    /* this is for seamless integration of "input clearer" button */
-    border-inline-end: 0;
-}
-
 table.promoted-attributes-in-tooltip {
     margin: auto;
 }
@@ -1037,74 +987,6 @@ table.promoted-attributes-in-tooltip th {
 
 .tooltip.show {
     opacity: 1;
-}
-
-.algolia-autocomplete {
-    width: calc(100% - 30px);
-    z-index: 2000 !important;
-}
-
-.algolia-autocomplete-container .aa-dropdown-menu {
-    position: inherit !important;
-    overflow: auto;
-}
-
-.algolia-autocomplete .aa-input,
-.algolia-autocomplete .aa-hint {
-    width: 100%;
-}
-
-.algolia-autocomplete .aa-dropdown-menu {
-    width: 100%;
-    background-color: var(--main-background-color);
-    border: 1px solid var(--main-border-color);
-    border-top: none;
-    z-index: 2000 !important;
-    max-height: 500px;
-    overflow: auto;
-    padding: 0;
-    margin: 0;
-}
-
-.aa-dropdown-menu .aa-suggestion {
-    cursor: pointer;
-    padding: 6px 16px;
-    margin: 0;
-}
-
-.aa-dropdown-menu .aa-suggestion .icon {
-    display: inline-block;
-    line-height: inherit;
-    vertical-align: top;
-}
-
-.aa-dropdown-menu .aa-suggestion .text {
-    display: inline-block;
-    width: calc(100% - 20px);
-    padding-inline-start: 4px;
-}
-
-.aa-dropdown-menu .aa-suggestion .search-result-title {
-    display: block;
-}
-
-.aa-dropdown-menu .aa-suggestion .search-result-attributes {
-    display: block;
-    font-size: 0.8em;
-    color: var(--muted-text-color);
-    opacity: 0.6;
-    line-height: 1;
-    word-wrap: break-word;
-}
-
-.aa-dropdown-menu .aa-suggestion p {
-    padding: 0;
-    margin: 0;
-}
-
-.aa-dropdown-menu .aa-suggestion.aa-cursor {
-    color: var(--active-item-text-color);
-    background-color: var(--active-item-background-color);
 }
 
 .help-button,
@@ -1410,7 +1292,7 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 
 .ck-mentions .ck-button {
     font-size: var(--detail-font-size) !important;
-    padding: 5px;
+    padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
 }
 
 .ck-mentions .ck-button b {
@@ -1418,9 +1300,9 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
 }
 
 .ck-mentions {
-    --ck-color-list-button-on-background: var(--active-item-background-color);
+    --ck-color-list-button-on-background: var(--suggestion-active-background-color);
     --ck-color-list-button-on-background-focus: var(--ck-color-list-button-on-background);
-    --ck-color-list-button-on-text: var(--active-item-text-color);
+    --ck-color-list-button-on-text: var(--suggestion-active-text-color);
 }
 
 .ck-mentions .ck-button b {
@@ -2277,29 +2159,6 @@ body.desktop .dropdown-submenu > .dropdown-menu {
 
     body.mobile .options-section-card table {
         word-break: break-all;
-    }
-
-    body.mobile .jump-to-note-dialog {
-        .modal-header {
-            padding-bottom: 0.75rem !important;
-        }
-
-        .modal-content {
-            padding-bottom: 0 !important;
-        }
-
-        .modal-body {
-            overflow-y: auto;
-        }
-
-        .aa-dropdown-menu {
-            max-height: unset;
-            overflow: auto;
-        }
-
-        .aa-suggestion {
-            padding-inline: 0;
-        }
     }
 
     body.mobile .modal-dialog .dropdown-menu {

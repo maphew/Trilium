@@ -1,9 +1,4 @@
 .search-string-editor {
-    /* The mention autocomplete's colours. The Next theme swaps in the hover pair from
-       `theme-next/ribbon.css`; the legacy themes define those as transparent. */
-    --search-completion-selected-background: var(--active-item-background-color, color-mix(in srgb, var(--main-text-color) 15%, transparent));
-    --search-completion-selected-text: var(--active-item-text-color, inherit);
-
     .cm-editor {
         background: transparent;
         max-height: 12em;
@@ -39,16 +34,15 @@
         z-index: 1210;
     }
 
-    /* Outweighs CodeMirror's `&light .cm-tooltip`, which carries two classes. */
+    /*
+     * The popup carries the note autocomplete's menu classes (`search_field_editor.ts`), which draw
+     * its frame and rows. These rules undo only what CodeMirror's theme sets over them: its
+     * `&light .cm-tooltip` and `.cm-tooltip-autocomplete > ul > li` outweigh `.dropdown-menu` and
+     * `.dropdown-item`.
+     */
     .cm-editor .cm-tooltip.cm-tooltip-autocomplete {
-        font-size: 0.8125em;
-        background: var(--menu-background-color-no-backdrop, var(--main-background-color));
-        color: var(--menu-text-color, var(--main-text-color));
-        border: 1px solid var(--dropdown-border-color, var(--main-border-color));
-        border-radius: var(--dropdown-border-radius, var(--bs-border-radius));
-        box-shadow: 0 5px 10px rgba(0, 0, 0, var(--dropdown-shadow-opacity, 0.2));
+        border-color: var(--dropdown-border-color);
         overflow: hidden;
-        padding: 4px;
 
         /* CodeMirror sets monospace on the popup; the field itself is in the UI font. */
         & > ul {
@@ -56,36 +50,33 @@
             max-height: 18em;
         }
 
-        /* A mention row's metrics: `ul.ck.ck-list button.ck-button` in the Next theme, over the
-           1.84/13px line CKEditor gives `.ck-button__label`. 28px bare, 46px with a description. */
+        /* Bootstrap's row padding, which the Next theme overrides with `!important`. */
         & > ul > li {
-            display: flex;
             flex-wrap: wrap;
-            align-items: center;
-            padding: 2px 16px;
-            border-radius: 6px;
-            line-height: calc(1.84 * 13px);
+            padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
+            line-height: inherit;
         }
 
+        /* Matches the `.tn-menu-gap` beside a note row's icon. */
         .cm-completion-glyph {
-            margin-inline-end: 0.4em;
+            margin-inline-end: 0.5em;
             opacity: 0.7;
         }
 
+        /* Matches the second line of a command row, `.note-suggestion-description`. */
         .cm-completionDetail {
             flex-basis: 100%;
             margin-left: 0;
-            font-size: 0.75em;
-            line-height: 1.84;
+            font-size: small;
             font-style: normal;
-            opacity: 0.75;
+            color: var(--muted-text-color);
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         & > ul > li[aria-selected] {
-            background: var(--search-completion-selected-background);
-            color: var(--search-completion-selected-text);
+            background: var(--suggestion-active-background-color);
+            color: var(--suggestion-active-text-color);
         }
     }
 

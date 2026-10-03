@@ -27,7 +27,6 @@
     "@triliumnext/highlightjs": "workspace:*",
     "@triliumnext/share-theme": "workspace:*",
     "@triliumnext/split.js": "workspace:*",
-    "autocomplete.js": "0.38.1",
     "bootstrap": "5.3.8",
     "buffer": "6.0.3",
     "boxicons": "2.1.4",

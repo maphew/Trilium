@@ -9,13 +9,15 @@ import type { SearchLintResponse } from "@triliumnext/commons";
 import froca from "../services/froca";
 import { t } from "../services/i18n";
 import server from "../services/server";
-import { searchCompletionIcon, searchCompletionReactivates, searchCompletionSource } from "./ribbon/search_completions";
+import { renderNoteSuggestion } from "./react/NoteAutocomplete";
+import { searchCompletionIcon, searchCompletionNote, searchCompletionReactivates, searchCompletionSource } from "./ribbon/search_completions";
 
 /** The class the styles in `search_field_editor.css` are scoped under. */
 export const SEARCH_FIELD_EDITOR_CLASS = "search-string-editor";
 
 /** What a caller supplies; the highlighting, linting and completions are fixed. */
-export type SearchFieldEditorConfig = Omit<FieldEditorConfig, "extensions" | "completionSource" | "completionIcon" | "activateOnCompletion">;
+export type SearchFieldEditorConfig = Omit<FieldEditorConfig,
+    "extensions" | "completionSource" | "completionIcon" | "renderCompletion" | "completionClasses" | "activateOnCompletion">;
 
 /**
  * Builds the editor a search string is written in: the query highlighter, the linter and the
@@ -34,6 +36,17 @@ export function createSearchFieldEditor(config: SearchFieldEditorConfig): FieldE
         ],
         completionSource: searchCompletionSource,
         completionIcon: searchCompletionIcon,
+        renderCompletion: (completion) => {
+            const note = searchCompletionNote(completion);
+
+            return note ? renderNoteSuggestion(note) : null;
+        },
+        // The note autocomplete's menu, so a note picked with `@` is offered as it is there. The
+        // highlighted option is the one CodeMirror selects, which the pointer does not move.
+        completionClasses: {
+            popup: "dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu",
+            option: "dropdown-item"
+        },
         activateOnCompletion: searchCompletionReactivates
     });
 }

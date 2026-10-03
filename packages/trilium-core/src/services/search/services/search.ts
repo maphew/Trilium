@@ -719,6 +719,12 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
     }
 }
 
+/**
+ * Labels left out of the attribute snippet: the help notes' `docName` and `docUrl` spell out the
+ * page's own path and address, which match a search for its title and repeat it.
+ */
+const SNIPPET_HIDDEN_LABELS = new Set([ "docName", "docUrl" ]);
+
 function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenInfo[] | string[], maxLength: number = 200): string {
     const note = becca.notes[noteId];
     if (!note) {
@@ -738,6 +744,10 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
 
         // Look for attributes that match the search tokens
         for (const attr of attributes) {
+            if (attr.type === "label" && SNIPPET_HIDDEN_LABELS.has(attr.name)) {
+                continue;
+            }
+
             const attrName = attr.name?.toLowerCase() || "";
             const attrValue = attr.value?.toLowerCase() || "";
             const attrType = attr.type || "";
@@ -751,7 +761,8 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
             if (hasMatch) {
                 matchingAttributes.push({
                     name: attr.name || "",
-                    value: attr.value || "",
+                    // One line per attribute: the lines are joined with newlines, which become `<br>`.
+                    value: (attr.value || "").replace(/\s*[\r\n]+\s*/g, " "),
                     type: attrType
                 });
             }
@@ -861,6 +872,8 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
             noteTitle: title,
             notePathTitle: result.notePathTitle,
             highlightedNotePathTitle: result.highlightedNotePathTitle,
+            highlightedNoteTitle: result.highlightedNoteTitle,
+            highlightedParentPathTitle: result.highlightedParentPathTitle,
             contentSnippet: result.contentSnippet,
             highlightedContentSnippet: result.highlightedContentSnippet,
             attributeSnippet: result.attributeSnippet,
@@ -885,6 +898,8 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     // The only characters that have to go are the { } markers themselves.
     for (const result of searchResults) {
         result.highlightedNotePathTitle = result.notePathTitle.replace(MARKER_CHARS, "");
+        result.highlightedNoteTitle = result.noteTitleSegment.replace(MARKER_CHARS, "");
+        result.highlightedParentPathTitle = result.parentPathTitle.replace(MARKER_CHARS, "");
 
         // Initialize highlighted content snippet, preserving newlines for later conversion to <br>
         if (result.contentSnippet) {
@@ -900,6 +915,8 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     for (const tokenInfo of tokenInfos) {
         for (const result of searchResults) {
             result.highlightedNotePathTitle = highlightField(result.highlightedNotePathTitle, tokenInfo);
+            result.highlightedNoteTitle = highlightField(result.highlightedNoteTitle, tokenInfo);
+            result.highlightedParentPathTitle = highlightField(result.highlightedParentPathTitle, tokenInfo);
             result.highlightedContentSnippet = highlightField(result.highlightedContentSnippet, tokenInfo);
             result.highlightedAttributeSnippet = highlightField(result.highlightedAttributeSnippet, tokenInfo);
         }
@@ -908,6 +925,14 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     for (const result of searchResults) {
         if (result.highlightedNotePathTitle) {
             result.highlightedNotePathTitle = renderHighlights(result.highlightedNotePathTitle);
+        }
+
+        if (result.highlightedNoteTitle) {
+            result.highlightedNoteTitle = renderHighlights(result.highlightedNoteTitle);
+        }
+
+        if (result.highlightedParentPathTitle) {
+            result.highlightedParentPathTitle = renderHighlights(result.highlightedParentPathTitle);
         }
 
         if (result.highlightedContentSnippet) {

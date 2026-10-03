@@ -14,6 +14,7 @@ import type { ShortcutHintDefinition } from "../services/shortcut_hints";
 import { isMobile } from "../services/utils";
 import ActionButton from "./react/ActionButton";
 import { ExtendedAdmonition } from "./react/Admonition";
+import { AttributeSnippetBadges } from "./react/Badge";
 import Button from "./react/Button";
 import { focusListItem } from "./react/FormList";
 import { useTriliumEvent } from "./react/hooks";
@@ -194,7 +195,6 @@ export default function QuickSearch() {
                         <Button
                             className="show-in-full-search"
                             text={t("quick-search.show-in-full-search")}
-                            keyboardShortcut="Ctrl+Enter"
                             size="small"
                             onClick={showInFullSearch}
                         />
@@ -347,13 +347,10 @@ function QuickSearchResult({ result, viewScope, onOpen }: {
                     />
                 </div>
 
-                {result.highlightedAttributeSnippet && (
-                    // The attributes share one line, so the line breaks between them become spaces.
-                    <RawHtmlBlock
-                        className="search-result-attributes"
-                        html={result.highlightedAttributeSnippet.replace(/<br\s?\/?>/g, " ")}
-                    />
-                )}
+                <AttributeSnippetBadges
+                    snippet={result.highlightedAttributeSnippet}
+                    className="search-result-attributes"
+                />
 
                 {result.highlightedContentSnippet && (
                     <RawHtmlBlock

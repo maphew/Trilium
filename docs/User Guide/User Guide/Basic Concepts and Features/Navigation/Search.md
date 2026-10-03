@@ -26,7 +26,7 @@ There are multiple types of searches, all using the same search mechanism and qu
 
 *   From the <a class="reference-link" href="../UI%20Elements/Launch%20Bar.md">Launch Bar</a>, look for the dedicated search button.
 *   To limit the search to a note and its children, select _Search from subtree_ from the <a class="reference-link" href="../UI%20Elements/Note%20Tree/Note%20tree%20contextual%20menu.md">Note tree contextual menu</a> or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.
-*   Go to <a class="reference-link" href="Jump%20to%20%26%20command%20palette.md">Jump to &amp; command palette</a>, look for something then press _Search in full text_ (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).
+*   Go to <a class="reference-link" href="Jump%20to%20%26%20command%20palette.md">Jump to &amp; command palette</a>, look for something then press _Show in full search_ below the results (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).
 
 ## Interaction
 

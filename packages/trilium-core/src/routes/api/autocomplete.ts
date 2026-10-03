@@ -1,3 +1,5 @@
+import type { AutocompleteResult } from "@triliumnext/commons";
+
 import type { Request } from "../../http_interface";
 
 import becca from "../../becca/becca.js";
@@ -8,7 +10,7 @@ import { escapeHtml } from "../../services/utils/index.js";
 import { ValidationError } from "../../errors.js";
 import becca_service from "../../becca/becca_service.js";
 
-function getAutocomplete(req: Request) {
+function getAutocomplete(req: Request): AutocompleteResult[] {
     if (typeof req.query.query !== "string") {
         throw new ValidationError("Invalid query data type.");
     }
@@ -17,7 +19,7 @@ function getAutocomplete(req: Request) {
 
     const activeNoteId = req.query.activeNoteId || "none";
 
-    let results;
+    let results: AutocompleteResult[];
 
     const timestampStarted = Date.now();
 
@@ -36,7 +38,7 @@ function getAutocomplete(req: Request) {
     return results;
 }
 
-function getRecentNotes(activeNoteId: string) {
+function getRecentNotes(activeNoteId: string): AutocompleteResult[] {
     let extraCondition = "";
     const params = [activeNoteId];
 
@@ -67,14 +69,18 @@ function getRecentNotes(activeNoteId: string) {
         const notePathArray = rn.notePath.split("/");
 
         const { title, icon } = becca_service.getNoteTitleAndIcon(notePathArray[notePathArray.length - 1]);
-        const notePathTitle = becca_service.getNoteTitleForPath(notePathArray);
+        const pathTitles = becca_service.getNoteTitleArrayForPath(notePathArray);
+        const notePathTitle = pathTitles.join(" › ");
 
         return {
             notePath: rn.notePath,
             noteTitle: title,
             notePathTitle,
             highlightedNotePathTitle: escapeHtml(notePathTitle || title),
-            icon: icon ?? "bx bx-note"
+            highlightedNoteTitle: escapeHtml(pathTitles.at(-1) ?? title),
+            highlightedParentPathTitle: escapeHtml(pathTitles.slice(0, -1).join(" › ")),
+            icon: icon ?? "bx bx-note",
+            utcDateVisited: rn.utcDateCreated
         };
     });
 }

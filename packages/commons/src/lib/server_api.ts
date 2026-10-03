@@ -382,12 +382,28 @@ export interface SearchResultDetails {
     noteTitle: string;
     notePathTitle: string;
     highlightedNotePathTitle?: string;
+    /** The note's own title as the path shows it, highlighted. */
+    highlightedNoteTitle?: string;
+    /** The path to the note, without its own title, highlighted; empty for a top-level note. */
+    highlightedParentPathTitle?: string;
     contentSnippet?: string;
     highlightedContentSnippet?: string;
     attributeSnippet?: string;
     highlightedAttributeSnippet?: string;
     icon: string;
 }
+
+/**
+ * One row of `GET /api/autocomplete`: a recently visited note when the query is empty, a search
+ * result otherwise. Only search results carry the attribute snippet, and only recent notes the
+ * time of the visit.
+ */
+export type AutocompleteResult = Pick<SearchResultDetails, "notePath" | "noteTitle" | "notePathTitle"
+    | "highlightedNotePathTitle" | "highlightedNoteTitle" | "highlightedParentPathTitle"
+    | "attributeSnippet" | "highlightedAttributeSnippet" | "icon"> & {
+    /** When the note was last visited, as `recent_notes.utcDateCreated` holds it. */
+    utcDateVisited?: string;
+};
 
 /** Response for `GET /api/quick-search/:searchString`. */
 export interface QuickSearchResponse {

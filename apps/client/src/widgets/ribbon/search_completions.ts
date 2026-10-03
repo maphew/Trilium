@@ -1,8 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from "@triliumnext/codemirror/src/field_editor";
-import { ALLOWED_NOTE_TYPES, allowedSearchOperators, MIME_TYPES_DICT, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
+import { ALLOWED_NOTE_TYPES, allowedSearchOperators, type AutocompleteResult, MIME_TYPES_DICT, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
 
 import { isBuiltinAttribute } from "../../services/attributes";
-import type { Suggestion } from "../../services/note_autocomplete";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { fetchAttributeNames } from "../attribute_widgets/attribute_detail";
@@ -133,9 +132,9 @@ const VALUE_NEEDS_QUOTES = /[\s"'`\\#~().=*<>!%+,-]/;
  */
 const RESERVED_VALUES = new Set([ "note", "now", "today", "month", "year" ]);
 
-/** A completion drawn with an icon of its own, which {@link COMPLETION_ICONS} cannot supply. */
+/** A completion for a note, drawn as a row of the note autocomplete from the result it carries. */
 interface NoteCompletion extends Completion {
-    noteIcon?: string;
+    note: AutocompleteResult;
 }
 
 /**
@@ -144,9 +143,9 @@ interface NoteCompletion extends Completion {
  * note after a rename; with nothing typed yet the call answers with the recently visited notes.
  */
 async function noteCompletions(term: string, atPos: number): Promise<CompletionResult | null> {
-    let suggestions: Suggestion[];
+    let suggestions: AutocompleteResult[];
     try {
-        suggestions = await server.get<Suggestion[]>(
+        suggestions = await server.get<AutocompleteResult[]>(
             `autocomplete?query=${encodeURIComponent(term)}&activeNoteId=none&fastSearch=true`
         );
     } catch {
@@ -163,8 +162,7 @@ async function noteCompletions(term: string, atPos: number): Promise<CompletionR
 
         options.push({
             label: suggestion.noteTitle,
-            detail: suggestion.notePathTitle,
-            noteIcon: suggestion.icon,
+            note: suggestion,
             // The call ranks the notes; this keeps that order among the ones matching as well as
             // each other, while leaving a distinctly better match free to rise past them.
             boost: -index,
@@ -236,11 +234,12 @@ const COMPLETION_ICONS: Record<string, string> = {
 
 /** The icon an option is drawn with. Only the attribute names carry one. */
 export function searchCompletionIcon(completion: Completion): string | undefined {
-    if ("noteIcon" in completion && typeof completion.noteIcon === "string") {
-        return completion.noteIcon;
-    }
-
     return completion.type ? COMPLETION_ICONS[completion.type] : undefined;
+}
+
+/** The note an option offers, which is drawn as the note autocomplete draws it. */
+export function searchCompletionNote(completion: Completion): AutocompleteResult | undefined {
+    return "note" in completion ? (completion as NoteCompletion).note : undefined;
 }
 
 /**

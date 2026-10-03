@@ -74,7 +74,9 @@ describe("QuickSearch", () => {
         expect(first.classList.contains("no-tooltip-preview")).toBe(true);
         expect(first.querySelector(".quick-search-item-icon")?.classList.contains("bx-note")).toBe(true);
         expect(first.querySelector(".search-result-title")?.innerHTML).toBe("<b>Note</b> 0");
-        expect(first.querySelector(".search-result-attributes")?.innerHTML).toBe("#year=1954 #author=tolkien");
+        const badges = first.querySelectorAll(".search-result-attributes > .ext-badge.outline");
+        const values = [ ...badges ].map((badge) => badge.querySelector(".attribute-badge-value")?.textContent);
+        expect(values).toEqual([ "1954", "tolkien" ]);
         expect(first.querySelector(".search-result-content")?.innerHTML).toBe("about <b>hello</b>");
     });
 
@@ -369,6 +371,8 @@ describe("QuickSearch", () => {
         expect(footer?.classList.contains("quick-search-footer")).toBe(true);
         const button = footer?.querySelector<HTMLButtonElement>(".show-in-full-search");
         if (!button) throw new Error("The footer has no full search button.");
+        // Its key is in the shortcut hints, not on the button.
+        expect(button.querySelector("kbd")).toBeNull();
 
         await act(async () => button.click());
         expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#book AND tolkien" });
@@ -551,7 +555,7 @@ function response(count: number, highlightedTokens: string[]): QuickSearchRespon
         noteTitle: `Note ${index}`,
         notePathTitle: `Note ${index}`,
         highlightedNotePathTitle: `<b>Note</b> ${index}`,
-        highlightedAttributeSnippet: "#year=1954<br>#author=tolkien",
+        highlightedAttributeSnippet: "#year=&quot;1954&quot;<br>#author=&quot;tolkien&quot;",
         highlightedContentSnippet: "about <b>hello</b>",
         icon: "bx bx-note"
     }));

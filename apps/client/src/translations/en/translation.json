@@ -350,8 +350,7 @@
     "copy_to_clipboard": "Copy to clipboard"
   },
   "jump_to_note": {
-    "search_placeholder": "Search for note by its name or type > for commands...",
-    "search_button": "Search in full text"
+    "search_placeholder": "Search for note by its name or type > for commands..."
   },
   "markdown_editor": {
     "image_upload_failed": "Cannot upload image \"{{name}}\"."
@@ -1698,6 +1697,10 @@
     "rename_note": "Rename note",
     "enter_new_title": "Enter new note title:",
     "rename_relation": "Rename relation",
+    "rename": "Rename",
+    "new_relation": "New relation",
+    "create_relation": "Create relation",
+    "relation_name_placeholder": "Relation name",
     "remove_relation": "Remove relation",
     "confirm_remove_relation": "Are you sure you want to remove the relation?",
     "specify_new_relation_name": "Specify new relation name (allowed characters: alphanumeric, colon and underscore):",
@@ -3076,7 +3079,7 @@
     "zoom-factor": "Zoom factor"
   },
   "note_autocomplete": {
-    "search-for": "Search for \"{{term}}\"",
+    "show-in-full-search": "Show all results for \"{{term}}\" in full search",
     "create-note": "Create note \"{{term}}\"",
     "create-note-into": "Create note \"{{term}}\" in {{parentTitle}}",
     "create-note-into-day-note": "Create note \"{{term}}\" in today's day note",
@@ -3084,8 +3087,20 @@
     "create-child-note": "Create child note \"{{term}}\"",
     "insert-external-link": "Insert external link to \"{{term}}\"",
     "clear-text-field": "Clear text field",
-    "show-recent-notes": "Show recent notes",
-    "full-text-search": "Full text search"
+    "include-note-contents": "Include note contents in the results for \"{{term}}\"",
+    "include-contents": "Include note contents",
+    "hints": {
+      "title": "Note search results",
+      "move": "Move through the results",
+      "open": "Open the highlighted result"
+    },
+    "recent": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "past_week": "Past 7 days",
+      "past_month": "Past 30 days",
+      "older": "Older"
+    }
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",
