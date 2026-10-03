@@ -27,6 +27,26 @@
     width: 100%;
 }
 
+/*
+ * A fixed height, so the dialog keeps its size as the results change: the list's cap above plus
+ * room for the footer, which stays at the bottom. On mobile the dialog fills the screen instead.
+ */
+body.desktop .jump-to-note-results {
+    display: flex;
+    flex-direction: column;
+    height: calc(80vh - 150px);
+
+    .note-suggestion-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+    .note-suggestion-footer {
+        flex: none;
+    }
+}
+
 @media (max-width: 991px) {
     body.mobile .jump-to-note-dialog {
         .modal-header {
