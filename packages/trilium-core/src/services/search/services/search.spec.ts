@@ -935,6 +935,25 @@ describe("Search", () => {
             expect(titledRank).toBeLessThan(bodyRank);
         });
 
+        it("ranks the title spelled with the query's diacritics first (#11787)", () => {
+            // Without the accent sorting first, the alphabetical tie-break settles this in favour
+            // of "ktory" both ways, as "y" sorts before "ý".
+            const accented = contentNote("ktorý", "");
+            const plain = contentNote("ktory", "");
+            const accentedPhrase = contentNote("ktorý je", "");
+            const plainPhrase = contentNote("ktory je", "");
+
+            const accentedSearch = searchService.findResultsWithQuery("ktorý", new SearchContext());
+            expect(rank(accentedSearch, accented.noteId)).toBeGreaterThanOrEqual(0);
+            expect(rank(accentedSearch, accented.noteId)).toBeLessThan(rank(accentedSearch, plain.noteId));
+            expect(rank(accentedSearch, accentedPhrase.noteId)).toBeLessThan(rank(accentedSearch, plainPhrase.noteId));
+
+            const plainSearch = searchService.findResultsWithQuery("ktory", new SearchContext());
+            expect(rank(plainSearch, plain.noteId)).toBeGreaterThanOrEqual(0);
+            expect(rank(plainSearch, plain.noteId)).toBeLessThan(rank(plainSearch, accented.noteId));
+            expect(rank(plainSearch, plainPhrase.noteId)).toBeLessThan(rank(plainSearch, accentedPhrase.noteId));
+        });
+
         it("finds a body typo via phase-2 fuzzy fallback, ranked below exact matches (combinef -> combined)", () => {
             const exact = contentNote("ExactNote", "the combinef marker is set");
             const fuzzy = contentNote("FuzzyNote", "the values were combined together");
