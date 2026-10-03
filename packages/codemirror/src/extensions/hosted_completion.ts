@@ -131,20 +131,22 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
 
             this.from = found.from;
             this.before = found.before;
-            // Shown once the update is over: the list reads the caret's place, which CodeMirror does
-            // not allow during one.
+            // Shown in a measure, as the list reads the caret's place, which CodeMirror allows only in
+            // `read`. While `show` runs, `caretRect()` answers what `read` measured.
             this.view.requestMeasure({
-                read: () => null,
-                write: () => {
+                read: () => caretRect(this.view),
+                write: (measured) => {
                     // A later update has replaced or closed the list meanwhile.
                     if (this.from !== found.from || this.before !== found.before) return;
 
+                    let showing = true;
                     this.list.show({
                         match: found.match,
-                        caretRect: () => caretRect(this.view),
+                        caretRect: () => (showing ? measured : caretRect(this.view)),
                         editable: this.view.dom,
                         commit: (text) => this.commit(found.from, text)
                     });
+                    showing = false;
                 }
             });
         }

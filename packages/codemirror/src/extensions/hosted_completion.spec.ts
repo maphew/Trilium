@@ -190,9 +190,11 @@ describe("hostedCompletion", () => {
     });
 
     it("places the list at the caret, or at the editor where the caret has no place on screen", async () => {
-        const { shown } = build();
+        const { shown, placed } = build();
         type("@");
         await vi.waitFor(() => expect(shown()).toBeDefined());
+        // Read as CodeMirror shows the list, when it allows no layout reads.
+        expect(placed()).toBeInstanceOf(DOMRect);
         const view = editor;
         if (!view) throw new Error("expected an editor");
 
@@ -208,8 +210,17 @@ describe("hostedCompletion", () => {
 function build(config: Partial<FieldEditorConfig> = {}) {
     let element: HTMLElement | null = null;
     let state: HostedCompletionState<TestMatch> | undefined;
+    let placed: unknown;
     const list = {
-        show: vi.fn((shown: HostedCompletionState<TestMatch>) => { state = shown; }),
+        // Places itself as it is shown, as a popup does.
+        show: vi.fn((shown: HostedCompletionState<TestMatch>) => {
+            state = shown;
+            try {
+                placed = shown.caretRect();
+            } catch (e) {
+                placed = e;
+            }
+        }),
         hide: vi.fn(),
         handleKeyDown: vi.fn(() => false),
         get element() { return element; },
@@ -229,6 +240,7 @@ function build(config: Partial<FieldEditorConfig> = {}) {
     return {
         list,
         shown: () => state,
+        placed: () => placed,
         setElement: (el: HTMLElement | null) => { element = el; }
     };
 }
