@@ -282,3 +282,17 @@
     background: var(--cmd-button-keyboard-shortcut-background, transparent);
     color: var(--cmd-button-keyboard-shortcut-color, inherit) !important;
 }
+
+/*
+ * The `/` list of the text and Markdown editors, at a width that fits all but the longest
+ * descriptions, and given more height than a list usually is: it is long, and the query only
+ * narrows it.
+ */
+.note-autocomplete-menu.slash-command-menu {
+    width: 350px;
+    max-width: calc(100vw - 10px);
+
+    > .tn-menu-scroll {
+        max-height: var(--ck-mention-list-max-height);
+    }
+}

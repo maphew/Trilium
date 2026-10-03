@@ -1,5 +1,3 @@
-import "./mention_list_view.css";
-
 import type { EmojiSuggestion, MentionFeedObjectItem, MentionHostedList, MentionHostedListState, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumEmojiMention, TriliumSlashCommands } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";

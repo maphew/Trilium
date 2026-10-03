@@ -295,6 +295,8 @@ describe("useSlashCommands", () => {
         // Found by its title, without the slash.
         await vi.waitFor(() => expect(rows().map((row) => row.textContent)).toEqual([ expect.stringContaining("titles.tip") ]));
         expect(rows()[0]?.querySelector("b")?.textContent).toBe("tip");
+        // Sized as the text editor's `/` list is.
+        expect(document.querySelector(".note-autocomplete-menu.slash-command-menu")).not.toBeNull();
 
         // Opened on the best match, so Enter runs it.
         editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));

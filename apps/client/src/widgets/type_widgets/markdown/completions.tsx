@@ -354,6 +354,7 @@ function createSlashCommandList(commands: () => SlashCommand[]) {
             {...list}
             query={state.match.query}
             source={async (query) => filterCommandEntries(commands(), query)}
+            className="slash-command-menu"
             onPick={(entry) => state.commit(entry.apply)}
         />
     ));
