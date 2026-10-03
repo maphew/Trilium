@@ -76,7 +76,8 @@ function getRecentNotes(activeNoteId: string): AutocompleteResult[] {
             noteTitle: title,
             notePathTitle,
             highlightedNotePathTitle: escapeHtml(notePathTitle || title),
-            icon: icon ?? "bx bx-note"
+            icon: icon ?? "bx bx-note",
+            utcDateVisited: rn.utcDateCreated
         };
     });
 }

@@ -31,6 +31,8 @@ Jump to note also has the ability to show the list of recently viewed / edited n
 
 To access this functionality, click on `Jump to` button on the top. By default, (when nothing is entered into autocomplete), this dialog will show the list of recent notes.
 
+The recent notes are grouped by when they were last visited: _Today_, _Yesterday_, _Past 7 days_, _Past 30 days_ and _Older_. The same list, with the same groups, opens in any note field that is focused while empty.
+
 ## Command Palette
 
 <figure class="image image-style-align-center"><img style="aspect-ratio:982/524;" src="Jump to &amp; command palette_image.png" width="982" height="524"></figure>

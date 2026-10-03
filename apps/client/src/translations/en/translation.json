@@ -3093,6 +3093,13 @@
       "title": "Note search results",
       "move": "Move through the results",
       "open": "Open the highlighted result"
+    },
+    "recent": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "past_week": "Past 7 days",
+      "past_month": "Past 30 days",
+      "older": "Older"
     }
   },
   "note_tooltip": {

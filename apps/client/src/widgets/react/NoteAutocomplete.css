@@ -84,6 +84,21 @@
 }
 
 /*
+ * The headings over the recent notes, by when they were visited, at the start of the rows. The
+ * `!important` outranks the menu text color that style.css forces on `.dropdown-header`.
+ */
+.note-autocomplete-menu li > .dropdown-header {
+    margin: 0;
+    padding: 10px 8px 2px;
+    font-size: 0.8em;
+    color: var(--muted-text-color) !important;
+}
+
+.note-autocomplete-menu li:first-child > .dropdown-header {
+    padding-top: 2px;
+}
+
+/*
  * The lists in a host's container, such as the Empty tab's and Jump to Note's: the popup's rows,
  * outside a `.dropdown-menu`, which defines Bootstrap's item and divider variables.
  */
@@ -107,6 +122,10 @@
     > .dropdown-divider {
         margin-block: 8px;
         border-top: 1px solid var(--main-border-color);
+    }
+
+    > li > .dropdown-header {
+        padding-inline: 16px;
     }
 }
 

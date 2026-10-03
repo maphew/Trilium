@@ -16,6 +16,7 @@ interface AutocompleteResult {
     notePathTitle: string;
     highlightedNotePathTitle: string;
     icon: string;
+    utcDateVisited?: string;
 }
 
 describe("Autocomplete API (core)", () => {
@@ -45,12 +46,22 @@ describe("Autocomplete API (core)", () => {
             expect(match?.icon).toBeTruthy();
         });
 
-        it("returns recent notes for an empty query", async () => {
+        it("returns recent notes for an empty query, with when each was visited", async () => {
+            const { noteId } = await createTextNote(api, { title: "Recently visited" });
+            await api.post("/api/recent-notes", { body: { noteId, notePath: `root/${noteId}` } });
+
             const res = await api.get<AutocompleteResult[]>("/api/autocomplete", {
                 query: { query: "" }
             });
             expect(res.status).toBe(200);
-            expect(Array.isArray(res.body)).toBe(true);
+            const visited = res.body.find((r) => r.notePath === `root/${noteId}`);
+            expect(visited?.utcDateVisited).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
+
+            // A search answers with no visit times.
+            const searched = await api.get<AutocompleteResult[]>("/api/autocomplete", {
+                query: { query: "Recently visited" }
+            });
+            expect(searched.body.find((r) => r.notePath.endsWith(noteId))?.utcDateVisited).toBeUndefined();
         });
 
         it("filters recent notes by the hoisted note path when not hoisted to root", async () => {

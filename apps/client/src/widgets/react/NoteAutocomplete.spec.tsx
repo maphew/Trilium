@@ -193,6 +193,33 @@ describe("NoteAutocomplete's suggestion list", () => {
         return allRows().find((row) => row.querySelector(".bx-search"));
     }
 
+    it("groups the recent notes under headings by when they were visited, which the keys step over", async () => {
+        const today = new Date();
+        const daysAgo = (days: number) =>
+            new Date(today.getFullYear(), today.getMonth(), today.getDate() - days, 0, 1).toISOString().replace("T", " ");
+        getNoteSuggestions.mockResolvedValue([
+            { ...notes[0], utcDateVisited: daysAgo(0) },
+            { ...notes[1], utcDateVisited: daysAgo(0) },
+            { notePath: "root/c", noteTitle: "Gamma", highlightedNotePathTitle: "Gamma", utcDateVisited: daysAgo(40) }
+        ]);
+        const input = await mount();
+        await act(async () => { input.focus(); });
+        await settle();
+
+        const menu = document.querySelector(".note-autocomplete-menu .tn-menu-scroll");
+        const layout = [ ...(menu?.children ?? []) ].map((child) =>
+            child.querySelector(".dropdown-header") ? "heading" : child.className.split(" ")[0]);
+        expect(layout).toEqual([ "heading", "dropdown-item", "dropdown-item", "heading", "dropdown-item" ]);
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+        await press(input, "ArrowUp");
+        expect(rows()[2].classList.contains("tn-menu-active")).toBe(true);
+
+        // A search's results carry no visit times, and no headings.
+        getNoteSuggestions.mockResolvedValue(notes);
+        await type(input, "al");
+        expect(document.querySelector(".note-autocomplete-menu .dropdown-header")).toBeNull();
+    });
+
     it("lists the notes as the rows of a menu, the first one highlighted", async () => {
         const input = await mount();
         await type(input, "al");

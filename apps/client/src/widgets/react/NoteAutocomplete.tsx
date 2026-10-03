@@ -10,13 +10,13 @@ import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useR
 import appContext from "../../components/app_context";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
-import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, recentNoteGroup, type RecentNoteGroup, type Suggestion } from "../../services/note_autocomplete";
 import { escapeHtml, isMobile } from "../../services/utils";
 import { ShortcutHintOverlayButton } from "../shortcut_hints/shortcut_hint_button";
 import { AttributeSnippetBadges } from "./Badge";
 import Button from "./Button";
 import { useAutocomplete } from "./FormAutocomplete";
-import { FormDropdownDivider } from "./FormList";
+import { FormDropdownDivider, FormListHeader } from "./FormList";
 import FormToggle from "./FormToggle";
 import { useContextualShortcutHints, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
@@ -445,6 +445,11 @@ function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
     searchingFor?: string;
     className: string;
 }) {
+    // Only the recent notes listed on an empty query carry a visit time, and take a heading per group.
+    const now = new Date();
+    const recentGroups = autocomplete.items.map((suggestion) =>
+        suggestion.utcDateVisited ? recentNoteGroup(suggestion.utcDateVisited, now) : undefined);
+
     return (
         <menu
             className={className}
@@ -466,6 +471,9 @@ function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
             </>}
             {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
                 startsGroup(autocomplete.items, index) && <FormDropdownDivider key={`divider-${index}`} />,
+                recentGroups[index] && recentGroups[index] !== recentGroups[index - 1] && (
+                    <FormListHeader key={`heading-${index}`} text={recentGroupTitle(recentGroups[index])} />
+                ),
                 <li
                     key={suggestionKey(suggestion, index)}
                     id={autocomplete.itemId(index)}
@@ -571,6 +579,16 @@ function startsGroup(items: Suggestion[], index: number) {
 
 function suggestionKey(suggestion: Suggestion, index: number) {
     return `${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`;
+}
+
+function recentGroupTitle(group: RecentNoteGroup) {
+    switch (group) {
+        case "today": return t("note_autocomplete.recent.today");
+        case "yesterday": return t("note_autocomplete.recent.yesterday");
+        case "past-week": return t("note_autocomplete.recent.past_week");
+        case "past-month": return t("note_autocomplete.recent.past_month");
+        case "older": return t("note_autocomplete.recent.older");
+    }
 }
 
 function suggestionIcon(suggestion: Suggestion) {
