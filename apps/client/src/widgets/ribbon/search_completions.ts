@@ -288,7 +288,13 @@ function dateValues(): PropertyValue[] {
  * is a note ID, and the endpoint behind this collects label values alone.
  */
 async function labelValues(name: string, quote: string): Promise<SearchEntry[]> {
-    const values = await server.get<string[]>(`attribute-values/${encodeURIComponent(name)}`);
+    let values: string[];
+    try {
+        values = await server.get<string[]>(`attribute-values/${encodeURIComponent(name)}`);
+    } catch {
+        // A failed lookup offers no values, and the query is typed as usual.
+        return [];
+    }
 
     return values.map((value) => ({ id: value, title: value, icon: "bx bx-purchase-tag-alt", insert: applyValue(value, quote) }));
 }

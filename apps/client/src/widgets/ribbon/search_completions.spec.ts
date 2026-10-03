@@ -168,6 +168,12 @@ describe("searchCompletionAt", () => {
             expect((await entryFor(result, "science fiction"))?.insert).toBe("\"science fiction\"");
         });
 
+        it("offers no values where looking them up fails, rather than failing the list", async () => {
+            vi.mocked(server.get).mockRejectedValue(new Error("offline"));
+
+            expect(await entriesOf(complete("#genre = fic"))).toEqual([]);
+        });
+
         it("quotes a value spelled like a reserved operand, whatever its case", async () => {
             vi.mocked(server.get).mockResolvedValue([ "note", "Today", "monthly" ]);
 
