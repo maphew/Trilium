@@ -2,6 +2,16 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const noteContent = vi.hoisted(() => ({ rendered: [] as string[] }));
+const autocomplete = vi.hoisted(() => ({
+    onTextChange: undefined as ((text: string) => void) | undefined
+}));
+
+vi.mock("../react/NoteAutocomplete", () => ({
+    default: ({ onTextChange }: { onTextChange: (text: string) => void }) => {
+        autocomplete.onTextChange = onTextChange;
+        return <input />;
+    }
+}));
 
 vi.mock("../collections/legacy/ListOrGridView", () => ({
     NoteContent: ({ note }: { note: { noteId: string } }) => {
@@ -11,10 +21,12 @@ vi.mock("../collections/legacy/ListOrGridView", () => ({
     NoteAttributes: () => <span className="stub-attributes" />
 }));
 
+import Component from "../../components/component";
 import type { Suggestion } from "../../services/note_autocomplete";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
-import { JumpToNotePreview, PREVIEW_DELAY_MS } from "./jump_to_note";
+import { ParentComponent } from "../react/react_utils";
+import JumpToNoteDialog, { JumpToNotePreview, PREVIEW_DELAY_MS } from "./jump_to_note";
 
 describe("JumpToNotePreview", () => {
     beforeEach(() => {
@@ -66,5 +78,30 @@ describe("JumpToNotePreview", () => {
             expect(host.querySelector(".jump-to-note-preview-title")).toBeNull();
             expect(host.querySelector(".jump-to-note-preview")).not.toBeNull();
         }
+    });
+});
+
+describe("JumpToNoteDialog's preview", () => {
+    it("is left out for the command palette, and back once the query names notes again, the dialog keeping its width", async () => {
+        vi.spyOn(window, "matchMedia").mockReturnValue({
+            matches: true, addEventListener() {}, removeEventListener() {}
+        } as unknown as MediaQueryList);
+        const host = new Component();
+        const container = renderInto(
+            <ParentComponent.Provider value={host}><JumpToNoteDialog /></ParentComponent.Provider>
+        );
+        await act(async () => { void host.handleEventInChildren("commandPalette", {}); });
+        await act(async () => { autocomplete.onTextChange?.(">"); });
+
+        const dialog = () => container.querySelector(".jump-to-note-dialog");
+        expect(container.querySelector(".jump-to-note-preview")).toBeNull();
+        expect(dialog()?.classList.contains("with-preview")).toBe(false);
+        expect(dialog()?.classList.contains("wide")).toBe(true);
+
+        await act(async () => { autocomplete.onTextChange?.("plan"); });
+        expect(container.querySelector(".jump-to-note-preview")).not.toBeNull();
+        expect(dialog()?.classList.contains("with-preview")).toBe(true);
+        expect(dialog()?.classList.contains("wide")).toBe(true);
+        vi.restoreAllMocks();
     });
 });

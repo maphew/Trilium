@@ -1,5 +1,6 @@
 import "./jump_to_note.css";
 
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
@@ -19,7 +20,7 @@ import { refToJQuerySelector } from "../react/react_utils";
 const KEEP_LAST_SEARCH_FOR_X_SECONDS = 120;
 /** How long the highlight rests on a row before the preview renders it, so arrowing past skips it. */
 export const PREVIEW_DELAY_MS = 150;
-/** Wide enough for the results and the preview side by side; matches the media query in jump_to_note.css. */
+/** Wide enough for the results and the preview side by side. */
 const PREVIEW_MEDIA_QUERY = "(min-width: 1100px)";
 
 type Mode = "last-search" | "recent-notes" | "commands";
@@ -34,7 +35,12 @@ export default function JumpToNoteDialogComponent() {
     const actualText = useRef<string>(initialText);
     const [ shown, setShown ] = useState(false);
     const [ highlighted, setHighlighted ] = useState<Suggestion>();
-    const showsPreview = useMediaQuery(PREVIEW_MEDIA_QUERY) && !isMobile();
+    // The command palette lists commands, which have no content to preview.
+    const [ isCommandQuery, setCommandQuery ] = useState(false);
+    // The dialog keeps the preview's width while the command palette leaves it out, so it does not
+    // resize as `>` is typed and erased.
+    const isWide = useMediaQuery(PREVIEW_MEDIA_QUERY) && !isMobile();
+    const showsPreview = isWide && !isCommandQuery;
 
     async function openDialog(commandMode: boolean) {
         let newMode: Mode;
@@ -109,7 +115,7 @@ export default function JumpToNoteDialogComponent() {
 
     return (
         <Modal
-            className="jump-to-note-dialog"
+            className={clsx("jump-to-note-dialog", isWide && "wide", showsPreview && "with-preview")}
             size="lg"
             title={<>
                 {!isMobile() && <Icon icon="bx bx-search" className="jump-to-note-search-icon" />}
@@ -125,7 +131,10 @@ export default function JumpToNoteDialogComponent() {
                         allowJumpToSearchNotes: true,
                         isCommandPalette: true
                     }}
-                    onTextChange={(text) => actualText.current = text}
+                    onTextChange={(text) => {
+                        actualText.current = text;
+                        setCommandQuery(text.startsWith(">"));
+                    }}
                     onChange={onItemSelected}
                     searchFooter
                     onHighlight={showsPreview ? setHighlighted : undefined}

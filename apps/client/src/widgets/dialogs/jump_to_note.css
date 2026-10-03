@@ -55,42 +55,46 @@ body.desktop .jump-to-note-results {
 }
 
 /*
- * Room for a preview beside the results: the dialog widens into two columns, the results and the
- * preview, with the footer across both. Matches `PREVIEW_MEDIA_QUERY` in jump_to_note.tsx. The
- * results' container steps aside (`display: contents`), so its list and footer take the grid's cells.
+ * Where the window has room for a preview (`wide`, set by jump_to_note.tsx), the dialog takes its
+ * width whether or not the preview shows, and lays its body out as a grid: the results, the preview
+ * beside them while `with-preview` is set, and the footer across the full width. The results'
+ * container steps aside (`display: contents`), so its list and footer take the grid's cells.
  */
-@media (min-width: 1100px) {
-    body.desktop .jump-to-note-dialog {
-        .modal-dialog {
-            max-width: 1200px;
-        }
+body.desktop .jump-to-note-dialog.wide {
+    .modal-dialog {
+        max-width: 1200px;
+    }
 
-        .modal-body {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 400px;
-            grid-template-rows: minmax(0, 1fr) auto;
-            column-gap: 16px;
-            height: calc(80vh - 150px);
-        }
+    .modal-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        column-gap: 16px;
+        height: calc(80vh - 150px);
+    }
 
-        .jump-to-note-results {
-            display: contents;
-        }
+    .jump-to-note-results {
+        display: contents;
+    }
 
-        .jump-to-note-results .note-suggestion-list {
-            grid-area: 1 / 1;
-            margin-inline-end: 0;
-        }
+    .jump-to-note-results .note-suggestion-list {
+        grid-area: 1 / 1;
+        margin-inline-end: 0;
+    }
 
-        .jump-to-note-results .note-suggestion-footer {
-            grid-area: 2 / 1 / 3 / 3;
-        }
+    .jump-to-note-results .note-suggestion-footer {
+        grid-row: 2;
+        grid-column: 1 / -1;
+    }
 
-        .jump-to-note-preview {
-            grid-area: 1 / 2;
-            min-height: 0;
-            padding-block: 8px;
-        }
+    .jump-to-note-preview {
+        grid-area: 1 / 2;
+        min-height: 0;
+        padding-block: 8px;
+    }
+
+    &.with-preview .modal-body {
+        grid-template-columns: minmax(0, 1fr) 400px;
     }
 }
 
