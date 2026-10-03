@@ -29,13 +29,12 @@ test("fast double-Enter in add-link dialog is not consumed by a stale suggestion
     const input = dialog.locator("input.note-autocomplete");
     await input.pressSequentially("Highlights");
 
-    // Rows 0 and 1 are the creation rows; wait for a real note row too.
-    await expect(page.locator(".note-autocomplete-menu .dropdown-item").nth(2)).toBeVisible();
-
-    // Move the cursor onto a real note row, as in the issue's repro steps, and
-    // let the re-query the arrows can trigger settle.
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("ArrowDown");
+    // The list opens on its first note, the search and creation rows coming after
+    // the notes. Looked up in the dialog, where the popup renders: a hidden Empty
+    // tab keeps a list with the same classes in the page.
+    const highlighted = dialog.locator(".note-autocomplete-menu .dropdown-item.tn-menu-active");
+    await expect(highlighted).toBeVisible();
+    await expect(highlighted.locator(".bx-search, .bx-plus, .bx-subdirectory-right")).toHaveCount(0);
     await page.waitForTimeout(300);
 
     // Fire both Enters in one synchronous task — zero timers can interleave —
