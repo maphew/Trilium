@@ -36,6 +36,16 @@
     }
 }
 
+/*
+ * A line of a suggestion row's text, measured on the row: registered as a length, so `1lh` resolves
+ * where it is set and an icon at a larger font size inherits it as it is.
+ */
+@property --note-suggestion-line {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0px;
+}
+
 /* Twice `VIEWPORT_PADDING` in Popup.tsx, whose `shift()` then keeps the list on screen. */
 .note-autocomplete-menu {
     max-width: calc(100vw - 10px);
@@ -52,9 +62,21 @@
         min-width: 0;
     }
 
-    /* The icon stands beside the title's line, not in the middle of a row its badges make taller. */
+    /*
+     * The icon stands beside the title's first line, not in the middle of a row its badges make
+     * taller: the row aligns its parts to the top, and the icon centers its glyph in a box one line
+     * tall, as the title's line is.
+     */
     > span:not([class]) {
-        align-items: baseline;
+        --note-suggestion-line: 1lh;
+        align-items: flex-start;
+
+        > .tn-icon {
+            display: inline-flex;
+            align-items: center;
+            height: var(--note-suggestion-line);
+            translate: none;
+        }
     }
 
     /*
