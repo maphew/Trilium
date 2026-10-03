@@ -10,10 +10,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type FNote from "../../../entities/fnote";
 import mime_types from "../../../services/mime_types.js";
+import type { NoteSuggestionOptions, Suggestion } from "../../../services/note_autocomplete";
 import type { TypeWidgetProps } from "../type_widget";
-import { buildCodeFenceOptions, buildSlashCommands, buildTaskItemInsert, codeFenceCompletionSource, isClosingFence, parseCodeFencePrefix, slashCommandAt, useSlashCommands } from "./completions";
+import { buildCodeFenceOptions, buildSlashCommands, buildTaskItemInsert, codeFenceCompletionSource, isClosingFence, markdownCompletionAt, parseCodeFencePrefix, useMarkdownCompletions } from "./completions";
 
 // The hook's two asynchronous sources of menu entries, stubbed so mounting it needs no server.
+const { getNoteSuggestions, createNoteFromSuggestion } = vi.hoisted(() => ({
+    getNoteSuggestions: vi.fn<(term: string, options?: NoteSuggestionOptions) => Promise<Suggestion[]>>(async () => []),
+    createNoteFromSuggestion: vi.fn<(suggestion: Suggestion, childParentNotePath?: string | null) => Promise<string | undefined>>()
+}));
+vi.mock("../../../services/note_autocomplete", async (importOriginal) => ({
+    ...await importOriginal<typeof import("../../../services/note_autocomplete")>(),
+    getNoteSuggestions,
+    createNoteFromSuggestion
+}));
+
 vi.mock("../code/snippets", async (importOriginal) => ({
     ...await importOriginal<typeof import("../code/snippets")>(),
     useCodeSnippets: () => ({ current: [] })
@@ -155,19 +166,28 @@ describe("codeFenceCompletionSource", () => {
     });
 });
 
-describe("slashCommandAt", () => {
+describe("markdownCompletionAt", () => {
     /** What is found with the caret at `pos`, or at the end. */
     function at(doc: string, pos = doc.length) {
         const state = EditorState.create({ doc, extensions: [ markdown() ], selection: { anchor: pos } });
         ensureSyntaxTree(state, doc.length);
         const line = state.doc.lineAt(pos);
-        return slashCommandAt(line.text.slice(0, pos - line.from), false, state);
+        return markdownCompletionAt(line.text.slice(0, pos - line.from), false, state);
     }
 
     it("finds a command at the start of a line or after whitespace, from its slash, by what follows it", () => {
-        expect(at("/")).toEqual({ from: 0, query: "" });
-        expect(at("some text /todo:in-progress")).toEqual({ from: 10, query: "todo:in-progress" });
-        expect(at("first\n  /ta")).toEqual({ from: 2, query: "ta" });
+        expect(at("/")).toEqual({ kind: "command", from: 0, query: "" });
+        expect(at("some text /todo:in-progress")).toEqual({ kind: "command", from: 10, query: "todo:in-progress" });
+        expect(at("first\n  /ta")).toEqual({ kind: "command", from: 2, query: "ta" });
+    });
+
+    it("finds a note at the start of a line or after whitespace, from its @, by what follows it", () => {
+        expect(at("@")).toEqual({ kind: "note", from: 0, query: "" });
+        expect(at("see @Alp")).toEqual({ kind: "note", from: 4, query: "Alp" });
+        // An address is no mention, and a space ends one.
+        expect(at("mail me@example.com")).toBeNull();
+        expect(at("see @Alpha ")).toBeNull();
+        expect(at("text `a @` b", 9)).toBeNull();
     });
 
     it("finds none inside a word, past a space, or in code", () => {
@@ -247,7 +267,7 @@ describe("buildSlashCommands", () => {
     });
 });
 
-describe("useSlashCommands", () => {
+describe("useMarkdownCompletions", () => {
     let container: HTMLElement;
 
     beforeEach(() => {
@@ -263,7 +283,7 @@ describe("useSlashCommands", () => {
     /** Mounts the hook against `editorView`. */
     function mount(editorView: VanillaCodeMirror) {
         function Probe() {
-            useSlashCommands({} as TypeWidgetProps["parentComponent"], editorView, { noteId: "n1" } as FNote);
+            useMarkdownCompletions({} as TypeWidgetProps["parentComponent"], editorView, { noteId: "n1" } as FNote, () => "root/parent");
             return null;
         }
 
@@ -275,11 +295,11 @@ describe("useSlashCommands", () => {
         const setCompletionSource = vi.fn();
         mount({ setNamedExtension, setCompletionSource } as unknown as VanillaCodeMirror);
 
-        expect(setNamedExtension).toHaveBeenCalledExactlyOnceWith("slashCommands", expect.anything());
+        expect(setNamedExtension).toHaveBeenCalledExactlyOnceWith("markdownCompletions", expect.anything());
         expect(setCompletionSource).toHaveBeenCalledExactlyOnceWith("markdownCodeFence", expect.any(Function));
 
         act(() => render(null, container));
-        expect(setNamedExtension).toHaveBeenLastCalledWith("slashCommands", []);
+        expect(setNamedExtension).toHaveBeenLastCalledWith("markdownCompletions", []);
         expect(setCompletionSource).toHaveBeenLastCalledWith("markdownCodeFence", null);
     });
 
@@ -302,6 +322,45 @@ describe("useSlashCommands", () => {
         editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
         await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("> [!TIP]\n> "));
         await vi.waitFor(() => expect(rows()).toEqual([]));
+
+        act(() => render(null, container));
+        editor.destroy();
+    });
+
+    it("lists the notes for what follows an @, as the text editor does, and links the one picked or created", async () => {
+        getNoteSuggestions.mockResolvedValue([
+            { notePath: "root/projects/abc123", noteTitle: "Alpha", notePathTitle: "Projects / Alpha", highlightedNotePathTitle: "<b>Al</b>pha" },
+            { action: "create-child-note", noteTitle: "Al", parentNoteId: "parent", highlightedNotePathTitle: "Create child note" }
+        ]);
+        const parent = document.createElement("div");
+        document.body.append(parent);
+        const editor = new VanillaCodeMirror({ parent });
+        mount(editor);
+        editor.focus();
+        const rows = () => [ ...document.querySelectorAll(".note-autocomplete-menu [role=option]") ];
+        const press = (key: string) => editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+
+        editor.dispatch({ changes: { from: 0, insert: "see @Al" }, selection: { anchor: 7 } });
+        await vi.waitFor(() => expect(rows()).toHaveLength(2));
+        // At most ten notes, and creation under the note being edited.
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("Al", { allowCreatingNotes: true, limit: 10 });
+
+        // Opened on the best match, so Enter links it.
+        press("Enter");
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[abc123]]"));
+
+        // A note created is linked once it exists, past the dialog taking the focus.
+        let created: (notePath: string | undefined) => void = () => {};
+        createNoteFromSuggestion.mockReturnValueOnce(new Promise((resolve) => { created = resolve; }));
+        editor.dispatch({ changes: { from: 14, insert: " @Al" }, selection: { anchor: 18 } });
+        await vi.waitFor(() => expect(rows()).toHaveLength(2));
+        press("ArrowDown");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        press("Enter");
+        await vi.waitFor(() => expect(createNoteFromSuggestion).toHaveBeenCalledWith(expect.objectContaining({ action: "create-child-note" }), "root/parent"));
+        editor.contentDOM.blur();
+        created("root/parent/new1");
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[abc123]] [[new1]]"));
 
         act(() => render(null, container));
         editor.destroy();

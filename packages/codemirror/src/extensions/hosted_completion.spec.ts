@@ -115,6 +115,51 @@ describe("hostedCompletion", () => {
         expect(editor?.state.doc.toString()).toBe("~author #book\nabc123 x def456");
     });
 
+    it("puts what a promise settles on in place of the match once it settles, past the list closing", async () => {
+        const { list, shown } = build();
+        let resolveLink: (text: string | undefined) => void = () => {};
+
+        type("see @ne");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("ne"));
+        shown()?.commit(new Promise<string | undefined>((resolve) => { resolveLink = resolve; }));
+        expect(list.hide).toHaveBeenCalledOnce();
+
+        // A dialog takes the focus meanwhile, and the text typed stays, the list closed on it.
+        editor?.contentDOM.blur();
+        editor?.dispatch({ changes: { from: 0, insert: "I " } });
+        editor?.focus();
+        await settle();
+        expect(list.show).toHaveBeenCalledOnce();
+
+        resolveLink("[[new]]");
+        await vi.waitFor(() => expect(editor?.state.doc.toString()).toBe("I see [[new]]"));
+
+        // Settled on nothing, the text stays for good.
+        type(" @x");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("x"));
+        shown()?.commit(Promise.resolve<string | undefined>(undefined));
+        await settle();
+        expect(editor?.state.doc.toString()).toBe("I see [[new]] @x");
+        // And so does it where the promise fails.
+        type(" @z");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("z"));
+        shown()?.commit(Promise.reject(new Error("canceled")));
+        await settle();
+        expect(editor?.state.doc.toString()).toBe("I see [[new]] @x @z");
+        editor?.dispatch({ changes: { from: 16, to: 19 }, selection: EditorSelection.cursor(16) });
+
+        // Settling past the editor's end does nothing.
+        type(" @y");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("y"));
+        shown()?.commit(new Promise<string | undefined>((resolve) => { resolveLink = resolve; }));
+        const view = editor;
+        editor = undefined;
+        view?.destroy();
+        resolveLink("[[late]]");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(view?.state.doc.toString()).toBe("I see [[new]] @x @y");
+    });
+
     it("forwards the keys to the open list, which takes them from the field", async () => {
         const onArrowDown = vi.fn(() => true);
         const { list, shown } = build({ onArrowDown });

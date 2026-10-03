@@ -24,7 +24,7 @@ import { extractHighlightsFromStaticHtml, type RawHighlight } from "../../sideba
 import SplitEditor from "../helpers/SplitEditor";
 import { ReadOnlyTextContent } from "../text/ReadOnlyText";
 import { TypeWidgetProps } from "../type_widget";
-import { useSlashCommands } from "./completions";
+import { useMarkdownCompletions } from "./completions";
 import { insertText, replaceSelection, uploadImageAndInsert } from "./editor_utils";
 
 const marked = new Marked({ breaks: true, gfm: true });
@@ -103,7 +103,7 @@ export default function Markdown(props: TypeWidgetProps) {
     usePublishHighlights(props.noteContext, editorView, highlights, props.note);
     useImageDrop(props.note, editorView);
     useTextCommands(props.parentComponent, editorView);
-    useSlashCommands(props.parentComponent, editorView, props.note);
+    useMarkdownCompletions(props.parentComponent, editorView, props.note, () => props.noteContext?.notePath);
     useMarkdownKeymap(editorView);
 
     const ctx = useMemo<MarkdownContextValue>(

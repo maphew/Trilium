@@ -24,7 +24,7 @@ import type FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import mime_types from "../../../services/mime_types";
 import { getTaskStateDefinitions } from "../../../services/task_states";
-import { type CommandEntry, CommandMentionList, createHostedList, filterCommandEntries } from "../../react/NoteAutocomplete";
+import { type CommandEntry, CommandMentionList, createHostedList, filterCommandEntries, NoteMentionList } from "../../react/NoteAutocomplete";
 import { type CodeSnippet, SLASH_COMMAND_REGEX, useCodeSnippets } from "../code/snippets";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams";
 import type { TypeWidgetProps } from "../type_widget";
@@ -36,10 +36,11 @@ export interface SlashCommand extends CommandEntry {
     apply: HostedCompletionApply;
 }
 
-/** The `/command` typed before the caret, from its `/`. */
-export interface SlashCommandMatch {
+/** A `/command` or an `@` note typed before the caret, from its `/` or its `@`. */
+export interface MarkdownCompletionMatch {
+    kind: "command" | "note";
     from: number;
-    /** What follows the `/`, which the list filters its commands by, as the text editor's does. */
+    /** What follows the `/` or the `@`, which the list filters by, as the text editor's do. */
     query: string;
 }
 
@@ -54,15 +55,23 @@ export interface SlashCommandContext {
 }
 
 /**
- * Lists the `/` commands typed at the start of a line or after whitespace in the shared command
- * list, as the text editor does, through `hostedCompletion()`. The code-fence languages stay with
+ * Lists the `/` commands and the `@` notes typed at the start of a line or after whitespace in
+ * the text editor's lists, through `hostedCompletion()`. A note picked is linked as `[[noteId]]`,
+ * and one created goes under the note at `getNotePath()`. The code-fence languages stay with
  * CodeMirror's own completion.
  */
-export function useSlashCommands(parentComponent: TypeWidgetProps["parentComponent"], editorView: VanillaCodeMirror | null, note: FNote) {
-    // Held in refs so the commands read the current note and parent component without registering
+export function useMarkdownCompletions(
+    parentComponent: TypeWidgetProps["parentComponent"],
+    editorView: VanillaCodeMirror | null,
+    note: FNote,
+    getNotePath: () => string | null | undefined
+) {
+    // Held in refs so the lists read the current note and parent component without registering
     // the extension again.
     const noteRef = useRef(note);
     const parentRef = useRef(parentComponent);
+    const getNotePathRef = useRef(getNotePath);
+    getNotePathRef.current = getNotePath;
     // The user-configured todo task states (from the `_taskStates` subtree), loaded once.
     const taskStatesRef = useRef<TaskStateDef[]>([]);
     // Markdown snippets (#snippet code notes with a markdown MIME) plus generic plain-text snippets,
@@ -86,10 +95,10 @@ export function useSlashCommands(parentComponent: TypeWidgetProps["parentCompone
             snippets: snippetsRef.current.filter((snippet) => snippet.noteId !== noteRef.current.noteId)
         });
         // Bridges the codemirror package's own @codemirror/state identity, as for the sources below.
-        type CmSlashCommandMatcher = Parameters<typeof hostedCompletion<SlashCommandMatch>>[0]["match"];
-        editorView.setNamedExtension("slashCommands", hostedCompletion({
-            match: slashCommandAt as unknown as CmSlashCommandMatcher,
-            list: () => createSlashCommandList(commands)
+        type CmMarkdownMatcher = Parameters<typeof hostedCompletion<MarkdownCompletionMatch>>[0]["match"];
+        editorView.setNamedExtension("markdownCompletions", hostedCompletion({
+            match: markdownCompletionAt as unknown as CmMarkdownMatcher,
+            list: () => createMarkdownCompletionList(commands, () => getNotePathRef.current())
         }));
         // CodeMirror allows one `override` config per editor, so sources go through
         // `setCompletionSource` instead of each adding its own `autocompletion()`.
@@ -98,26 +107,31 @@ export function useSlashCommands(parentComponent: TypeWidgetProps["parentCompone
         editorView.setCompletionSource("markdownCodeFence", codeFenceCompletionSource as unknown as CmCompletionSource);
 
         return () => {
-            editorView.setNamedExtension("slashCommands", []);
+            editorView.setNamedExtension("markdownCompletions", []);
             editorView.setCompletionSource("markdownCodeFence", null);
         };
     }, [editorView]);
 }
 
 /**
- * The `/command` typed before the caret, at the start of a line or after whitespace, or `null` in a
- * code block or a code span, where a `/` is part of the code.
+ * The `/command` or the `@` note typed before the caret, at the start of a line or after whitespace,
+ * or `null` in a code block or a code span, where either is part of the code.
  */
-export function slashCommandAt(before: string, _explicit: boolean, state: EditorState): SlashCommandMatch | null {
-    const typed = new RegExp(`${SLASH_COMMAND_REGEX.source}$`).exec(before);
+export function markdownCompletionAt(before: string, _explicit: boolean, state: EditorState): MarkdownCompletionMatch | null {
+    const command = COMMAND_TYPED.exec(before);
+    const typed = command ?? NOTE_TYPED.exec(before);
     if (!typed) return null;
 
     for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(state.selection.main.head, -1); node; node = node.parent) {
         if (node.name.includes("Code")) return null;
     }
 
-    return { from: typed.index, query: typed[0].slice(1) };
+    return { kind: command ? "command" : "note", from: typed.index, query: typed[0].slice(1) };
 }
+
+const COMMAND_TYPED = new RegExp(`${SLASH_COMMAND_REGEX.source}$`);
+/** An `@`, and the start of a note's title typed after it, up to a space. */
+const NOTE_TYPED = /(?:^|(?<=\s))@[^\s@]*$/;
 
 /**
  * The commands the `/` list offers, titled, described, found by the same words and drawn with the same
@@ -346,18 +360,44 @@ function command(name: string, entry: Omit<SlashCommand, "id" | "apply">, apply:
     return { ...entry, id: name, aliases: [ name, ...(entry.aliases ?? []) ], apply };
 }
 
-/** The `/` list, drawn as the text editor's, which runs the command picked on the typed `/command`. */
-function createSlashCommandList(commands: () => SlashCommand[]) {
-    return createHostedList<HostedCompletionState<SlashCommandMatch>>((state, list) => (
-        <CommandMentionList<SlashCommand>
-            key={state.match.from}
-            {...list}
-            query={state.match.query}
-            source={async (query) => filterCommandEntries(commands(), query)}
-            className="slash-command-menu"
-            onPick={(entry) => state.commit(entry.apply)}
-        />
-    ));
+/**
+ * The `/` list or the `@` list, drawn as the text editor's: the first runs the command picked on the
+ * typed `/command`, the second puts a link to the note picked or created in place of the `@` note.
+ */
+function createMarkdownCompletionList(commands: () => SlashCommand[], getParentNotePath: () => string | null | undefined) {
+    return createHostedList<HostedCompletionState<MarkdownCompletionMatch>>((state, list) => {
+        const { kind, from, query } = state.match;
+        if (kind === "note") {
+            return (
+                <NoteMentionList
+                    key={`note:${from}`}
+                    {...list}
+                    query={query}
+                    allowCreatingNotes
+                    parentNotePath={getParentNotePath()}
+                    onPick={(notePath) => state.commit(typeof notePath === "string"
+                        ? noteLink(notePath)
+                        : notePath.then((path) => path ? noteLink(path) : undefined))}
+                />
+            );
+        }
+
+        return (
+            <CommandMentionList<SlashCommand>
+                key={`command:${from}`}
+                {...list}
+                query={query}
+                source={async (typed) => filterCommandEntries(commands(), typed)}
+                className="slash-command-menu"
+                onPick={(entry) => state.commit(entry.apply)}
+            />
+        );
+    });
+}
+
+/** The reference link to the note at `notePath`, which the preview renders with the note's title. */
+function noteLink(notePath: string) {
+    return `[[${notePath.split("/").pop()}]]`;
 }
 
 /**

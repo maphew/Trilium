@@ -22,9 +22,10 @@ export interface HostedCompletionState<M extends HostedCompletionMatch> {
     editable: HTMLElement;
     /**
      * Replaces what stands between the match's `from` and the caret with `insert`, as a pick does,
-     * or runs `insert` on that range.
+     * or runs `insert` on that range. For a promise, the list closes and the text stays until it
+     * settles, past the editor losing the focus, and stays for good where it settles on `undefined`.
      */
-    commit(insert: string | HostedCompletionApply): void;
+    commit(insert: string | HostedCompletionApply | Promise<string | undefined>): void;
     /**
      * Points the editor at the list's highlighted entry through `aria-activedescendant`, by the id
      * of the entry's element, or at none for `null`. Once the list closes, it points at none.
@@ -79,6 +80,9 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
         private explicit = false;
         /** Where the match Escape closed the list on starts, which keeps it closed. */
         private dismissedAt = -1;
+        /** The text that commits waiting on a promise replace, mapped through the edits since. */
+        private readonly pending = new Set<{ from: number; to: number }>();
+        private destroyed = false;
 
         constructor(private readonly view: EditorView) {
             this.list = list(view);
@@ -88,6 +92,13 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
             if (update.docChanged && this.dismissedAt >= 0) {
                 // With `assoc` 1, so text inserted right before the match leaves it on the match.
                 this.dismissedAt = update.changes.mapPos(this.dismissedAt, 1);
+            }
+            if (update.docChanged) {
+                // Text typed right before or after a waiting commit's range stays outside it.
+                for (const range of this.pending) {
+                    range.from = update.changes.mapPos(range.from, 1);
+                    range.to = update.changes.mapPos(range.to, -1);
+                }
             }
 
             if (update.docChanged || update.selectionSet || update.focusChanged) {
@@ -128,6 +139,7 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
         }
 
         destroy() {
+            this.destroyed = true;
             this.setActiveDescendant(null);
             this.list.hide();
             this.list.destroy?.();
@@ -139,7 +151,9 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
                 this.dismissedAt = -1;
             }
 
-            if (!found || this.dismissedAt >= 0) {
+            // A match a commit waits on stays closed too, until the commit replaces it.
+            const waiting = found && [ ...this.pending ].some((range) => range.from === found.from);
+            if (!found || this.dismissedAt >= 0 || waiting) {
                 this.close();
                 return;
             }
@@ -175,7 +189,7 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
             });
         }
 
-        private commit(from: number, insert: string | HostedCompletionApply) {
+        private commit(from: number, insert: string | HostedCompletionApply | Promise<string | undefined>) {
             if (this.from !== from) {
                 return;
             }
@@ -185,11 +199,34 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
                 insert(this.view, from, this.view.state.selection.main.head);
                 return;
             }
+            if (insert instanceof Promise) {
+                void this.commitWhenSettled(from, insert);
+                return;
+            }
 
             const text = insert;
             this.view.dispatch({
                 changes: { from, to: this.view.state.selection.main.head, insert: text },
                 selection: { anchor: from + text.length },
+                userEvent: "input.complete"
+            });
+        }
+
+        /** Closes the list, which stays closed on the match, and replaces the match once `insert` settles. */
+        private async commitWhenSettled(from: number, insert: Promise<string | undefined>) {
+            const range = { from, to: this.view.state.selection.main.head };
+            this.pending.add(range);
+            this.close();
+
+            const text = await insert.catch(() => undefined);
+            this.pending.delete(range);
+            if (text === undefined || this.destroyed) {
+                return;
+            }
+
+            this.view.dispatch({
+                changes: { from: range.from, to: range.to, insert: text },
+                selection: { anchor: range.from + text.length },
                 userEvent: "input.complete"
             });
         }
