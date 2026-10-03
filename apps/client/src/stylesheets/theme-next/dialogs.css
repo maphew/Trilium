@@ -176,11 +176,11 @@ div.tn-tool-dialog {
 }
 
 /*
- * Within the dialog's padding, so its ends line up with the search box and the close button. The
- * list's bottom padding stands above it, so the dialog's padding below it balances that.
+ * Within the dialog's padding, so its ends line up with the search box and the close button. Its
+ * top padding leaves a clear gap between the fade above and the controls.
  */
 .jump-to-note-dialog .jump-to-note-results .note-suggestion-footer {
-    padding: 0 0 var(--jump-to-note-padding);
+    padding: 12px 0 var(--jump-to-note-padding);
     border-top: 0;
 }
 
