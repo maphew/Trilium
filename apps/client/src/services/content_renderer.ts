@@ -761,12 +761,18 @@ async function showRenderError($content: JQuery<HTMLElement>, error: unknown, no
  * it, `small` for audio, `full` for code and `medium` for the rest.
  */
 export function getEmbedBoxSize(entity: FNote | FAttachment): BoxSize {
+    return getBoxSize(getContentType(entity), hasRenderedPreview(entity));
+}
+
+/**
+ * Whether an interactive `getRenderedContent()` shows a preview of `entity`, rather than an icon
+ * or the actions of a file.
+ */
+export function hasRenderedPreview(entity: FNote | FAttachment) {
     const type = getContentType(entity);
-    const hasPreview = type === "webView"
+    return type === "webView"
         ? entity instanceof FNote && entity.hasLabel("webViewSrc")
         : PREVIEWED_TYPES.has(type);
-
-    return getBoxSize(type, hasPreview);
 }
 
 /** The box size of a new embed of a file being uploaded, from the attachment it becomes. */

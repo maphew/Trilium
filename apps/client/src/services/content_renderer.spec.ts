@@ -127,7 +127,8 @@ import {
     disposeInteractiveContent,
     getEmbedBoxSize,
     getRenderedContent as rawGetRenderedContent,
-    getUploadBoxSize
+    getUploadBoxSize,
+    hasRenderedPreview
 } from "./content_renderer.js";
 import froca from "./froca.js";
 import server from "./server.js";
@@ -214,6 +215,23 @@ describe("getEmbedBoxSize", () => {
         ].map(getUploadBoxSize)).toEqual([
             "tiny", "tiny", "small", "full", "medium", "medium", "medium", "medium"
         ]);
+    });
+});
+
+describe("hasRenderedPreview", () => {
+    it("tells a file it draws, such as a canvas drawing, from one it shows as an icon", () => {
+        expect([
+            buildAttachment({ role: "file", mime: "application/vnd.excalidraw+json" }),
+            buildAttachment({ role: "importSource", mime: "application/json" }),
+            buildAttachment({ role: "file", mime: "application/pdf" }),
+            buildNote({ title: "Site", type: "webView", "#webViewSrc": "https://example.com" })
+        ].map(hasRenderedPreview)).toEqual([ true, true, true, true ]);
+
+        expect([
+            buildAttachment({ role: "file", mime: "text/plain" }),
+            buildAttachment({ role: "file", mime: "application/zip" }),
+            buildNote({ title: "Blank page", type: "webView" })
+        ].map(hasRenderedPreview)).toEqual([ false, false, false ]);
     });
 });
 

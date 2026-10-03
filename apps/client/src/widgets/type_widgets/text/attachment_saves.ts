@@ -1,6 +1,14 @@
+import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
+
+import type NoteContext from "../../../components/note_context";
 import type FAttachment from "../../../entities/fattachment";
+import type FNote from "../../../entities/fnote";
 import type { AttachmentEditor } from "../../../services/content_renderer";
-import type { SavedData } from "../../react/hooks";
+import protected_session_holder from "../../../services/protected_session_holder";
+import server from "../../../services/server";
+import SpacedUpdate from "../../../services/spaced_update";
+import { type SavedData, useSaveBeforeLeaving } from "../../react/hooks";
+import { ParentComponent } from "../../react/react_utils";
 
 type SavedAttachments = NonNullable<SavedData["attachments"]>;
 
@@ -15,8 +23,8 @@ interface PendingSave {
 }
 
 /**
- * The attachment changes that embedded content, such as a canvas drawing, makes inside a text note.
- * The text note saves them together with its own content.
+ * The attachment changes that content, such as a canvas drawing, makes. A text note saves them
+ * together with its own content, and `useAttachmentEditor()` saves them on their own.
  */
 export default class AttachmentSaves implements AttachmentEditor {
     private noteId: string | undefined;
@@ -84,6 +92,60 @@ export default class AttachmentSaves implements AttachmentEditor {
             }
         }
     }
+}
+
+/**
+ * Saves the changes that content shown outside a text note, such as a canvas drawing in the full
+ * detail of its attachment, makes to the attachments of `note`.
+ */
+export function useAttachmentEditor(
+    note: FNote,
+    noteContext: NoteContext | undefined
+): AttachmentEditor {
+    const parentComponent = useContext(ParentComponent);
+    const [ saves ] = useState(() => {
+        const saves = new AttachmentSaves(() => spacedUpdate.scheduleUpdate());
+        saves.setNoteId(note.noteId);
+        return saves;
+    });
+    const noteContextRef = useRef(noteContext);
+    noteContextRef.current = noteContext;
+
+    const prepare = useCallback(() => saves.collect(), [ saves ]);
+    const commit = useCallback(async (attachments: SavedAttachments) => {
+        protected_session_holder.touchProtectedSessionIfNecessary(note);
+        for (const attachment of attachments) {
+            await server.post(
+                `notes/${note.noteId}/attachments`,
+                attachment,
+                parentComponent?.componentId
+            );
+        }
+        saves.markSaved(attachments);
+    }, [ note, parentComponent, saves ]);
+
+    const [ spacedUpdate ] = useState(() => new SpacedUpdate<SavedAttachments>(
+        { key: note.noteId, prepare, commit },
+        undefined,
+        (state) => noteContextRef.current?.setContextData("saveState", { state })
+    ));
+
+    // `rebind()` takes the changes to the previous note before `setNoteId()` drops them.
+    useEffect(() => {
+        spacedUpdate.rebind(note.noteId, prepare, commit);
+        saves.setNoteId(note.noteId);
+    });
+
+    useSaveBeforeLeaving(spacedUpdate, noteContext);
+
+    // Saves what is left once the content goes away.
+    useEffect(() => () => {
+        spacedUpdate.updateNowIfNecessary().catch(() => {
+            // Failures are logged by `SpacedUpdate` and retried.
+        });
+    }, [ spacedUpdate ]);
+
+    return saves;
 }
 
 function readContent(save: PendingSave) {

@@ -1,7 +1,19 @@
+import { h, render } from "preact";
+import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
+import Component from "../../../components/component";
+import type NoteContext from "../../../components/note_context";
 import type FAttachment from "../../../entities/fattachment";
-import AttachmentSaves from "./attachment_saves";
+import type FNote from "../../../entities/fnote";
+import type { AttachmentEditor } from "../../../services/content_renderer";
+import { ParentComponent } from "../../react/react_utils";
+import AttachmentSaves, { useAttachmentEditor } from "./attachment_saves";
+
+const serverPost = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("../../../services/server", () => ({
+    default: { get: async () => [], post: serverPost }
+}));
 
 const drawing = {
     attachmentId: "drawing1",
@@ -94,5 +106,51 @@ describe("AttachmentSaves", () => {
 
         saves.setNoteId("note2");
         expect(saves.getUnsavedContent("drawing1")).toBeUndefined();
+    });
+});
+
+describe("useAttachmentEditor", () => {
+    const note = { noteId: "note1", isProtected: false } as FNote;
+    const noteContext = { ntxId: "ntx1", setContextData: vi.fn() } as unknown as NoteContext;
+
+    function savedRequest(content: string) {
+        return [ "notes/note1/attachments", {
+            attachmentId: "drawing1",
+            role: "file",
+            mime: "application/vnd.excalidraw+json",
+            title: "Canvas.excalidraw",
+            content
+        }, component.componentId ];
+    }
+
+    let component: Component;
+    let editor: AttachmentEditor | undefined;
+    function Probe() {
+        editor = useAttachmentEditor(note, noteContext);
+        return null;
+    }
+
+    it("saves on its own before the note switches, and once the content goes away", async () => {
+        component = new Component();
+        const container = document.createElement("div");
+        await act(() => {
+            render(h(ParentComponent.Provider, { value: component }, h(Probe, {})), container);
+        });
+        expect(editor?.canEdit(drawing)).toBe(true);
+
+        editor?.scheduleSave(drawing, () => "first");
+        await act(async () => {
+            await component.handleEvent("beforeNoteSwitch", { noteContext } as never);
+        });
+        expect(serverPost).toHaveBeenCalledExactlyOnceWith(...savedRequest("first"));
+        expect(editor?.getUnsavedContent("drawing1")).toBeUndefined();
+        expect(noteContext.setContextData).toHaveBeenLastCalledWith("saveState", { state: "saved" });
+
+        editor?.scheduleSave(drawing, () => "second");
+        editor?.release("drawing1");
+        // Sent at once, not once the timer of the spaced update runs out.
+        await act(() => render(null, container));
+        expect(serverPost).toHaveBeenCalledTimes(2);
+        expect(serverPost).toHaveBeenLastCalledWith(...savedRequest("second"));
     });
 });

@@ -6,12 +6,15 @@ import clsx from "clsx";
 import type { RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
+import type NoteContext from "../../../components/note_context";
 import type FAttachment from "../../../entities/fattachment";
 import type FNote from "../../../entities/fnote";
 import type { AttachmentEditor } from "../../../services/content_renderer";
 import options from "../../../services/options";
+import { getEffectiveThemeStyle } from "../../../services/theme";
 import { isDesktop } from "../../../services/utils";
-import { useColorScheme } from "../../react/hooks";
+import { useColorScheme, useEffectiveReadOnly } from "../../react/hooks";
+import { useAttachmentEditor } from "../text/attachment_saves";
 import { useIsContentEmbedEditable } from "../text/content_embed_tools";
 import { CanvasEditor } from "./Canvas";
 import CanvasDrawingMenu from "./CanvasDrawingMenu";
@@ -79,12 +82,54 @@ export async function renderCanvasDrawingPicture(entity: FNote | FAttachment) {
 
     const svg = await exportToSvg({
         elements,
-        appState: { ...content.appState, exportBackground: true },
+        appState: {
+            ...content.appState,
+            exportBackground: true,
+            // Follows the theme as the editor does, except in print, which stays light.
+            exportWithDarkMode: glob.device !== "print" && getEffectiveThemeStyle() === "dark"
+        },
         files: getInlineFiles(content),
         exportPadding: 5
     });
     svg.classList.add("canvas-drawing-picture");
     return svg;
+}
+
+interface CanvasDrawingDetailProps {
+    attachment: FAttachment;
+    /** The note that owns the attachment. */
+    note: FNote;
+    noteContext?: NoteContext;
+}
+
+/**
+ * A canvas drawing saved in an attachment, edited in the full detail of the attachment. It is
+ * read-only while its note is.
+ */
+export function CanvasDrawingDetail({ attachment, note, noteContext }: CanvasDrawingDetailProps) {
+    const apiRef = useRef<ExcalidrawImperativeAPI>(null);
+    const colorScheme = useColorScheme();
+    const editor = useAttachmentEditor(note, noteContext);
+    const isNoteReadOnly = useEffectiveReadOnly(note, noteContext);
+    const canEdit = editor.canEdit(attachment) && !isNoteReadOnly
+        && !options.is("databaseReadonly");
+    const persistence = useCanvasDrawingPersistence(
+        attachment,
+        canEdit ? editor : undefined,
+        apiRef,
+        colorScheme
+    );
+
+    return (
+        <CanvasEditor
+            apiRef={apiRef}
+            isReadOnly={!canEdit}
+            colorScheme={colorScheme}
+            persistence={persistence}
+        >
+            <CanvasDrawingMenu apiRef={apiRef} isEditable={canEdit} />
+        </CanvasEditor>
+    );
 }
 
 /**

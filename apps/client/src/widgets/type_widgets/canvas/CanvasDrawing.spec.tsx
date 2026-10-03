@@ -1,9 +1,11 @@
+import { exportToSvg } from "@excalidraw/excalidraw";
 import { type ComponentChildren, render, toChildArray, type VNode } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AttachmentEditor } from "../../../services/content_renderer";
+import { buildNote } from "../../../test/easy-froca";
 
 vi.mock("@excalidraw/excalidraw", () => ({ exportToSvg: vi.fn() }));
 vi.mock("./Canvas", () => ({ CanvasEditor: MockCanvasEditor }));
@@ -11,8 +13,12 @@ vi.mock("./persistence", () => ({
     useCanvasDrawingPersistence: (...args: unknown[]) => {
         persistenceArgs(...args);
         return {};
-    }
+    },
+    parseContent: (content: string) => JSON.parse(content),
+    getInlineFiles: () => ({})
 }));
+const detailEditor = vi.hoisted(() => ({ canEdit: () => true, release: () => {} }));
+vi.mock("../text/attachment_saves", () => ({ useAttachmentEditor: () => detailEditor }));
 
 const canvasEditorProps = vi.fn();
 const persistenceArgs = vi.fn();
@@ -43,7 +49,8 @@ globalThis.ResizeObserver = class {
 } as unknown as typeof ResizeObserver;
 
 const {
-    default: CanvasDrawing, useIsToolbarOverPanel, useSidePanels
+    default: CanvasDrawing, CanvasDrawingDetail, renderCanvasDrawingPicture, useIsToolbarOverPanel,
+    useSidePanels
 } = await import("./CanvasDrawing");
 const { default: CanvasDrawingMenu } = await import("./CanvasDrawingMenu");
 const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
@@ -404,6 +411,28 @@ describe("CanvasDrawing", () => {
         editable.remove();
     });
 
+    it("edits the drawing in the detail of its attachment unless its note is read-only", async () => {
+        async function mountDetail(title: string, labels: Record<string, string> = {}) {
+            const note = buildNote({ title, ...labels });
+            await act(async () => {
+                render(<CanvasDrawingDetail attachment={ATTACHMENT} note={note} />, box);
+            });
+        }
+
+        await mountDetail("Owner");
+        expect(getEditingState()).toEqual({ isReadOnly: false, menu: true, tools: undefined });
+        expect(persistenceArgs).toHaveBeenLastCalledWith(
+            ATTACHMENT, detailEditor, expect.anything(), expect.anything()
+        );
+
+        render(null, box);
+        await mountDetail("Locked owner", { "#readOnly": "" });
+        expect(getEditingState()).toEqual({ isReadOnly: true, menu: false, tools: undefined });
+        expect(persistenceArgs).toHaveBeenLastCalledWith(
+            ATTACHMENT, undefined, expect.anything(), expect.anything()
+        );
+    });
+
     it("keeps the desktop layout of Excalidraw in the desktop layout of Trilium only", async () => {
         const device = window.glob.device;
         await mount();
@@ -418,5 +447,28 @@ describe("CanvasDrawing", () => {
         expect(canvasEditorProps).toHaveBeenLastCalledWith(
             expect.objectContaining({ isDesktopLayout: false })
         );
+    });
+});
+
+describe("renderCanvasDrawingPicture", () => {
+    it("draws in the dark colors of a dark theme on screen, and in the light ones in print", async () => {
+        vi.mocked(exportToSvg).mockImplementation(async () =>
+            document.createElementNS("http://www.w3.org/2000/svg", "svg"));
+        const content = JSON.stringify({ elements: [ { id: "e1" } ], appState: {} });
+        const drawing = { getBlob: async () => ({ content }) } as never;
+        const { theme, device } = window.glob;
+
+        window.glob.theme = "next-dark";
+        const picture = await renderCanvasDrawingPicture(drawing);
+        window.glob.device = "print";
+        await renderCanvasDrawingPicture(drawing);
+        window.glob.theme = "next-light";
+        window.glob.device = device;
+        await renderCanvasDrawingPicture(drawing);
+        window.glob.theme = theme;
+
+        expect(picture?.classList.contains("canvas-drawing-picture")).toBe(true);
+        expect(vi.mocked(exportToSvg).mock.calls.map(([ { appState } ]) => appState?.exportWithDarkMode))
+            .toEqual([ true, false, false ]);
     });
 });
