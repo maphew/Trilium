@@ -175,10 +175,12 @@ div.tn-tool-dialog {
     scroll-padding-bottom: var(--jump-to-note-fade);
 }
 
-/* Spans the dialog's padding on both sides; its content lines up with the rows'. */
+/*
+ * Within the dialog's padding, so its ends line up with the search box and the close button. The
+ * list's bottom padding stands above it, so the dialog's padding below it balances that.
+ */
 .jump-to-note-dialog .jump-to-note-results .note-suggestion-footer {
-    margin-inline: calc(0px - var(--jump-to-note-padding));
-    padding: 4px calc(var(--jump-to-note-padding) + 16px) 12px;
+    padding: 0 0 var(--jump-to-note-padding);
     border-top: 0;
 }
 
