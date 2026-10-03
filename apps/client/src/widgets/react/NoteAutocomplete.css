@@ -121,6 +121,11 @@
     .show-in-full-search {
         margin-inline-start: auto;
     }
+
+    /* Hidden in place, so the footer keeps its height with only the shortcut hints button left. */
+    &.nothing-to-search :is(.switch-widget, .show-in-full-search) {
+        visibility: hidden;
+    }
 }
 
 /*

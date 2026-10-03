@@ -202,6 +202,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
      */
     function fullTextSearch() {
         if (isContained) {
+            // As the footer's switch, which is hidden for a query naming no notes.
+            if (!canSearchFor(value)) return;
             setIncludeContents((include) => !include);
             autocomplete.open();
             inputRef.current?.focus();
@@ -259,6 +261,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     }, [ text, noteId ]);
 
     const anchor = anchorRef?.current ?? groupRef.current;
+    const showsList = autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText);
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;
 
@@ -353,43 +356,42 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             </>}
 
-            {(autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText)) && (container
-                ? container.current && createPortal(<>
-                    <NoteSuggestionMenu
+            {container
+                ? autocomplete.isOpen && container.current && createPortal(<>
+                    {showsList && <NoteSuggestionMenu
                         autocomplete={autocomplete}
                         searchingFor={isSearchingFullText ? value : undefined}
                         // The popup's rows, in the host's panel. Faded at an edge only where the host
                         // sets `--scroll-fade-top` or `--scroll-fade-bottom`.
                         className="note-autocomplete-menu note-suggestion-list tn-menu-keyboard scroll-edge-fade"
-                    />
-                    {canSearchFor(value) && (
-                        <div
-                            className="note-suggestion-footer"
-                            // Keeps the focus in the field, as the rows do.
-                            onMouseDown={(e) => e.preventDefault()}
-                        >
-                            {!cachedIsMobile && (
-                                <OverlayControlGroup>
-                                    <ShortcutHintOverlayButton />
-                                </OverlayControlGroup>
-                            )}
-                            <FormToggle
-                                switchOnName={t("note_autocomplete.include-contents")}
-                                switchOffName={t("note_autocomplete.include-contents")}
-                                currentValue={includeContents}
-                                onChange={fullTextSearch}
-                            />
-                            {allowJumpToSearchNotes && <Button
-                                className="show-in-full-search"
-                                kind="lowProfile"
-                                size="small"
-                                text={t("quick-search.show-in-full-search")}
-                                onClick={() => showInFullSearch(value.trim())}
-                            />}
-                        </div>
-                    )}
+                    />}
+                    {/* Kept for any query, so the list does not move as the searches come and go. */}
+                    <div
+                        className={clsx("note-suggestion-footer", !canSearchFor(value) && "nothing-to-search")}
+                        // Keeps the focus in the field, as the rows do.
+                        onMouseDown={(e) => e.preventDefault()}
+                    >
+                        {!cachedIsMobile && (
+                            <OverlayControlGroup>
+                                <ShortcutHintOverlayButton />
+                            </OverlayControlGroup>
+                        )}
+                        <FormToggle
+                            switchOnName={t("note_autocomplete.include-contents")}
+                            switchOffName={t("note_autocomplete.include-contents")}
+                            currentValue={includeContents}
+                            onChange={fullTextSearch}
+                        />
+                        {allowJumpToSearchNotes && <Button
+                            className="show-in-full-search"
+                            kind="lowProfile"
+                            size="small"
+                            text={t("quick-search.show-in-full-search")}
+                            onClick={() => showInFullSearch(value.trim())}
+                        />}
+                    </div>
                 </>, container.current)
-                : anchor && (
+                : showsList && anchor && (
                     <Popup
                         anchor={anchor}
                         // Rendered in the field's modal so the list stacks above it: the note picker
@@ -409,7 +411,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                             className="tn-menu-scroll"
                         />
                     </Popup>
-                ))}
+                )}
         </div>
     );
 }

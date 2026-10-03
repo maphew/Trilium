@@ -810,6 +810,17 @@ describe("NoteAutocomplete's suggestion list", () => {
             await act(async () => { footer?.click(); });
             expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "alp" });
             expect(onChange).toHaveBeenLastCalledWith({ action: "search-notes", noteTitle: "alp" });
+
+            // The recent notes keep the footer, so the list does not move, and its key hints; the
+            // searches are hidden, with nothing to search for.
+            await type(input, " ");
+            const footerBar = host.querySelector(".note-suggestion-footer");
+            expect(footerBar?.classList.contains("nothing-to-search")).toBe(true);
+            expect(footerBar?.querySelector(".shortcut-hint-button")).not.toBeNull();
+            await press(input, "Enter", { shiftKey: true });
+            expect(contentsSwitch()?.checked).toBe(false);
+            await type(input, "al");
+            expect(footerBar?.classList.contains("nothing-to-search")).toBe(false);
             host.remove();
 
             // A dropdown keeps its content search row and has no footer.
