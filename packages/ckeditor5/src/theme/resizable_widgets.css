@@ -6,7 +6,7 @@
     --ck-resize-handle-grip-thickness: 4px;
 }
 
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
     :where(:root) {
         --ck-resize-handle-hit-size: 32px;
     }
@@ -47,7 +47,7 @@
     }
 
     /* The edges show a grip on a touch screen only. */
-    @media (pointer: coarse) {
+    @media (any-pointer: coarse) {
         &::after {
             content: "";
         }

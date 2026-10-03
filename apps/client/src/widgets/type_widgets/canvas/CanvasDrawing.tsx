@@ -106,16 +106,39 @@ interface CanvasDrawingDetailProps {
     /** The note that owns the attachment. */
     note: FNote;
     noteContext?: NoteContext;
+    /** Counts the changes to the drawing saved elsewhere, each of which loads it again. */
+    revision?: number;
 }
 
 /**
  * A canvas drawing saved in an attachment, edited in the full detail of the attachment. It is
  * read-only while its note is.
  */
-export function CanvasDrawingDetail({ attachment, note, noteContext }: CanvasDrawingDetailProps) {
+export function CanvasDrawingDetail({
+    attachment, note, noteContext, revision
+}: CanvasDrawingDetailProps) {
+    // Outlives the drawing loaded again for each revision, which starts from its unsaved changes.
+    const editor = useAttachmentEditor(note, noteContext);
+
+    return (
+        <DetailDrawing
+            key={revision}
+            attachment={attachment}
+            note={note}
+            noteContext={noteContext}
+            editor={editor}
+        />
+    );
+}
+
+interface DetailDrawingProps extends Omit<CanvasDrawingDetailProps, "revision"> {
+    editor: AttachmentEditor;
+}
+
+/** The drawing of `CanvasDrawingDetail`, saved by `editor`. */
+function DetailDrawing({ attachment, note, noteContext, editor }: DetailDrawingProps) {
     const apiRef = useRef<ExcalidrawImperativeAPI>(null);
     const colorScheme = useColorScheme();
-    const editor = useAttachmentEditor(note, noteContext);
     const isNoteReadOnly = useEffectiveReadOnly(note, noteContext);
     const canEdit = editor.canEdit(attachment) && !isNoteReadOnly
         && !options.is("databaseReadonly");

@@ -178,6 +178,27 @@ describe("ResizableWidgets", () => {
             .toEqual([ "\"\"", "\"\"", "\"\"" ]);
     });
 
+    it("sizes the handles for touch whenever there is a touch screen, primary or not", () => {
+        const sheet = [ ...document.styleSheets ].find((candidate) => [ ...candidate.cssRules ]
+            .some((rule) => rule instanceof CSSStyleRule
+                && rule.selectorText === ".ck .ck-widget__resize-handle"));
+        const conditions: string[] = [];
+        const visit = (rules: CSSRuleList) => {
+            for (const rule of rules) {
+                if (rule instanceof CSSMediaRule) {
+                    conditions.push(rule.conditionText);
+                }
+                if ("cssRules" in rule) {
+                    visit(rule.cssRules as CSSRuleList);
+                }
+            }
+        };
+        visit(sheet?.cssRules ?? ([] as unknown as CSSRuleList));
+
+        // The hit size and the grips of the edges, for a laptop whose mouse is primary too.
+        expect(conditions).toEqual([ "(any-pointer: coarse)", "(any-pointer: coarse)" ]);
+    });
+
     it("marks a widget resizable while isResizable allows it", async () => {
         await createEditor({ isResizable: (element) => element.getAttribute("kind") !== "fixed" });
         editor.setData("<div class=\"test-box\"></div><p>text</p>");
@@ -311,6 +332,25 @@ describe("ResizableWidgets", () => {
         expect(box.style.getPropertyValue("--test-width")).toBe("30em");
         release();
         expect(editor.getData()).toBe(RESIZED);
+    });
+
+    it("stops a resize when another pointer starts one", async () => {
+        await createEditor();
+        editor.setData(RESIZED);
+        const box = getBox();
+
+        press(getHandle("width"));
+        move(150, 300);
+        expect(box.style.getPropertyValue("--test-width")).toBe("35em");
+
+        press(getHandle("width"), { pointerId: 2, pointerType: "pen" });
+        move(250, 300);
+        expect(box.style.getPropertyValue("--test-width")).toBe("35em");
+        move(120, 300, 2);
+        expect(box.style.getPropertyValue("--test-width")).toBe("37em");
+
+        window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 2 }));
+        expect(getSize()).toContain("customWidth=\"37em\"");
     });
 
     it("stops resizing once the editor is destroyed", async () => {

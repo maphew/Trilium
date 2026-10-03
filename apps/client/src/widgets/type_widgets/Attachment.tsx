@@ -356,7 +356,8 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                     >
                         <Suspense fallback={null}>
                             <CanvasDrawingDetail
-                                key={`${attachment.attachmentId}-${externalRevision}`}
+                                key={attachment.attachmentId}
+                                revision={externalRevision}
                                 attachment={attachment}
                                 note={ownerNote}
                                 noteContext={noteContext}

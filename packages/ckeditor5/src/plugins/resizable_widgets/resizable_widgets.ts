@@ -187,6 +187,8 @@ export default class ResizableWidgets extends Plugin {
             this.showSize(viewElement, getSavedSize(element, config), config, false);
         };
 
+        // One resize at a time: another pointer, such as a pen beside the mouse, ends the first.
+        this.stopResize?.();
         this.stopResize = startResizeGesture(event, {
             handle,
             axes,

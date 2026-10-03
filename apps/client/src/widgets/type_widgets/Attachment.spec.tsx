@@ -10,9 +10,10 @@ import { renderInto } from "../../test/render";
 import { ParentComponent } from "../react/react_utils";
 
 const CANVAS_MIME = "application/vnd.excalidraw+json";
-const { getRenderedContent, drawingMounts } = vi.hoisted(() => ({
+const { getRenderedContent, drawingMounts, drawingProps } = vi.hoisted(() => ({
     getRenderedContent: vi.fn(async () => ({ $renderedContent: [] })),
-    drawingMounts: vi.fn()
+    drawingMounts: vi.fn(),
+    drawingProps: vi.fn()
 }));
 
 // Nothing initialises i18next in a unit test, and an uninitialised one answers every lookup with an
@@ -32,9 +33,10 @@ vi.mock("../../services/content_renderer", () => ({
     },
     hasRenderedPreview: (attachment: FAttachment) => attachment.mime === CANVAS_MIME
 }));
-// Counts the mounts of the drawing editor, which remounts to load a change saved elsewhere.
+// Counts the mounts of the drawing editor, which loads a change saved elsewhere in place.
 vi.mock("./canvas/CanvasDrawing", () => ({
-    CanvasDrawingDetail: () => {
+    CanvasDrawingDetail: (props: { revision?: number }) => {
+        drawingProps(props);
         useEffect(() => drawingMounts(), []);
         return <div className="drawing-detail-stub" />;
     }
@@ -105,6 +107,8 @@ describe("AttachmentList", () => {
 
 describe("AttachmentDetail", () => {
     it("edits a canvas drawing, loading again only what another component saved", async () => {
+        const getRevision = () =>
+            (drawingProps.mock.lastCall?.[0] as { revision?: number }).revision;
         const drawing = { ...role("file"), mime: CANVAS_MIME } as FAttachment;
         vi.spyOn(froca, "getAttachment").mockResolvedValue(drawing);
         getRenderedContent.mockClear();
@@ -129,9 +133,12 @@ describe("AttachmentDetail", () => {
         await reloadAttachment(component, drawing.attachmentId, component.componentId);
         await reloadAttachment(component, "otherAttachment", "otherComponent");
         expect(drawingMounts).toHaveBeenCalledOnce();
+        expect(getRevision()).toBe(0);
 
+        // The detail stays mounted, so that its unsaved changes carry over to the drawing.
         await reloadAttachment(component, drawing.attachmentId, "otherComponent");
-        await vi.waitFor(() => expect(drawingMounts).toHaveBeenCalledTimes(2));
+        await vi.waitFor(() => expect(getRevision()).toBe(1));
+        expect(drawingMounts).toHaveBeenCalledOnce();
     });
 });
 

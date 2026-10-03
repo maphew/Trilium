@@ -18,8 +18,17 @@ vi.mock("./persistence", () => ({
     parseContent: (content: string) => JSON.parse(content),
     getInlineFiles: () => ({})
 }));
-const detailEditor = vi.hoisted(() => ({ canEdit: () => true, release: () => {} }));
-vi.mock("../text/attachment_saves", () => ({ useAttachmentEditor: () => detailEditor }));
+const { detailEditor, attachmentEditorMounts, canvasEditorMounts } = vi.hoisted(() => ({
+    detailEditor: { canEdit: () => true, release: () => {} },
+    attachmentEditorMounts: vi.fn(),
+    canvasEditorMounts: vi.fn()
+}));
+vi.mock("../text/attachment_saves", () => ({
+    useAttachmentEditor: () => {
+        useEffect(() => attachmentEditorMounts(), []);
+        return detailEditor;
+    }
+}));
 
 const canvasEditorProps = vi.fn();
 const persistenceArgs = vi.fn();
@@ -37,6 +46,7 @@ function MockCanvasEditor(props: MockCanvasEditorProps) {
     canvasEditorProps(props);
     const [ isLoaded, setIsLoaded ] = useState(false);
     useEffect(() => setIsLoaded(true), []);
+    useEffect(() => canvasEditorMounts(), []);
     return isLoaded ? <div className="excalidraw" tabIndex={0} /> : <span className="loading" />;
 }
 
@@ -610,6 +620,23 @@ describe("CanvasDrawing", () => {
         await mount();
         expect(document.activeElement).toBe(editable);
         editable.remove();
+    });
+
+    it("loads the drawing again for each revision, keeping its detail editor", async () => {
+        const note = buildNote({ title: "Owner" });
+        const mountDetail = (revision: number) => act(async () => {
+            render(
+                <CanvasDrawingDetail attachment={ATTACHMENT} note={note} revision={revision} />,
+                box
+            );
+        });
+        attachmentEditorMounts.mockClear();
+        canvasEditorMounts.mockClear();
+
+        await mountDetail(0);
+        await mountDetail(1);
+        expect(canvasEditorMounts).toHaveBeenCalledTimes(2);
+        expect(attachmentEditorMounts).toHaveBeenCalledOnce();
     });
 
     it("edits the drawing in the detail of its attachment unless its note is read-only", async () => {
