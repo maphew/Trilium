@@ -347,6 +347,24 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(onChange).toHaveBeenCalledWith(notes[1]);
     });
 
+    it("drops a held Enter once the text changes again", async () => {
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "al");
+
+        let resolve: (suggestions: Suggestion[]) => void = () => {};
+        getNoteSuggestions.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+        await type(input, "be");
+        await press(input, "Enter");
+        await type(input, "bet");
+
+        await act(async () => { resolve([ notes[1] ]); });
+        await settle();
+        expect(onChange).not.toHaveBeenCalled();
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("bet", expect.anything());
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+    });
+
     it("searches on the first keystroke, and paces the rest of a burst", async () => {
         const input = await mount();
 

@@ -398,7 +398,10 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 break;
 
             case "Enter":
-                if (isShown && activeIndex >= 0 && !pickedSinceRender.current) {
+                // Without `autoActivate` the newer entries open with nothing highlighted, so an Enter
+                // pressed before they arrive belongs to the host.
+                if (isShown && activeIndex >= 0 && !pickedSinceRender.current
+                    && (autoActivate || !isStale.current)) {
                     // Consume the key so it does not also reach the surrounding form or dialog.
                     e.preventDefault();
                     e.stopPropagation();
@@ -448,6 +451,8 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         handleInput() {
             // The lookup effect runs after the next render, and a key can arrive before it.
             isStale.current = true;
+            // A held Enter confirms the text it was pressed on, not text typed after it.
+            enterHeld.current = false;
             open();
         },
         handleFocus() {
