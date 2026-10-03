@@ -869,6 +869,7 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
             : tokenInfos;
 
         result.contentSnippet = extractContentSnippet(result.noteId, noteTokenInfos);
+        result.matchedTerms = findMatchedTerms(result.contentSnippet, noteTokenInfos);
         result.attributeSnippet = extractAttributeSnippet(result.noteId, noteTokenInfos);
         highlightSearchResults([ result ], noteTokenInfos, searchContext.ignoreInternalAttributes);
     }
@@ -887,10 +888,12 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
             highlightedContentSnippet: result.highlightedContentSnippet,
             attributeSnippet: result.attributeSnippet,
             highlightedAttributeSnippet: result.highlightedAttributeSnippet,
+            matchedTerms: result.matchedTerms,
             icon: icon ?? "bx bx-note"
         };
     });
 }
+
 
 /**
  * @param tokens the tokens to highlight, either legacy plain strings or structured
@@ -989,6 +992,37 @@ function tokenInfoFirstIndex(info: HighlightedTokenInfo, normalizedText: string)
     }
 
     return normalizedText.indexOf(normalizePreservingLength(info.token));
+}
+
+/**
+ * The text each token matched in `snippet`, cut from the snippet as written: matching runs on the
+ * normalized text, whose positions map 1:1 onto the original. Regex tokens are left out, as the
+ * find bar looks for plain text.
+ */
+function findMatchedTerms(snippet: string | undefined, tokenInfos: HighlightedTokenInfo[]): string[] {
+    if (!snippet) {
+        return [];
+    }
+
+    const normalizedSnippet = normalizePreservingLength(snippet);
+    const terms: string[] = [];
+    for (const info of tokenInfos) {
+        if (info.type === "regex" || !info.token) {
+            continue;
+        }
+
+        const index = tokenInfoFirstIndex(info, normalizedSnippet);
+        if (index === -1) {
+            continue;
+        }
+
+        const term = snippet.slice(index, index + info.token.length);
+        if (!terms.includes(term)) {
+            terms.push(term);
+        }
+    }
+
+    return terms;
 }
 
 /**

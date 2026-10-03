@@ -20,6 +20,7 @@ vi.mock("../../../services/i18n", () => ({
 }));
 
 import Component from "../../../components/component";
+import { calculateHash } from "../../../services/link";
 import server from "../../../services/server";
 import { buildNote, buildNotes } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
@@ -97,6 +98,20 @@ describe("SearchResultCard", () => {
         expect(badges[0].classList.contains("outline")).toBe(true);
         expect(badges[0].textContent).toContain("status=open");
         expect(badges[0].querySelector("b")?.textContent).toBe("open");
+    });
+
+    it("links with the words the note matched, falling back to the search tokens (#11787)", async () => {
+        const note = buildNote({ id: "note1", title: "Slovak", type: "text" });
+        await mount(
+            <SearchResultCard noteId={note.noteId} details={makeDetails({ matchedTerms: [ "Ktorý" ] })} loading={false} highlightedTokens={[ "ktory" ]} />
+        );
+        expect(container.querySelector("a.search-result-card")?.getAttribute("href"))
+            .toBe(calculateHash({ notePath: note.noteId, viewScope: { searchTerms: [ "Ktorý" ] } }));
+
+        await mount(
+            <SearchResultCard noteId={note.noteId} details={makeDetails({ matchedTerms: [] })} loading={false} highlightedTokens={[ "ktory" ]} />
+        );
+        expect(container.querySelector("a.search-result-card")?.getAttribute("href")).toBe(`#${note.noteId}?searchTerms=ktory`);
     });
 
     it("shows a snippet skeleton while the page's details are still loading", async () => {

@@ -96,6 +96,7 @@ class SearchResult {
     highlightedContentSnippet?: string;
     attributeSnippet?: string;
     highlightedAttributeSnippet?: string;
+    matchedTerms?: string[];
     private fuzzyScore: number; // Track fuzzy score separately
 
     constructor(notePathArray: string[], segmentTitles?: SegmentTitleCache) {

@@ -390,6 +390,11 @@ export interface SearchResultDetails {
     highlightedContentSnippet?: string;
     attributeSnippet?: string;
     highlightedAttributeSnippet?: string;
+    /**
+     * The text each query token matched in {@link contentSnippet}, spelled as the note has it
+     * (with its diacritics, or the word a fuzzy match found), for the find bar to look for.
+     */
+    matchedTerms?: string[];
     icon: string;
 }
 
