@@ -1,13 +1,15 @@
+import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import { attachmentIcon } from "@triliumnext/commons";
 import { h, type JSX } from "preact";
 
 import appContext from "../../../components/app_context";
 import linkContextMenu from "../../../menus/link_context_menu";
-import content_renderer from "../../../services/content_renderer";
+import content_renderer, { type AttachmentEditor } from "../../../services/content_renderer";
 import { getEmbedCaption } from "../../../services/content_renderer_text";
 import froca from "../../../services/froca";
 import link, { ViewScope } from "../../../services/link";
 import utils from "../../../services/utils";
+import { watchContentEmbedTools } from "./content_embed_tools";
 import ContentEmbed, { getNoteActions, TinyContentEmbed } from "./ContentEmbed";
 
 /**
@@ -58,6 +60,13 @@ export async function loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>,
     await mountEmbedBox(el, box, $renderedContent);
 }
 
+interface EmbeddedAttachmentOptions {
+    /** Saves the changes that the content makes to the attachment, such as a canvas drawing. */
+    attachmentEditor?: AttachmentEditor;
+    /** Whether the content takes the focus once the box is mounted. */
+    isFocused?: boolean;
+}
+
 /**
  * Fills an embed box with an embedded attachment, under a title linking to it. Without a box
  * size of its own, the box takes the one of its embed.
@@ -65,7 +74,8 @@ export async function loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>,
 export async function loadEmbeddedAttachment(
     attachmentId: string,
     $el: JQuery<HTMLElement>,
-    boxSize?: string
+    boxSize?: string,
+    { attachmentEditor, isFocused }: EmbeddedAttachmentOptions = {}
 ) {
     const attachment = await froca.getAttachment(attachmentId, true);
     if (!attachment) return;
@@ -98,7 +108,7 @@ export async function loadEmbeddedAttachment(
     });
     const { $renderedContent, type } = await content_renderer.getRenderedContent(
         attachment,
-        { interactive: true, mediaEnvironment: "embedded" }
+        { interactive: true, mediaEnvironment: "embedded", attachmentEditor }
     );
 
     const box = h(ContentEmbed, {
@@ -107,7 +117,8 @@ export async function loadEmbeddedAttachment(
         content: $renderedContent[0],
         contentType: type,
         notePath: attachment.ownerId,
-        viewScope
+        viewScope,
+        ...(isFocused ? { isFocusedOnMount: true } : {})
     });
     await mountEmbedBox(el, box, $renderedContent);
 }
@@ -183,14 +194,19 @@ export async function getAttachmentHref(attachmentId: string) {
 }
 
 /**
- * Unmounts the embed boxes, and what they show, once they leave `container`. The returned
- * function stops watching and unmounts the boxes still in it.
+ * Unmounts the embed boxes, and what they show, once they leave `container`, and updates `editor`,
+ * if any, when their content adds buttons to the toolbar of its embed. The returned function
+ * stops watching and unmounts the boxes still in it.
  */
-export function watchContentEmbeds(container: HTMLElement) {
+export function watchContentEmbeds(container: HTMLElement, editor?: CKTextEditor) {
     const observer = new MutationObserver(disposeRemoved);
     observer.observe(container, { childList: true, subtree: true });
+    // The toolbar of an embed reads the buttons of its content when the editor updates, so
+    // content that adds them after its embed was selected has the editor update again.
+    const stopWatchingTools = watchContentEmbedTools(container, () => editor?.ui.update());
 
     return () => {
+        stopWatchingTools();
         disposeRemoved(observer.takeRecords());
         observer.disconnect();
         content_renderer.disposeInteractiveContent($(container));

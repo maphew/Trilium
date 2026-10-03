@@ -2,6 +2,7 @@ import "ckeditor5";
 
 declare global {
     interface Component {
+        componentId: string;
         triggerCommand(command: string): void;
     }
 
@@ -27,6 +28,46 @@ declare global {
         container: HTMLElement;
         /** Receives the class of the icon picked, e.g. `bx bx-star`. */
         onSelect(iconClass: string): void;
+    }
+
+    /** A button that the content of an embed adds to the toolbar of the embed. */
+    interface ContentEmbedTool {
+        id: string;
+        /** The name of what the button does, shown as its tooltip. */
+        label: string;
+        /** The text of a button without an icon. */
+        text?: string;
+        /** The SVG of the icon of the button. */
+        icon?: string;
+        /** Whether a button that toggles is on. A command leaves it out. */
+        isOn?: boolean;
+        /** `true` when left out. */
+        isEnabled?: boolean;
+        /** A separator goes between buttons of different groups. */
+        group?: string;
+        /** The tools of the menu that the button opens. */
+        children?: ContentEmbedTool[];
+        /** A class of the button, for the content to style it. */
+        class?: string;
+    }
+
+    /** An item of the embed toolbar that the content of an embed can hide. */
+    type ContentEmbedToolbarItem =
+        "contentEmbedBoxSizeDropdown" | "toggleContentEmbedTitle" | "convertEmbedToLink";
+
+    /** The buttons that the content of an embed, such as a canvas drawing, adds to its toolbar. */
+    interface ContentEmbedToolProvider {
+        getTools(): ContentEmbedTool[];
+        execute(id: string): void;
+        /** Calls `callback` when `getTools()` changes, until the returned function is called. */
+        subscribe(callback: () => void): () => void;
+        /** The items of the embed toolbar to hide. The menu of the embed still offers them. */
+        hiddenToolbarItems?: readonly ContentEmbedToolbarItem[];
+        /**
+         * Whether the content has an editable mode, which the toolbar and the menu of the embed
+         * then turn on and off. The embed carries `data-editable="true"` while it is on.
+         */
+        hasEditableFlag?: boolean;
     }
 
     interface EditorComponent extends Component {
@@ -64,6 +105,16 @@ declare global {
          */
         openContentEmbedMenu?(embed: HTMLElement, anchor: HTMLElement): void;
         /**
+         * The buttons that what `embed` shows adds to the toolbar of the embed, or `null`. Hosts
+         * without embeds leave it out.
+         */
+        getContentEmbedTools?(embed: HTMLElement): ContentEmbedToolProvider | null;
+        /**
+         * Gives the focus to what the embed of the attachment shows, once it renders. Hosts
+         * without embeds leave it out.
+         */
+        focusContentEmbed?(attachmentId: string): void;
+        /**
          * Reads a page's preview metadata through the host. Never rejects: any failure — network
          * error, HTTP error, unparseable page — resolves as `{ unresolved: true }` with
          * hostname-derived placeholders, so callers branch on `unresolved` instead of catching.
@@ -79,7 +130,8 @@ declare global {
         getActiveContextNote(): {
             noteId: string;
         };
-        getHeaders(): Promise<Record<string, string>>;
+        /** The headers of a request to the server, with `headers` added to them. */
+        getHeaders(headers?: Record<string, string | undefined>): Promise<Record<string, string>>;
         getReferenceLinkTitle(href: string): Promise<string>;
         getReferenceLinkTitleSync(href: string): string;
     };

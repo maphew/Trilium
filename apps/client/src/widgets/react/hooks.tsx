@@ -99,11 +99,13 @@ export function useSpacedUpdate(callback: () => void | Promise<void>, interval =
 export interface SavedData {
     content: string;
     attachments?: {
+        /** The attachment to update. Without it, the attachment is matched by its title. */
+        attachmentId?: string;
         role: string;
         title: string;
         mime: string;
         content: string;
-        position: number;
+        position?: number;
         encoding?: "base64";
     }[];
 }
@@ -183,26 +185,34 @@ export function useEditorSpacedUpdate({ note, noteType, noteContext, getData, on
         spacedUpdate.setUpdateInterval(updateInterval);
     }, [ updateInterval ]);
 
-    // Save if needed upon switching tabs.
+    useSaveBeforeLeaving(spacedUpdate, noteContext);
+
+    return spacedUpdate;
+}
+
+/**
+ * Saves the pending changes of `spacedUpdate` before the note of `noteContext` switches, before
+ * its tab closes and before the window closes.
+ */
+export function useSaveBeforeLeaving<T>(
+    spacedUpdate: SpacedUpdate<T>,
+    noteContext: NoteContext | null | undefined
+) {
     useTriliumEvent("beforeNoteSwitch", async ({ noteContext: eventNoteContext }) => {
         if (eventNoteContext.ntxId !== noteContext?.ntxId) return;
         await spacedUpdate.updateNowIfNecessary();
     });
 
-    // Save if needed upon tab closing.
     useTriliumEvent("beforeNoteContextRemove", async ({ ntxIds }) => {
         if (!noteContext?.ntxId || !ntxIds.includes(noteContext.ntxId)) return;
         await spacedUpdate.updateNowIfNecessary();
     });
 
-    // Save if needed upon window/browser closing.
     useEffect(() => {
         const listener = () => spacedUpdate.isAllSavedAndTriggerUpdate();
         appContext.addBeforeUnloadListener(listener);
         return () => appContext.removeBeforeUnloadListener(listener);
-    }, []);
-
-    return spacedUpdate;
+    }, [ spacedUpdate ]);
 }
 
 export function useBlobEditorSpacedUpdate({ note, noteType, noteContext, getData, onContentChange, dataSaved, updateInterval, replaceWithoutRevision }: {
@@ -276,24 +286,7 @@ export function useBlobEditorSpacedUpdate({ note, noteType, noteContext, getData
         spacedUpdate.setUpdateInterval(updateInterval);
     }, [ updateInterval ]);
 
-    // Save if needed upon switching tabs.
-    useTriliumEvent("beforeNoteSwitch", async ({ noteContext: eventNoteContext }) => {
-        if (eventNoteContext.ntxId !== noteContext?.ntxId) return;
-        await spacedUpdate.updateNowIfNecessary();
-    });
-
-    // Save if needed upon tab closing.
-    useTriliumEvent("beforeNoteContextRemove", async ({ ntxIds }) => {
-        if (!noteContext?.ntxId || !ntxIds.includes(noteContext.ntxId)) return;
-        await spacedUpdate.updateNowIfNecessary();
-    });
-
-    // Save if needed upon window/browser closing.
-    useEffect(() => {
-        const listener = () => spacedUpdate.isAllSavedAndTriggerUpdate();
-        appContext.addBeforeUnloadListener(listener);
-        return () => appContext.removeBeforeUnloadListener(listener);
-    }, []);
+    useSaveBeforeLeaving(spacedUpdate, noteContext);
 
     return spacedUpdate;
 }

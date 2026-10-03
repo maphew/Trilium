@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import type { RefObject } from "preact";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import linkContextMenu from "../../../menus/link_context_menu";
@@ -10,6 +11,7 @@ import ActionButton from "../../react/ActionButton";
 import { useFocusWithin } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
+import { type ContentEmbedEvent, showContentEmbedFullscreen } from "./content_embed_tools";
 
 /** An action on the embedded note or attachment, offered as a button in the title row. */
 export interface ContentEmbedAction {
@@ -28,6 +30,8 @@ export interface ContentEmbedProps {
     /** The note opened by the buttons in the title row. */
     notePath: string;
     viewScope?: ViewScope;
+    /** Gives the focus to the content once mounted, as for a canvas drawing just added. */
+    isFocusedOnMount?: boolean;
 }
 
 export interface TinyContentEmbedProps {
@@ -45,10 +49,11 @@ export interface TinyContentEmbedProps {
 
 /** The title row and the content of an embedded note or attachment. */
 export default function ContentEmbed({
-    boxSize, title, content, contentType, notePath, viewScope
+    boxSize, title, content, contentType, notePath, viewScope, isFocusedOnMount
 }: ContentEmbedProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const isContentActive = useFocusWithin(contentRef);
+    useFullscreenEvents(contentRef);
     const [ isExpanded, setIsExpanded ] = useState(false);
     const isExpandable = boxSize === "expandable";
     const hasFullscreen = boxSize === "medium" || boxSize === "full";
@@ -60,6 +65,14 @@ export default function ContentEmbed({
             content.remove();
         };
     }, [ content ]);
+
+    useLayoutEffect(() => {
+        // The box mounts after an upload, by which time the focus can have left the editor.
+        const editable = contentRef.current?.closest(".ck-editor__editable");
+        if (isFocusedOnMount && (!editable || editable.contains(document.activeElement))) {
+            (content.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? contentRef.current)?.focus();
+        }
+    }, []);
 
     return (
         <>
@@ -91,9 +104,7 @@ export default function ContentEmbed({
                         text={t("common.fullscreen")}
                         onClick={(e) => {
                             e.stopPropagation();
-                            contentRef.current?.requestFullscreen().catch((error: unknown) => {
-                                console.warn("Could not show the embed in fullscreen:", error);
-                            });
+                            showContentEmbedFullscreen(contentRef.current);
                         }}
                     />
                 )}
@@ -239,6 +250,41 @@ function ContentEmbedActionButton({ className, action }: {
  * Opens the menu of the embed for a right click on its title row. The title link is left to the
  * handler of every link, which opens the same menu, or a quick edit with Ctrl.
  */
+/**
+ * Dispatches `fullscreenChangeStart` on the content box as it enters or leaves fullscreen, then
+ * `enterFullscreen` or `leaveFullscreen` once it has the size that fullscreen gives or takes back.
+ */
+function useFullscreenEvents(contentRef: RefObject<HTMLElement>) {
+    useEffect(() => {
+        const content = contentRef.current;
+        if (!content) return;
+
+        let isFullscreen = document.fullscreenElement === content;
+        let observer: ResizeObserver | undefined;
+        const onFullscreenChange = () => {
+            if ((document.fullscreenElement === content) === isFullscreen) return;
+            isFullscreen = !isFullscreen;
+            const name: ContentEmbedEvent = isFullscreen ? "enterFullscreen" : "leaveFullscreen";
+            content.dispatchEvent(new Event("fullscreenChangeStart", { bubbles: true }));
+
+            // Created after the observers of the content, such as Excalidraw's, so it runs after
+            // them, once they have read the new size.
+            observer?.disconnect();
+            observer = new ResizeObserver(() => {
+                observer?.disconnect();
+                content.dispatchEvent(new Event(name, { bubbles: true }));
+            });
+            observer.observe(content);
+        };
+
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", onFullscreenChange);
+            observer?.disconnect();
+        };
+    }, [ contentRef ]);
+}
+
 function openMenuOnRightClick(e: MouseEvent, notePath: string, viewScope?: ViewScope) {
     if (e.target instanceof Element && e.target.closest("a")) {
         return;

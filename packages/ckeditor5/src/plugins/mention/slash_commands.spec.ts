@@ -624,6 +624,7 @@ describe("buildTriliumSlashCommands", () => {
         [ "internal-link", "Internal link", INTERNAL_LINK_COMMAND ],
         [ "attach-file", "Attach file as a link", "fileUpload" ],
         [ "attach-and-embed-file", "Attach and embed file", "fileUpload" ],
+        [ "drawing-canvas", "Drawing canvas", "fileUpload" ],
         [ "content-embed", "Include note", CONTENT_EMBED_COMMAND ],
         [ "page-break", "Page break", "pageBreak" ],
         [ "markdown-import", "Markdown import", MARKDOWN_IMPORT_COMMAND ],
@@ -669,24 +670,47 @@ describe("buildTriliumSlashCommands", () => {
         click.mockRestore();
     });
 
-    it("offers embedding a file only where both a file and an embed can go", () => {
-        const fileUpload = { isEnabled: true };
-        const contentEmbed = { isEnabled: true };
-        const { fake } = makeFakeEditor({
-            fileUpload, [CONTENT_EMBED_COMMAND]: contentEmbed
+    it("inserts a drawing canvas as its button does, and returns the focus", () => {
+        const execute = vi.spyOn(editor, "execute").mockReturnValue(undefined);
+        const focus = vi.spyOn(editor.editing.view, "focus");
+
+        definition("drawing-canvas").execute?.(editor);
+
+        expect(execute).toHaveBeenCalledExactlyOnceWith("fileUpload", {
+            file: [ expect.objectContaining({
+                name: "Canvas.excalidraw", type: "application/vnd.excalidraw+json"
+            }) ],
+            asEmbed: true,
+            boxSize: "medium",
+            hideTitle: true,
+            editable: true,
+            quiet: true,
+            focusEmbed: true
         });
-        const isEnabled = definition("attach-and-embed-file").isEnabled;
-        expect(isEnabled?.(fake)).toBe(true);
-
-        contentEmbed.isEnabled = false;
-        expect(isEnabled?.(fake)).toBe(false);
-
-        contentEmbed.isEnabled = true;
-        fileUpload.isEnabled = false;
-        expect(isEnabled?.(fake)).toBe(false);
-
-        expect(isEnabled?.(makeFakeEditor().fake)).toBe(false);
+        expect(focus).toHaveBeenCalled();
     });
+
+    it.each([ "attach-and-embed-file", "drawing-canvas" ])(
+        "offers %s only where both a file and an embed can go",
+        (id) => {
+            const fileUpload = { isEnabled: true };
+            const contentEmbed = { isEnabled: true };
+            const { fake } = makeFakeEditor({
+                fileUpload, [CONTENT_EMBED_COMMAND]: contentEmbed
+            });
+            const isEnabled = definition(id).isEnabled;
+            expect(isEnabled?.(fake)).toBe(true);
+
+            contentEmbed.isEnabled = false;
+            expect(isEnabled?.(fake)).toBe(false);
+
+            contentEmbed.isEnabled = true;
+            fileUpload.isEnabled = false;
+            expect(isEnabled?.(fake)).toBe(false);
+
+            expect(isEnabled?.(makeFakeEditor().fake)).toBe(false);
+        }
+    );
 
     it.each([
         [ "align-left", "left" ],

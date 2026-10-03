@@ -288,6 +288,67 @@ describe("ContentEmbed", () => {
         Reflect.deleteProperty(document, "exitFullscreen");
     });
 
+    it("tells its content when its fullscreen changes, and once it took the new size", () => {
+        const observers: { callback: (entries: unknown[]) => void; isObserving: boolean }[] = [];
+        vi.stubGlobal("ResizeObserver", class {
+            private readonly entry;
+
+            constructor(callback: (entries: unknown[]) => void) {
+                this.entry = { callback, isObserving: false };
+                observers.push(this.entry);
+            }
+
+            observe() {
+                this.entry.isObserving = true;
+            }
+
+            disconnect() {
+                this.entry.isObserving = false;
+            }
+        });
+        const resize = () => {
+            for (const observer of observers.filter((entry) => entry.isObserving)) {
+                observer.callback([]);
+            }
+        };
+        const setFullscreenElement = (element: Element | null) => {
+            Object.defineProperty(document, "fullscreenElement", {
+                value: element,
+                configurable: true
+            });
+            document.dispatchEvent(new Event("fullscreenchange"));
+        };
+        renderBox({ boxSize: "medium" });
+        const box = contentBox();
+        const events: string[] = [];
+        const listener = (event: Event) => events.push(`${event.type}:${event.target === box}`);
+        const names = [ "fullscreenChangeStart", "enterFullscreen", "leaveFullscreen" ];
+        for (const name of names) {
+            document.addEventListener(name, listener);
+        }
+
+        setFullscreenElement(box);
+        expect(events).toEqual([ "fullscreenChangeStart:true" ]);
+        resize();
+        resize();
+        expect(events).toEqual([ "fullscreenChangeStart:true", "enterFullscreen:true" ]);
+
+        setFullscreenElement(null);
+        resize();
+        expect(events.slice(2)).toEqual([ "fullscreenChangeStart:true", "leaveFullscreen:true" ]);
+
+        // Another element in fullscreen leaves the box as it is.
+        setFullscreenElement(document.body);
+        resize();
+        expect(events).toHaveLength(4);
+
+        for (const name of names) {
+            document.removeEventListener(name, listener);
+        }
+        Reflect.deleteProperty(document, "fullscreenElement");
+        vi.unstubAllGlobals();
+    });
+
     it("opens its menu on a right click on the title row, leaving the title link its own", () => {
         renderBox({ notePath: "owner", viewScope: ATTACHMENT_SCOPE });
         const row = container.querySelector(".include-note-title-row");
@@ -347,6 +408,48 @@ describe("ContentEmbed", () => {
         click(secondBackdrop);
         expect(document.activeElement).toBe(box);
         expect(isActive()).toBe(true);
+    });
+});
+
+describe("ContentEmbed focused on mount", () => {
+    it("gives the focus to the first focusable element of its content, or to the box", () => {
+        const content = element(
+            `<div class="rendered-content"><p>body</p><div tabindex="0"></div></div>`
+        );
+        renderBox({ content, isFocusedOnMount: true });
+        expect(document.activeElement).toBe(content.querySelector("[tabindex]"));
+        expect(contentBox().parentElement?.classList.contains("active")).toBe(true);
+
+        act(() => render(null, container));
+        renderBox({ isFocusedOnMount: true });
+        expect(document.activeElement).toBe(contentBox());
+    });
+
+    it("leaves the focus where it went when it left the editor before the box mounted", () => {
+        const editable = element(`<div class="ck-editor__editable" tabindex="0"></div>`);
+        const field = element(`<input>`);
+        document.body.append(editable, field);
+        editable.append(container);
+
+        field.focus();
+        const firstContent = element(`<div><div tabindex="0"></div></div>`);
+        renderBox({ content: firstContent, isFocusedOnMount: true });
+        expect(document.activeElement).toBe(field);
+
+        act(() => render(null, container));
+        editable.focus();
+        const content = element(`<div><div tabindex="0"></div></div>`);
+        renderBox({ content, isFocusedOnMount: true });
+        expect(document.activeElement).toBe(content.querySelector("[tabindex]"));
+
+        editable.remove();
+        field.remove();
+    });
+
+    it("leaves the focus where it is by default", () => {
+        const content = element(`<div class="rendered-content"><div tabindex="0"></div></div>`);
+        renderBox({ content });
+        expect(document.activeElement).toBe(document.body);
     });
 });
 
