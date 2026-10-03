@@ -117,7 +117,7 @@ export function createAutocompleteMentionList({ source, renderItem, toMention }:
                 query={state.query}
                 source={source}
                 // A new anchor each time the query changes, so it is placed again at the caret.
-                anchor={{ getBoundingClientRect: state.caretRect }}
+                anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
                 minWidth={AUTOCOMPLETE_MENTION_MIN_WIDTH}
                 renderItem={renderItem}
                 onPick={(item) => state.commit(toMention(item))}
