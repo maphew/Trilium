@@ -1017,6 +1017,21 @@ describe("content_renderer", () => {
                 .toEqual([ "class", "href" ]);
         });
 
+        it("leaves notes hidden from the tree out of a book's subpage list", () => {
+            buildShareNote({
+                id: "bookParent",
+                type: "book",
+                content: "",
+                children: [
+                    { id: "bookVisible", title: "Visible" },
+                    { "id": "bookHidden", "title": "Hidden", "#shareHiddenFromTree": "" }
+                ]
+            });
+
+            const titles = renderPageAnchors("bookParent").map((a) => a.textContent);
+            expect(titles).toEqual([ "Visible" ]);
+        });
+
         function renderPageAnchors(noteId: string) {
             const note = shaca.getNote(noteId);
             const { header, content, isEmpty } = getContent(note);
