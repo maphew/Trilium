@@ -1218,6 +1218,29 @@ describe("NoteMentionList", () => {
         }
     });
 
+    it("drops a held key once the host's query changes again, and leaves a composing Tab alone", async () => {
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
+        const host = document.createElement("div");
+        const onPick = vi.fn();
+        const draw = (text: string) => preactRender(<NoteMentionList query={text} anchor={anchor} onPick={onPick} handleRef={handleRef} />, host);
+        const press = (key: string, init: KeyboardEventInit = {}) =>
+            handleRef.current?.handleKeyDown(new KeyboardEvent("keydown", { key, cancelable: true, ...init })) ?? false;
+
+        await act(async () => draw("al"));
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        // An input method's Tab, while it composes, is the editor's.
+        expect(press("Tab", { isComposing: true })).toBe(false);
+
+        draw("be");
+        expect(press("Tab")).toBe(true);
+        // Typed on before the notes for "be" arrive, so the Tab confirmed text that is gone.
+        draw("bet");
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        expect(rows().length).toBeGreaterThan(0);
+        expect(onPick).not.toHaveBeenCalled();
+        await act(async () => preactRender(null, host));
+    });
+
     it("takes the keys while it shows notes, and reports the path of the one Enter or a click picks", async () => {
         const { onPick, press, unmount } = await show("al");
 

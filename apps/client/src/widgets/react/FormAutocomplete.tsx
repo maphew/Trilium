@@ -226,7 +226,7 @@ export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocompl
         handleRef.current = {
             handleKeyDown(e) {
                 if (!autocomplete.isShown) return false;
-                if (e.key === "Tab" && autocomplete.takeHighlighted(e)) return true;
+                if (e.key === "Tab" && !e.isComposing && autocomplete.takeHighlighted(e)) return true;
                 autocomplete.handleKeyDown(e);
                 return e.defaultPrevented;
             }
@@ -360,12 +360,16 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     const isStale = useRef(false);
     const keyHeld = useRef(false);
     // A host that forwards its keys changes `query` without `handleInput`, and a key can arrive
-    // before the lookup effect runs.
+    // before the lookup effect runs. A key held before such a change confirmed the text it replaced.
+    // After `handleInput`, a key held before this render confirmed the text it renders.
     const renderedQuery = useRef(query);
+    const inputSinceRender = useRef(false);
     if (renderedQuery.current !== query) {
         renderedQuery.current = query;
         isStale.current = true;
+        if (!inputSinceRender.current) keyHeld.current = false;
     }
+    inputSinceRender.current = false;
     const pickLatest = useRef(pick);
     pickLatest.current = pick;
     // Set when the keyboard or a new list moves the highlight, which the effect below scrolls into view.
@@ -547,6 +551,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             isStale.current = true;
             // A held key confirms the text it was pressed on, not text typed after it.
             keyHeld.current = false;
+            inputSinceRender.current = true;
             open();
         },
         handleFocus() {
