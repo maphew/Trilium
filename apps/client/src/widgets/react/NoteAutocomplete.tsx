@@ -29,6 +29,8 @@ import { renderShortcutKbds } from "./shortcut_kbd";
 const DROPDOWN_MIN_WIDTH = 500;
 /** Keyboard hints are left out on mobile, as `Button` leaves out its shortcut. */
 const cachedIsMobile = isMobile();
+/** How many notes {@link NoteMentionList} shows; typing more of the title narrows them down. */
+const MENTION_NOTE_LIMIT = 10;
 
 export interface NoteAutocompleteProps {
     id?: string;
@@ -454,7 +456,8 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, preselect =
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
-    const source = useCallback((term: string) => getNoteSuggestions(term, { allowCreatingNotes }), [ allowCreatingNotes ]);
+    const source = useCallback((term: string) =>
+        getNoteSuggestions(term, { allowCreatingNotes, limit: MENTION_NOTE_LIMIT }), [ allowCreatingNotes ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
     const autocomplete = useAutocomplete({

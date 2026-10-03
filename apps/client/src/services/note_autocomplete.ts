@@ -50,20 +50,22 @@ export interface NoteSuggestionOptions {
     allowExternalLinks?: boolean;
     /** Searches the titles only, as autocompletion does, or the content as well. */
     fastSearch?: boolean;
+    /** Lists at most this many notes, which the server then stops at. The action rows come on top. */
+    limit?: number;
 }
 
 /**
  * Returns the notes matching `term`, or the recently visited notes when `term` is blank, with the
  * action rows the options ask for.
  */
-export async function getNoteSuggestions(term: string, { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fastSearch = true }: NoteSuggestionOptions = {}): Promise<Suggestion[]> {
+export async function getNoteSuggestions(term: string, { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fastSearch = true, limit }: NoteSuggestionOptions = {}): Promise<Suggestion[]> {
     const activeNoteId = appContext.tabManager.getActiveContextNoteId();
     const hasTerm = term.trim().length >= 1;
 
     // Runs concurrently with the search, so naming the destination costs a request but no wait.
     const pendingInboxTarget = hasTerm && allowCreatingNotes ? getInboxTarget() : null;
 
-    const results: Suggestion[] = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}`);
+    const results: Suggestion[] = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}${limit ? `&limit=${limit}` : ""}`);
     const before: Suggestion[] = [];
     const after: Suggestion[] = [];
 

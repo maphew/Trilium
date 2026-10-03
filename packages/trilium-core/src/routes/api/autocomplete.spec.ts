@@ -137,6 +137,26 @@ describe("Autocomplete API (core)", () => {
             expect(res.body.length).toBe(25);
         });
 
+        it("stops at the limit a caller gives, which lowers the caps and never raises them", async () => {
+            const marker = `limitmarker${Date.now()}`;
+            for (let i = 0; i < 30; i++) {
+                const { noteId } = await createTextNote(api, { title: `${marker} note ${i}` });
+                await api.post("/api/recent-notes", { body: { noteId, notePath: `root/${noteId}` } });
+            }
+            const count = async (query: string, limit: string) =>
+                (await api.get<AutocompleteResult[]>("/api/autocomplete", { query: { query, limit } })).body.length;
+
+            expect(await count(marker, "10")).toBe(10);
+            expect(await count(marker, "100")).toBe(25);
+            // The recent notes, for an empty query.
+            expect(await count("", "10")).toBe(10);
+        });
+
+        it.each([ "0", "-1", "2.5", "ten" ])("400s for a limit of %s", async (limit) => {
+            const res = await api.get("/api/autocomplete", { query: { query: "root", limit } });
+            expect(res.status).toBe(400);
+        });
+
         it("400s when the query param is missing", async () => {
             const res = await api.get("/api/autocomplete");
             expect(res.status).toBe(400);

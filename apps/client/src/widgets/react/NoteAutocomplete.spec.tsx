@@ -1155,12 +1155,13 @@ describe("NoteMentionList", () => {
     it("lists the notes for the query as the field does, and again as the query changes", async () => {
         const { draw, unmount } = await show("al", { allowCreatingNotes: true });
 
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true });
+        // At most ten notes, which the server stops at.
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true, limit: 10 });
         expect(rows().map((row) => row.querySelector(".search-result-title")?.innerHTML)).toEqual([ "<b>Al</b>pha", "Beta" ]);
         expect(rows()[0].querySelector(".tn-icon")?.className).toContain("bx-file");
 
         await draw("alp");
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp", { allowCreatingNotes: true });
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp", { allowCreatingNotes: true, limit: 10 });
         expect(rows()).toHaveLength(2);
         await unmount();
     });

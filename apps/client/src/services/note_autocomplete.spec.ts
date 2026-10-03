@@ -73,6 +73,9 @@ describe("getNoteSuggestions", () => {
 
         await getNoteSuggestions("a", { fastSearch: false });
         expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("fastSearch=false"));
+        // A limit is passed on for the server to stop at; left out, none is sent.
+        await getNoteSuggestions("a", { limit: 10 });
+        expect(server.get).toHaveBeenLastCalledWith("autocomplete?query=a&activeNoteId=activeNote&fastSearch=true&limit=10");
         expect(getInboxTarget).not.toHaveBeenCalled();
     });
 

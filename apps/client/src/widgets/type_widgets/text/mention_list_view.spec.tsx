@@ -158,7 +158,7 @@ describe("createNoteMentionList", () => {
     it("lists the notes for the query, and mentions the one picked by its path", async () => {
         const { list, commit } = await open();
 
-        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true });
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true, limit: 10 });
         expect(list.element?.textContent).toContain("Alpha");
         expect(list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }))).toBe(true);
         expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "@root/a", notePath: "root/a" });
