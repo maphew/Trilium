@@ -935,6 +935,25 @@ describe("Search", () => {
             expect(titledRank).toBeLessThan(bodyRank);
         });
 
+        it("ranks the title spelled with the query's diacritics first (#11787)", () => {
+            // Without the accent sorting first, the alphabetical tie-break settles this in favour
+            // of "ktory" both ways, as "y" sorts before "ý".
+            const accented = contentNote("ktorý", "");
+            const plain = contentNote("ktory", "");
+            const accentedPhrase = contentNote("ktorý je", "");
+            const plainPhrase = contentNote("ktory je", "");
+
+            const accentedSearch = searchService.findResultsWithQuery("ktorý", new SearchContext());
+            expect(rank(accentedSearch, accented.noteId)).toBeGreaterThanOrEqual(0);
+            expect(rank(accentedSearch, accented.noteId)).toBeLessThan(rank(accentedSearch, plain.noteId));
+            expect(rank(accentedSearch, accentedPhrase.noteId)).toBeLessThan(rank(accentedSearch, plainPhrase.noteId));
+
+            const plainSearch = searchService.findResultsWithQuery("ktory", new SearchContext());
+            expect(rank(plainSearch, plain.noteId)).toBeGreaterThanOrEqual(0);
+            expect(rank(plainSearch, plain.noteId)).toBeLessThan(rank(plainSearch, accented.noteId));
+            expect(rank(plainSearch, plainPhrase.noteId)).toBeLessThan(rank(plainSearch, accentedPhrase.noteId));
+        });
+
         it("finds a body typo via phase-2 fuzzy fallback, ranked below exact matches (combinef -> combined)", () => {
             const exact = contentNote("ExactNote", "the combinef marker is set");
             const fuzzy = contentNote("FuzzyNote", "the values were combined together");
@@ -1043,6 +1062,17 @@ describe("Search", () => {
             expect(detail?.highlightedContentSnippet).toContain("<b>star</b>");
         });
 
+        it("reports the words the snippet matched, spelled as the note has them (#11787)", () => {
+            const slovak = contentNote("Slovak", "<p>Ktorý deň je dnes?</p>");
+            for (const query of [ "ktorý", "ktory" ]) {
+                expect(detailsFor(query).find((d) => d.noteId === slovak.noteId)?.matchedTerms).toEqual([ "Ktorý" ]);
+            }
+
+            // A fuzzy match reports the word that is in the note rather than the one typed.
+            const asimov = contentNote("Asimov", "<p>by American writer Isaac Asimov</p>");
+            expect(detailsFor("orbiter").find((d) => d.noteId === asimov.noteId)?.matchedTerms).toEqual([ "writer" ]);
+        });
+
         it("highlights the word a fuzzy body match actually matched", () => {
             // "writer" is two edits from "orbiter", which AUTO allows for a 7-character token, so
             // this note is a result even though the word the user typed appears nowhere in it.
@@ -1106,6 +1136,16 @@ describe("Search", () => {
         };
         searchService.highlightSearchResults([ result ], [ "body" ]);
         expect(result.highlightedContentSnippet).toBe("Summary Title<br><b>Body</b> text here<br>After the block");
+    });
+
+    it("keeps soft line breaks and paragraphs apart in the snippet (#11787)", () => {
+        // Shift+Enter in the text editor inserts a <br> rather than starting a new paragraph.
+        const noteBuilder = note("Soft breaks note");
+        noteBuilder.note.getContent = () => "<p>First line<br>second line<br/>third line</p><p>Next paragraph</p>";
+        rootNote.child(noteBuilder);
+
+        const snippet = searchService.extractContentSnippet(noteBuilder.note.noteId, [ "second" ]);
+        expect(snippet.split("\n")).toEqual([ "First line", "second line", "third line", "Next paragraph" ]);
     });
 
     it("escapes angle brackets in the note title instead of dropping them", () => {

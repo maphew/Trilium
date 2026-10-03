@@ -28,7 +28,8 @@ export default function SearchResultCard({ noteId, details, loading, highlighted
     const icon = note?.getIcon() ?? details?.icon ?? "bx bx-note";
     const breadcrumb = getBreadcrumbTitle(details?.notePathTitle);
 
-    const searchTerms = toPlainSearchTerms(highlightedTokens);
+    // The words as the note spells them, so the find bar matches "ktorý" for the query "ktory".
+    const searchTerms = details?.matchedTerms?.length ? details.matchedTerms : toPlainSearchTerms(highlightedTokens);
     const viewScope: ViewScope = { searchTerms };
     const href = calculateHash({ notePath: noteId, viewScope });
 
