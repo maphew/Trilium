@@ -13,7 +13,7 @@ This feature allows inserting Unicode emoji characters. Simply select a category
 
 Emojis can also be searched by their English name and the skin tone can be selected via a combo box to the right.
 
-There is also the possibility of inserting emojis directly by typing `:` followed by a name of an emoji, triggering the display of a list of emojis. Simply use the arrow keys to select one and press <kbd>Enter</kbd> to insert it.
+There is also the possibility of inserting emojis directly by typing `:` followed by a name of an emoji, triggering the display of a list of emojis. Simply use the arrow keys to select one and press <kbd>Enter</kbd> or <kbd>Tab</kbd> to insert it.
 
 <img src="1_Insert buttons_plus.png" width="272" height="187">
 

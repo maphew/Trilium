@@ -18,7 +18,7 @@ import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import diffAiResponse from "./ai_diff.js";
 import { buildFontColorConfig, buildTableColorConfig } from "./color_palette.js";
-import { createMentionListView, createNoteMentionList, createSlashCommandList } from "./mention_list_view.js";
+import { createEmojiList, createMentionListView, createNoteMentionList, createSlashCommandList } from "./mention_list_view.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -183,7 +183,8 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         emoji: {
             definitionsUrl: window.glob.isDev
                 ? new URL(import.meta.url).origin + emojiDefinitionsUrl
-                : emojiDefinitionsUrl
+                : emojiDefinitionsUrl,
+            list: createEmojiList
         },
         syntaxHighlighting: {
             loadHighlightJs: async () => {
@@ -313,7 +314,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                 list: () => createNoteMentionList({ allowCreatingNotes: true })
             }
         ] : [],
-        // Draws the list of the emoji feed the plugin adds.
+        // Draws the list of any feed a plugin adds through `registerMentionFeed()`.
         listView: createMentionListView
     };
 

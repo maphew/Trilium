@@ -17,6 +17,7 @@ export type { FileUploadData, FileUploadEvent } from "./plugins/file_upload/file
 export type { PasteTarget } from "./plugins/cuttonote.js";
 export type { ContentEmbedState } from "./plugins/content_embed/content_embed.js";
 export type { AttachmentLinkChange } from "./plugins/referencelink.js";
+export type { default as TriliumEmojiMention, EmojiSuggestion } from "./plugins/mention/emoji_mention.js";
 export type { default as TriliumSlashCommands, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem } from "./plugins/mention/slash_commands.js";
 export type { MentionHostedFeed, MentionHostedList, MentionHostedListState, MentionListEntry, MentionListState, MentionListView, TriliumMentionFeed } from "./plugins/mention/types.js";
 export { default as TriliumSnippets } from "./plugins/snippets/snippets.js";

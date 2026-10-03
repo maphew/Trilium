@@ -1,13 +1,17 @@
 import "./mention_list_view.css";
 
-import type { MentionFeedObjectItem, MentionHostedList, MentionListEntry, MentionListState, MentionListView, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumSlashCommands } from "@triliumnext/ckeditor5";
+import type { ReferenceElement } from "@floating-ui/dom";
+import type { EmojiSuggestion, MentionFeedObjectItem, MentionHostedList, MentionHostedListState, MentionListEntry, MentionListState, MentionListView, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumEmojiMention, TriliumSlashCommands } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
-import { type ComponentChildren, render } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { type ComponentChildren, render, type VNode } from "preact";
+import { type MutableRef, useLayoutEffect, useRef } from "preact/hooks";
 
 import { AutocompleteList, type AutocompleteListHandle } from "../../react/FormAutocomplete";
 import { type CommandEntry, CommandMentionList, NoteMentionList } from "../../react/NoteAutocomplete";
 import Popup from "../../react/Popup";
+
+/** The editor a list for a plugin's marker is created for. */
+type HostEditor = Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
 
 /** The least width of an {@link createAutocompleteMentionList} list, whose caret anchor has none. */
 const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
@@ -63,38 +67,17 @@ export function createNoteMentionList({ allowCreatingNotes, preselect }: {
     allowCreatingNotes?: boolean;
     preselect?: boolean;
 } = {}): MentionHostedList {
-    const container = document.createElement("div");
-    const handle: { current: AutocompleteListHandle | null } = { current: null };
-    let element: HTMLDivElement | null = null;
-
-    return {
-        show(state) {
-            render(<NoteMentionList
-                query={state.query}
-                // A new anchor each time the query changes, so it is placed again at the caret.
-                anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
-                allowCreatingNotes={allowCreatingNotes}
-                preselect={preselect}
-                onPick={(notePath) => state.commit(typeof notePath === "string"
-                    ? toMention(notePath)
-                    : notePath.then((path) => path ? toMention(path) : undefined))}
-                handleRef={handle}
-                elementRef={(el) => { element = el; }}
-            />, container);
-        },
-        hide() {
-            render(null, container);
-            element = null;
-        },
-        handleKeyDown: (e) => handle.current?.handleKeyDown(e) ?? false,
-        get element() {
-            return element;
-        },
-        destroy() {
-            render(null, container);
-            element = null;
-        }
-    };
+    return createHostedList((state, list) => (
+        <NoteMentionList
+            {...list}
+            query={state.query}
+            allowCreatingNotes={allowCreatingNotes}
+            preselect={preselect}
+            onPick={(notePath) => state.commit(typeof notePath === "string"
+                ? toMention(notePath)
+                : notePath.then((path) => path ? toMention(path) : undefined))}
+        />
+    ));
 }
 
 /**
@@ -107,75 +90,90 @@ export function createAutocompleteMentionList({ source, renderItem, toMention }:
     renderItem?(item: string): ComponentChildren;
     toMention(item: string): MentionFeedObjectItem;
 }): MentionHostedList {
-    const container = document.createElement("div");
-    const handle: { current: AutocompleteListHandle | null } = { current: null };
-    let element: HTMLElement | null = null;
-
-    return {
-        show(state) {
-            render(<AutocompleteList
-                query={state.query}
-                source={source}
-                // A new anchor each time the query changes, so it is placed again at the caret.
-                anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
-                minWidth={AUTOCOMPLETE_MENTION_MIN_WIDTH}
-                renderItem={renderItem}
-                onPick={(item) => state.commit(toMention(item))}
-                handleRef={handle}
-                elementRef={(el) => { element = el; }}
-            />, container);
-        },
-        hide() {
-            render(null, container);
-            element = null;
-        },
-        handleKeyDown: (e) => handle.current?.handleKeyDown(e) ?? false,
-        get element() {
-            return element;
-        },
-        destroy() {
-            render(null, container);
-            element = null;
-        }
-    };
+    return createHostedList((state, list) => (
+        <AutocompleteList
+            {...list}
+            query={state.query}
+            source={source}
+            minWidth={AUTOCOMPLETE_MENTION_MIN_WIDTH}
+            renderItem={renderItem}
+            onPick={(item) => state.commit(toMention(item))}
+        />
+    ));
 }
 
 /**
  * Lists the `/` palette's entries for the query as the command palette lists its commands, for the
  * editor config's `slashCommand.list`, opening on the best match so that Enter runs it.
  */
-export function createSlashCommandList(editor: Parameters<NonNullable<SlashCommandConfig["list"]>>[0]): MentionHostedList {
+export function createSlashCommandList(editor: HostEditor): MentionHostedList {
     const palette = editor.plugins.get("TriliumSlashCommands") as TriliumSlashCommands;
     const source = async (query: string) => palette.search(query).map(toCommandEntry);
+
+    return createHostedList((state, list) => (
+        <CommandMentionList<SlashCommandEntry>
+            {...list}
+            query={state.query}
+            source={source}
+            className="slash-command-menu"
+            onPick={({ definition }) => state.commit(toSlashCommandItem(definition))}
+        />
+    ));
+}
+
+/**
+ * Lists the emoji for the query typed after `:` as the command palette lists its commands, the emoji
+ * in place of the icon, for the editor config's `emoji.list`.
+ */
+export function createEmojiList(editor: HostEditor): MentionHostedList {
+    const emoji = editor.plugins.get("TriliumEmojiMention") as TriliumEmojiMention;
+    const source = async (query: string) => emoji.search(query).map(toEmojiEntry);
+
+    return createHostedList((state, list) => (
+        <CommandMentionList<EmojiEntry>
+            {...list}
+            query={state.query}
+            source={source}
+            onPick={({ suggestion }) => state.commit(suggestion)}
+        />
+    ));
+}
+
+/** What a list drawn by {@link createHostedList} is given to draw itself with. */
+interface HostedListProps {
+    /** At the caret, placed again each time the query changes. */
+    anchor: ReferenceElement;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
+    elementRef(element: HTMLElement | null): void;
+}
+
+/**
+ * A {@link MentionHostedList} that renders what `draw` returns for each query, and forwards the
+ * editor's keys to it.
+ */
+function createHostedList(draw: (state: MentionHostedListState, list: HostedListProps) => VNode): MentionHostedList {
     const container = document.createElement("div");
-    const handle: { current: AutocompleteListHandle | null } = { current: null };
+    const handleRef: { current: AutocompleteListHandle | null } = { current: null };
     let element: HTMLElement | null = null;
+    const elementRef = (el: HTMLElement | null) => { element = el; };
+    const unmount = () => {
+        render(null, container);
+        element = null;
+    };
 
     return {
         show(state) {
-            render(<CommandMentionList<SlashCommandEntry>
-                query={state.query}
-                source={source}
-                // A new anchor each time the query changes, so it is placed again at the caret.
-                anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
-                className="slash-command-menu"
-                onPick={({ definition }) => state.commit(toSlashCommandItem(definition))}
-                handleRef={handle}
-                elementRef={(el) => { element = el; }}
-            />, container);
+            // A new anchor each time, so the list is placed again at the caret. Its `contextElement`
+            // places it again as the containers around the editor scroll.
+            const anchor = { getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined };
+            render(draw(state, { anchor, handleRef, elementRef }), container);
         },
-        hide() {
-            render(null, container);
-            element = null;
-        },
-        handleKeyDown: (e) => handle.current?.handleKeyDown(e) ?? false,
+        hide: unmount,
+        handleKeyDown: (e) => handleRef.current?.handleKeyDown(e) ?? false,
         get element() {
             return element;
         },
-        destroy() {
-            render(null, container);
-            element = null;
-        }
+        destroy: unmount
     };
 }
 
@@ -195,6 +193,19 @@ function toCommandEntry(definition: SlashCommandDefinition): SlashCommandEntry {
         icon: definition.iconClass ? clsx(definition.iconClass, definition.iconColorClass) : undefined,
         iconSvg: definition.iconClass ? undefined : definition.icon,
         definition
+    };
+}
+
+type EmojiEntry = CommandEntry & { suggestion: EmojiSuggestion };
+
+/** An emoji as a command row, the emoji its icon, or the entry that opens the picker. */
+function toEmojiEntry(suggestion: EmojiSuggestion): EmojiEntry {
+    return {
+        id: suggestion.id,
+        title: suggestion.title,
+        icon: suggestion.opensPicker ? "bx bx-smile" : undefined,
+        iconText: suggestion.opensPicker ? undefined : suggestion.text,
+        suggestion
     };
 }
 

@@ -491,6 +491,8 @@ export interface CommandEntry {
     icon?: string;
     /** An icon as SVG markup, in place of {@link CommandEntry.icon}. */
     iconSvg?: string;
+    /** A character drawn as the icon, such as an emoji, in place of {@link CommandEntry.icon}. */
+    iconText?: string;
 }
 
 /**
@@ -529,9 +531,7 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
                     <SuggestionOption key={entry.id} autocomplete={autocomplete} index={index}>
                         <span>
                             <SuggestionRowContent
-                                icon={entry.iconSvg
-                                    ? <RawHtml className="tn-icon note-suggestion-svg-icon" html={entry.iconSvg} />
-                                    : <Icon icon={entry.icon ?? "bx bx-terminal"} />}
+                                icon={<CommandIcon entry={entry} />}
                                 header={<span className="search-result-title">{entry.title}</span>}
                                 details={entry.description && <span className="note-suggestion-description">{entry.description}</span>}
                             />
@@ -541,6 +541,16 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
             </menu>
         </NoteSuggestionPopup>
     );
+}
+
+function CommandIcon({ entry }: { entry: CommandEntry }) {
+    if (entry.iconSvg) {
+        return <RawHtml className="tn-icon note-suggestion-svg-icon" html={entry.iconSvg} />;
+    }
+    if (entry.iconText) {
+        return <span className="tn-icon note-suggestion-text-icon">{entry.iconText}</span>;
+    }
+    return <Icon icon={entry.icon ?? "bx bx-terminal"} />;
 }
 
 function commandTitle(entry: CommandEntry) {

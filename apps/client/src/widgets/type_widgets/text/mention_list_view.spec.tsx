@@ -1,4 +1,4 @@
-import type { MentionHostedListState, MentionListState, SlashCommandConfig, SlashCommandDefinition } from "@triliumnext/ckeditor5";
+import type { EmojiSuggestion, MentionHostedListState, MentionListState, SlashCommandConfig, SlashCommandDefinition } from "@triliumnext/ckeditor5";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,7 @@ vi.mock("../../../services/note_autocomplete", async (importOriginal) => ({
     createNoteFromSuggestion
 }));
 
-import { createAutocompleteMentionList, createMentionListView, createNoteMentionList, createSlashCommandList } from "./mention_list_view";
+import { createAutocompleteMentionList, createEmojiList, createMentionListView, createNoteMentionList, createSlashCommandList } from "./mention_list_view";
 
 describe("createMentionListView", () => {
     const views: ReturnType<typeof createMentionListView>[] = [];
@@ -255,6 +255,38 @@ describe("createSlashCommandList", () => {
         await act(async () => { key("ArrowDown"); });
         expect(key("Enter")).toBe(true);
         expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "snippet-0", definition: definitions[1] });
+        list.destroy?.();
+    });
+});
+
+describe("createEmojiList", () => {
+    const suggestions: EmojiSuggestion[] = [
+        { id: ":grinning face:", title: ":grinning face:", text: "😀" },
+        { id: ":show-all:", title: "Show all emoji...", text: "grin", opensPicker: true }
+    ];
+
+    it("lists the emoji as command rows, the emoji as the icon, and commits the one picked", async () => {
+        const search = vi.fn(() => suggestions);
+        const editor = { plugins: { get: () => ({ search }) } } as unknown as Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
+        const list = createEmojiList(editor);
+        const commit = vi.fn<MentionHostedListState["commit"]>();
+        const key = (k: string) => list.handleKeyDown(new KeyboardEvent("keydown", { key: k, cancelable: true }));
+
+        await act(async () => list.show({ query: "grin", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => {});
+
+        expect(search).toHaveBeenLastCalledWith("grin");
+        expect(list.element?.matches(".dropdown-menu.note-autocomplete-menu")).toBe(true);
+        const [ grinning, showAll ] = [ ...(list.element?.querySelectorAll(".tn-menu-scroll > .dropdown-item") ?? []) ];
+        expect(grinning.classList.contains("tn-menu-active")).toBe(true);
+        expect(grinning.querySelector(".tn-icon.note-suggestion-text-icon")?.textContent).toBe("😀");
+        expect(grinning.querySelector(".search-result-title")?.textContent).toBe(":grinning face:");
+        // The entry opening the picker has an icon of its own.
+        expect(showAll.querySelector(".tn-icon.bx-smile")).not.toBeNull();
+        expect(showAll.querySelector(".search-result-title")?.textContent).toBe("Show all emoji...");
+
+        expect(key("Enter")).toBe(true);
+        expect(commit).toHaveBeenCalledExactlyOnceWith(suggestions[0]);
         list.destroy?.();
     });
 });
