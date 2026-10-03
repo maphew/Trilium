@@ -1,19 +1,26 @@
 import "./jump_to_note.css";
 
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
+import type FNote from "../../entities/fnote";
 import commandRegistry from "../../services/command_registry";
+import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import type { Suggestion } from "../../services/note_autocomplete";
 import { isMobile } from "../../services/utils";
-import { useTriliumEvent } from "../react/hooks";
+import { NoteAttributes, NoteContent } from "../collections/legacy/ListOrGridView";
+import { useMediaQuery, useTriliumEvent } from "../react/hooks";
 import Icon from "../react/Icon";
 import Modal from "../react/Modal";
 import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
 
 const KEEP_LAST_SEARCH_FOR_X_SECONDS = 120;
+/** How long the highlight rests on a row before the preview renders it, so arrowing past skips it. */
+export const PREVIEW_DELAY_MS = 150;
+/** Wide enough for the results and the preview side by side; matches the media query in jump_to_note.css. */
+const PREVIEW_MEDIA_QUERY = "(min-width: 1100px)";
 
 type Mode = "last-search" | "recent-notes" | "commands";
 
@@ -26,6 +33,8 @@ export default function JumpToNoteDialogComponent() {
     const [ initialText, setInitialText ] = useState("");
     const actualText = useRef<string>(initialText);
     const [ shown, setShown ] = useState(false);
+    const [ highlighted, setHighlighted ] = useState<Suggestion>();
+    const showsPreview = useMediaQuery(PREVIEW_MEDIA_QUERY) && !isMobile();
 
     async function openDialog(commandMode: boolean) {
         let newMode: Mode;
@@ -119,6 +128,7 @@ export default function JumpToNoteDialogComponent() {
                     onTextChange={(text) => actualText.current = text}
                     onChange={onItemSelected}
                     searchFooter
+                    onHighlight={showsPreview ? setHighlighted : undefined}
                 />
             </>}
             onShown={onShown}
@@ -126,6 +136,59 @@ export default function JumpToNoteDialogComponent() {
             show={shown}
         >
             <div className="jump-to-note-results" ref={containerRef} />
+            {showsPreview && <JumpToNotePreview suggestion={shown ? highlighted : undefined} />}
         </Modal>
     );
+}
+
+/**
+ * The note a row of the results stands for, previewed beside them: its path, title, attributes and
+ * the start of its content. A row that is no note, such as a command or a creation row, leaves it
+ * empty, so the layout keeps still.
+ */
+export function JumpToNotePreview({ suggestion }: { suggestion: Suggestion | undefined }) {
+    const [ note, setNote ] = useState<FNote | null>(null);
+    const notePath = !suggestion?.action ? suggestion?.notePath : undefined;
+
+    useEffect(() => {
+        if (!notePath) {
+            setNote(null);
+            return;
+        }
+
+        let cancelled = false;
+        const timeout = setTimeout(async () => {
+            const loaded = await froca.getNote(notePath.split("/").at(-1) ?? "", true);
+            if (!cancelled) setNote(loaded);
+        }, PREVIEW_DELAY_MS);
+        return () => {
+            cancelled = true;
+            clearTimeout(timeout);
+        };
+    }, [ notePath ]);
+
+    const parentTitles = note && notePath ? parentPathTitles(notePath) : [];
+
+    return (
+        <div className="jump-to-note-preview">
+            {note && <div key={note.noteId} className="jump-to-note-preview-card">
+                {parentTitles.length > 0 && (
+                    <div className="jump-to-note-preview-path">{parentTitles.join(" › ")}</div>
+                )}
+                <h4 className="jump-to-note-preview-title">
+                    <Icon icon={note.getIcon()} />
+                    <span>{note.title}</span>
+                </h4>
+                <NoteAttributes note={note} />
+                <NoteContent note={note} trim highlightedTokens={null} includeArchivedNotes={false} />
+            </div>}
+        </div>
+    );
+}
+
+/** The titles of the notes above the last one of `notePath`, the root left out, as froca holds them. */
+function parentPathTitles(notePath: string) {
+    return notePath.split("/").slice(0, -1)
+        .filter((noteId) => noteId !== "root")
+        .map((noteId) => froca.getNoteFromCache(noteId)?.title ?? "");
 }

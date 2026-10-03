@@ -273,7 +273,7 @@ function GridNoteCard(props: GridNoteCardProps) {
     );
 }
 
-function NoteAttributes({ note }: { note: FNote }) {
+export function NoteAttributes({ note }: { note: FNote }) {
     const ref = useRef<HTMLSpanElement>(null);
     useEffect(() => {
         attribute_renderer.renderNormalAttributes(note).then(({$renderedAttributes}) => {

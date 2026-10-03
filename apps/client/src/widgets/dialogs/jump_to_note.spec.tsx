@@ -1,0 +1,70 @@
+import { act } from "preact/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const noteContent = vi.hoisted(() => ({ rendered: [] as string[] }));
+
+vi.mock("../collections/legacy/ListOrGridView", () => ({
+    NoteContent: ({ note }: { note: { noteId: string } }) => {
+        noteContent.rendered.push(note.noteId);
+        return <div className="stub-content">{`content of ${note.noteId}`}</div>;
+    },
+    NoteAttributes: () => <span className="stub-attributes" />
+}));
+
+import type { Suggestion } from "../../services/note_autocomplete";
+import { buildNote } from "../../test/easy-froca";
+import { renderInto } from "../../test/render";
+import { JumpToNotePreview, PREVIEW_DELAY_MS } from "./jump_to_note";
+
+describe("JumpToNotePreview", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        noteContent.rendered = [];
+        buildNote({ id: "parent", title: "Projects", children: [ { id: "plan", title: "Quarterly plan" } ] });
+        buildNote({ id: "other", title: "Other" });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    async function show(suggestion: Suggestion | undefined, container?: HTMLElement) {
+        const host = container ?? document.createElement("div");
+        await act(async () => {
+            const { render } = await import("preact");
+            render(<JumpToNotePreview suggestion={suggestion} />, host);
+        });
+        return host;
+    }
+
+    async function wait(ms: number) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+    }
+
+    it("shows the highlighted note once the highlight settles, with its path, title and content", async () => {
+        const host = renderInto(<div />);
+        await show({ notePath: "root/parent/plan", noteTitle: "Quarterly plan" }, host);
+        expect(host.querySelector(".jump-to-note-preview-title")).toBeNull();
+
+        await wait(PREVIEW_DELAY_MS);
+        expect(host.querySelector(".jump-to-note-preview-path")?.textContent).toBe("Projects");
+        expect(host.querySelector(".jump-to-note-preview-title")?.textContent).toBe("Quarterly plan");
+        expect(host.querySelector(".stub-content")?.textContent).toBe("content of plan");
+    });
+
+    it("renders only the note the keys stop on, and nothing for a row that is no note", async () => {
+        const host = renderInto(<div />);
+        await show({ notePath: "root/other" }, host);
+        await wait(PREVIEW_DELAY_MS / 2);
+        await show({ notePath: "root/parent/plan" }, host);
+        await wait(PREVIEW_DELAY_MS);
+        expect(noteContent.rendered).toEqual([ "plan" ]);
+
+        for (const row of [ { action: "create-note", noteTitle: "New" }, { action: "command", commandId: "x" }, undefined ]) {
+            await show(row as Suggestion | undefined, host);
+            await wait(PREVIEW_DELAY_MS);
+            expect(host.querySelector(".jump-to-note-preview-title")).toBeNull();
+            expect(host.querySelector(".jump-to-note-preview")).not.toBeNull();
+        }
+    });
+});
