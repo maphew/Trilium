@@ -11,7 +11,9 @@ On the <a class="reference-link" href="../Installation%20%26%20Setup/Desktop%20
 
 Shortcuts follow the characters printed on the keys of the active keyboard layout. On a French AZERTY keyboard, for example, <kbd>Ctrl</kbd>+<kbd>Z</kbd> is the key labeled Z.
 
-On a layout that doesn't type Latin letters, such as Russian, Greek or Hebrew, a shortcut uses the key at the same position on a US QWERTY keyboard. <kbd>Ctrl</kbd>+<kbd>J</kbd> is then the key that types `о` on a Russian keyboard, so shortcuts keep working without switching the layout first.
+On a layout that doesn't type Latin letters, such as Russian, Greek or Hebrew, a key that types a letter of that alphabet counts as the key at the same position on a US QWERTY keyboard. <kbd>Ctrl</kbd>+<kbd>J</kbd> is then the key that types `о` on a Russian keyboard, so shortcuts keep working without switching the layout first.
+
+Keys that type punctuation still follow their own character. On a Russian keyboard, the key that types `.` triggers <kbd>Ctrl</kbd>+<kbd>.</kbd>, not the shortcut of the US key at its position.
 
 ## Shortcut reference
 
