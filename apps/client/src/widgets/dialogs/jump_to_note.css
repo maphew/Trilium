@@ -11,6 +11,13 @@
     align-items: center;
 }
 
+.jump-to-note-search-icon {
+    flex: none;
+    margin-inline-end: 8px;
+    font-size: 1.25rem;
+    color: var(--muted-text-color);
+}
+
 .jump-to-note-dialog .modal-body {
     padding: 0;
     min-height: 200px;

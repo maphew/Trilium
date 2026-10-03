@@ -6,7 +6,9 @@ import appContext from "../../components/app_context";
 import commandRegistry from "../../services/command_registry";
 import { t } from "../../services/i18n";
 import type { Suggestion } from "../../services/note_autocomplete";
+import { isMobile } from "../../services/utils";
 import { useTriliumEvent } from "../react/hooks";
+import Icon from "../react/Icon";
 import Modal from "../react/Modal";
 import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
@@ -100,21 +102,24 @@ export default function JumpToNoteDialogComponent() {
         <Modal
             className="jump-to-note-dialog"
             size="lg"
-            title={<NoteAutocomplete
-                placeholder={t("jump_to_note.search_placeholder")}
-                inputRef={autocompleteRef}
-                handleRef={handleRef}
-                container={containerRef}
-                text={initialText}
-                opts={{
-                    allowCreatingNotes: true,
-                    hideGoToSelectedNoteButton: true,
-                    allowJumpToSearchNotes: true,
-                    isCommandPalette: true
-                }}
-                onTextChange={(text) => actualText.current = text}
-                onChange={onItemSelected}
-            />}
+            title={<>
+                {!isMobile() && <Icon icon="bx bx-search" className="jump-to-note-search-icon" />}
+                <NoteAutocomplete
+                    placeholder={t("jump_to_note.search_placeholder")}
+                    inputRef={autocompleteRef}
+                    handleRef={handleRef}
+                    container={containerRef}
+                    text={initialText}
+                    opts={{
+                        allowCreatingNotes: true,
+                        hideGoToSelectedNoteButton: true,
+                        allowJumpToSearchNotes: true,
+                        isCommandPalette: true
+                    }}
+                    onTextChange={(text) => actualText.current = text}
+                    onChange={onItemSelected}
+                />
+            </>}
             onShown={onShown}
             onHidden={() => setShown(false)}
             show={shown}

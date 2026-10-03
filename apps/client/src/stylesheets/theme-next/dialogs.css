@@ -205,6 +205,31 @@ div.tn-tool-dialog {
 }
 
 /*
+ * On the desktop the field is the dialog's heading, framed by the dialog itself: it holds the focus
+ * for as long as the dialog is open, so a box and a focus ring around it say nothing. On mobile the
+ * box stays, as the cue to tap.
+ */
+body.desktop .jump-to-note-dialog .input-group {
+    &,
+    &:hover,
+    &:focus-within {
+        background: transparent;
+        border-color: transparent;
+        outline: none;
+    }
+
+    .note-autocomplete-input {
+        padding-inline-start: 0;
+        font-size: 1.1rem;
+    }
+
+    /* Only while there is text to clear; hidden in place, so the field keeps its width. */
+    .note-autocomplete-input:placeholder-shown ~ .input-clearer-button {
+        visibility: hidden;
+    }
+}
+
+/*
  * RECENT CHANGES DIALOG
  */
 
