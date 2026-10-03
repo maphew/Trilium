@@ -1213,7 +1213,19 @@ function preventCKEditorHandling( domElement: HTMLElement, editor: Editor ) {
 		selectContentEmbedWidget( domElement, editor );
 	}, { capture: true } );
 
-	domElement.addEventListener( 'focus', stopEventPropagationAndHackRendererFocus, { capture: true } );
+	domElement.addEventListener( 'focus', ( evt: FocusEvent ) => {
+		stopEventPropagationAndHackRendererFocus( evt );
+
+		// Content that takes the focus without a press, as a canvas drawing just added, selects
+		// its widget as a press does, which shows its toolbar. The focus stays in the content.
+		const modelElement = getContentEmbedAt( editor, domElement );
+		const selection = editor.model.document.selection;
+		if ( modelElement && selection.getSelectedElement() !== modelElement ) {
+			editor.model.enqueueChange( { isUndoable: false }, writer => {
+				writer.setSelection( modelElement, 'on' );
+			} );
+		}
+	}, { capture: true } );
 
 	// Prevents TAB handling or other editor keys listeners which might be executed on editors selection.
 	// Listens in the bubble phase, so the embedded content handles its own keys first.

@@ -153,6 +153,11 @@
 
 .include-note-content:fullscreen .canvas-drawing {
     height: 100%;
+
+    /* Below the toolbar, clear of the "Exit fullscreen" button of the embed. */
+    .Island.App-menu__left {
+        top: calc(var(--lg-button-size) + 1rem);
+    }
 }
 
 .canvas-drawing-picture {

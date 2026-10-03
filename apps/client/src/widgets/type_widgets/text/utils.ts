@@ -1,3 +1,4 @@
+import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import { attachmentIcon } from "@triliumnext/commons";
 import { h, type JSX } from "preact";
 
@@ -8,6 +9,7 @@ import { getEmbedCaption } from "../../../services/content_renderer_text";
 import froca from "../../../services/froca";
 import link, { ViewScope } from "../../../services/link";
 import utils from "../../../services/utils";
+import { watchContentEmbedTools } from "./content_embed_tools";
 import ContentEmbed, { getNoteActions, TinyContentEmbed } from "./ContentEmbed";
 
 /**
@@ -192,14 +194,19 @@ export async function getAttachmentHref(attachmentId: string) {
 }
 
 /**
- * Unmounts the embed boxes, and what they show, once they leave `container`. The returned
- * function stops watching and unmounts the boxes still in it.
+ * Unmounts the embed boxes, and what they show, once they leave `container`, and updates `editor`,
+ * if any, when their content adds buttons to the toolbar of its embed. The returned function
+ * stops watching and unmounts the boxes still in it.
  */
-export function watchContentEmbeds(container: HTMLElement) {
+export function watchContentEmbeds(container: HTMLElement, editor?: CKTextEditor) {
     const observer = new MutationObserver(disposeRemoved);
     observer.observe(container, { childList: true, subtree: true });
+    // The toolbar of an embed reads the buttons of its content when the editor updates, so
+    // content that adds them after its embed was selected has the editor update again.
+    const stopWatchingTools = watchContentEmbedTools(container, () => editor?.ui.update());
 
     return () => {
+        stopWatchingTools();
         disposeRemoved(observer.takeRecords());
         observer.disconnect();
         content_renderer.disposeInteractiveContent($(container));

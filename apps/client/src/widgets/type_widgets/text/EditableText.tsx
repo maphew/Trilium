@@ -33,7 +33,7 @@ import { setEditorNoteId } from "../../react/NoteStore";
 import { TypeWidgetProps } from "../type_widget";
 import AttachmentSaves from "./attachment_saves";
 import CKEditorWithWatchdog, { CKEditorApi, NotificationEventData, NotificationEventInfo } from "./CKEditorWithWatchdog";
-import { getContentEmbedTools, watchContentEmbedTools } from "./content_embed_tools";
+import { getContentEmbedTools } from "./content_embed_tools";
 import getTemplates, { updateTemplateCache } from "./snippets.js";
 import linkEmbedService from "../../../services/link_embed";
 import { usesClassicToolbar } from "./toolbar";
@@ -317,14 +317,6 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
 
     useEffect(() => () => stopWatchingEmbedsRef.current?.(), []);
 
-    // The toolbar of an embed reads the buttons of its content when the editor updates, so
-    // content that adds them after its embed was selected has the editor update again.
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        return watchContentEmbedTools(container, () => watchdogRef.current?.editor?.ui.update());
-    }, []);
-
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         const editor = watchdogRef.current?.editor as CKTextEditor | null | undefined;
         if (editor && note) {
@@ -567,7 +559,10 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
                     if (containerRef.current) {
                         setupImageOpening(containerRef.current, false);
                         stopWatchingEmbedsRef.current?.();
-                        stopWatchingEmbedsRef.current = watchContentEmbeds(containerRef.current);
+                        stopWatchingEmbedsRef.current = watchContentEmbeds(
+                            containerRef.current,
+                            editor
+                        );
                     }
 
                     editor.plugins.get("FileUploadEditing")

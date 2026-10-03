@@ -422,6 +422,37 @@ describe("ContentEmbed", () => {
         expect(editor.model.document.selection.getSelectedElement()).toBe(embed);
     });
 
+    it("selects the widget when its content takes the focus, which stays there", () => {
+        const embed = insertContentEmbed(editor, "noteFocus", "small");
+        editor.model.change((writer) => {
+            const paragraph = embed.nextSibling;
+            if (!paragraph) {
+                throw new Error("Expected a paragraph after the embed.");
+            }
+            writer.setSelection(paragraph, 0);
+        });
+
+        const wrapper = editor.editing.view.getDomRoot()?.querySelector("div.include-note-wrapper");
+        if (!wrapper) {
+            throw new Error("Expected the wrapper of the embed.");
+        }
+        wrapper.innerHTML = `<div class="include-note-body">`
+            + `<div class="include-note-content" tabindex="-1"><button>Draw</button></div></div>`;
+        const content = wrapper.querySelector<HTMLElement>(".include-note-content");
+        const button = wrapper.querySelector<HTMLElement>("button");
+        const viewFocus = vi.spyOn(editor.editing.view, "focus");
+
+        content?.focus();
+        expect(document.activeElement).toBe(content);
+        expect(editor.model.document.selection.getSelectedElement()).toBe(embed);
+        expect(viewFocus).not.toHaveBeenCalled();
+
+        const change = vi.spyOn(editor.model, "enqueueChange");
+        button?.focus();
+        expect(document.activeElement).toBe(button);
+        expect(change).not.toHaveBeenCalled();
+    });
+
     it("leaves a mousedown inside an embedded collection untouched so the live widget keeps working", () => {
         insertContentEmbed(editor, "noteColl", "full");
 
