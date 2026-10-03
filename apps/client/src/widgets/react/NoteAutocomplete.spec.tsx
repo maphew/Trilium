@@ -22,7 +22,7 @@ import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import type { AutocompleteListHandle } from "./FormAutocomplete";
-import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList } from "./NoteAutocomplete";
+import NoteAutocomplete, { HighlightedText, type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList } from "./NoteAutocomplete";
 import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
@@ -1278,5 +1278,21 @@ describe("NoteMentionList", () => {
         expect(await press("Enter")).toBe(true);
         expect(createNoteFromSuggestion).toHaveBeenCalledExactlyOnceWith(childRow, "root/edited");
         await unmount();
+    });
+});
+
+describe("HighlightedText", () => {
+    it("sets the first occurrence of the query in bold, whatever its case, and nothing where there is none", () => {
+        const html = (text: string, query: string) => {
+            const host = document.createElement("div");
+            preactRender(<HighlightedText text={text} query={query} />, host);
+            return host.innerHTML;
+        };
+
+        expect(html("ownedLabelCount", "label")).toBe("owned<b>Label</b>Count");
+        expect(html("labelCount", "la")).toBe("<b>la</b>belCount");
+        expect(html("a<b>&", "<b")).toBe("a<b>&lt;b</b>&gt;&amp;");
+        expect(html("title", "xyz")).toBe("title");
+        expect(html("title", "")).toBe("title");
     });
 });

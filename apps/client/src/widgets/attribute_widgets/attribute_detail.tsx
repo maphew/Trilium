@@ -29,7 +29,7 @@ import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import Icon from "../react/Icon.jsx";
 import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
-import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
+import NoteAutocomplete, { HighlightedText } from "../react/NoteAutocomplete.jsx";
 import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
@@ -388,11 +388,11 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
         ? fetchDefinitionNames(nameType, query)
         : fetchAttributeNames(nameType, query), [ nameType, isDefinitionType ]);
     const renderNameSuggestion = useCallback(
-        (suggestion: string) => <AttributeNameSuggestion type={nameType} name={suggestion} />, [ nameType ]);
+        (suggestion: string, query: string) => <AttributeNameSuggestion type={nameType} name={suggestion} query={query} />, [ nameType ]);
     // Whatever a relation is the inverse of is itself a relation.
     const suggestRelationNames = useCallback((query: string) => fetchAttributeNames("relation", query), []);
     const renderRelationSuggestion = useCallback(
-        (suggestion: string) => <AttributeNameSuggestion type="relation" name={suggestion} />, []);
+        (suggestion: string, query: string) => <AttributeNameSuggestion type="relation" name={suggestion} query={query} />, []);
     const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
@@ -788,7 +788,12 @@ function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEnt
  * Exported, with {@link fetchAttributeNames}, for whatever else completes an attribute name — the
  * attribute panel's in-row creation — so every name box offers the same list the same way.
  */
-export function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+export function AttributeNameSuggestion({ type, name, query = "" }: {
+    type: "label" | "relation";
+    name: string;
+    /** The text typed, set in bold where the name holds it. */
+    query?: string;
+}) {
     const isSystem = isBuiltinAttribute(type, name);
 
     return (
@@ -799,7 +804,7 @@ export function AttributeNameSuggestion({ type, name }: { type: "label" | "relat
             >
                 <Icon icon={attributeKindIcon(type, name, "")} />
             </span>
-            <span class="attr-name-suggestion-name">{name}</span>
+            <span class="attr-name-suggestion-name"><HighlightedText text={name} query={query} /></span>
         </span>
     );
 }

@@ -60,6 +60,7 @@ describe("createSearchFieldEditor", () => {
         type("#bo");
         const rows = () => menuRows(".form-autocomplete-dropdown");
         await vi.waitFor(() => expect(rows()).toEqual([ "book", "bookmark" ]));
+        expect(matches(".form-autocomplete-dropdown")).toEqual([ "bo", "bo" ]);
 
         await press("Enter");
         expect(onEnter).toHaveBeenCalledOnce();
@@ -80,6 +81,7 @@ describe("createSearchFieldEditor", () => {
         // Asked for, the list opens on the best match, so Enter takes it.
         type("no");
         await vi.waitFor(() => expect(rows()[0]).toBe("note"));
+        expect(matches(".note-autocomplete-menu")[0]).toBe("no");
         await press("Enter");
         await vi.waitFor(() => expect(text()).toBe("#book note."));
 
@@ -112,4 +114,9 @@ describe("createSearchFieldEditor", () => {
 
 function menuRows(menu: string) {
     return [ ...document.querySelectorAll(`${menu} [role=option]`) ].map((row) => row.textContent ?? "");
+}
+
+/** What each row of `menu` sets in bold as matching the query. */
+function matches(menu: string) {
+    return [ ...document.querySelectorAll(`${menu} [role=option]`) ].map((row) => row.querySelector("b")?.textContent);
 }

@@ -55,9 +55,10 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     /**
      * Renders one suggestion, for lists where the bare text does not tell the whole story. Only the
      * appearance of the row is affected: what a suggestion means and what selecting it commits stay
-     * the string the source returned. Defaults to showing that string.
+     * the string the source returned. Defaults to showing that string. `query` is the text typed,
+     * for setting what matches it in bold.
      */
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     /**
      * Rendered inside the field, ahead of the box being typed into — the chips of a field holding
      * several values, which belong within its frame rather than above it.
@@ -166,6 +167,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
 
             <AutocompleteDropdown
                 autocomplete={autocomplete}
+                query={currentValue}
                 // The wrapper where there is one, so a field carrying chips is spanned whole.
                 anchor={fieldRef.current ?? inputEl.current}
                 minWidth={dropdownMinWidth}
@@ -194,7 +196,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
     query: string;
     source(query: string): Promise<string[]>;
     anchor: DropdownAnchor;
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     onPick(item: string): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
@@ -210,6 +212,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
     return (
         <AutocompleteDropdown
             autocomplete={autocomplete}
+            query={query}
             anchor={anchor}
             minWidth={CARET_LIST_MIN_WIDTH}
             renderItem={renderItem}
@@ -243,11 +246,13 @@ export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocompl
  * The list of a {@link useAutocomplete}, in a {@link Popup} under `anchor`, which places it again as
  * the list or the anchor changes size or moves.
  */
-function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, isHeading, elementRef }: {
+function AutocompleteDropdown({ autocomplete, query, anchor, minWidth = 0, renderItem, isHeading, elementRef }: {
     autocomplete: ReturnType<typeof useAutocomplete<string>>;
+    /** The text typed, which `renderItem` is given. */
+    query: string;
     anchor: DropdownAnchor | null;
     minWidth?: number;
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     isHeading?(item: string): boolean;
     elementRef?: PopupProps["elementRef"];
 }) {
@@ -275,7 +280,7 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
                 {items.map((item, index) => (
                     isHeading?.(item)
                         ? <li key={item} className="form-autocomplete-heading" role="presentation">
-                            {renderItem ? renderItem(item) : item}
+                            {renderItem ? renderItem(item, query) : item}
                         </li>
                         : <li
                             key={item}
@@ -286,7 +291,7 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
                             onMouseMove={(e) => autocomplete.hover(index, e)}
                             onClick={() => pick(item)}
                         >
-                            {renderItem ? renderItem(item) : item}
+                            {renderItem ? renderItem(item, query) : item}
                         </li>
                 ))}
             </ul>

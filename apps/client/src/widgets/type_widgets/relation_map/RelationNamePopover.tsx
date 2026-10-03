@@ -37,7 +37,7 @@ export default function RelationNamePopover({ connection, defaultValue, onAnswer
 
     const suggestRelationNames = useCallback((query: string) => fetchAttributeNames("relation", query), []);
     const renderRelationSuggestion = useCallback(
-        (suggestion: string) => <AttributeNameSuggestion type="relation" name={suggestion} />, []);
+        (suggestion: string, query: string) => <AttributeNameSuggestion type="relation" name={suggestion} query={query} />, []);
     const cancel = useCallback(() => onAnswer(null), [ onAnswer ]);
 
     // `FormAutocomplete` stops the propagation of an Escape that closes its list, so only an

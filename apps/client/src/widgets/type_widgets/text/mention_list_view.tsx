@@ -44,7 +44,7 @@ export function createNoteMentionList({ allowCreatingNotes, preselect, getParent
  */
 export function createAutocompleteMentionList({ source, renderItem, toMention }: {
     source(query: string): Promise<string[]>;
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     toMention(item: string): MentionFeedObjectItem;
 }): MentionHostedList {
     return createHostedList<MentionHostedListState>((state, list) => (

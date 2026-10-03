@@ -65,3 +65,11 @@
 .form-autocomplete-dropdown .form-autocomplete-item.active .attr-name-suggestion .attribute-kind {
     --attribute-kind-cutout: var(--suggestion-active-background-color);
 }
+
+/* The text typed, as `.note-autocomplete-menu` shows the search's matches in NoteAutocomplete.css. */
+.attr-name-suggestion .attr-name-suggestion-name b {
+    background: var(--note-list-view-search-result-highlight-background, transparent);
+    color: var(--note-list-view-search-result-highlight-color, var(--admonition-warning-accent-color));
+    font-weight: inherit;
+    text-decoration: underline;
+}

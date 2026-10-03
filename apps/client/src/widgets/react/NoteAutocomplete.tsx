@@ -540,7 +540,7 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
                         <span>
                             <SuggestionRowContent
                                 icon={<CommandIcon entry={entry} />}
-                                header={<span className="search-result-title">{entry.title}</span>}
+                                header={<span className="search-result-title"><HighlightedText text={entry.title} query={query} /></span>}
                                 details={entry.description && <span className="note-suggestion-description">{entry.description}</span>}
                             />
                         </span>
@@ -590,6 +590,20 @@ export function createHostedList<S extends { caretRect(): DOMRect; editable: HTM
         },
         destroy: unmount
     };
+}
+
+/**
+ * `text` with the first occurrence of `query` in it, whatever its case, set in bold as the search
+ * sets its matches in a note's title. For a list filtered on the client, which matches the same way.
+ */
+export function HighlightedText({ text, query }: { text: string; query: string }) {
+    const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
+    if (at < 0) {
+        return <>{text}</>;
+    }
+
+    const end = at + query.length;
+    return <>{text.slice(0, at)}<b>{text.slice(at, end)}</b>{text.slice(end)}</>;
 }
 
 function CommandIcon({ entry }: { entry: CommandEntry }) {

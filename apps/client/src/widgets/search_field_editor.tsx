@@ -80,7 +80,7 @@ function createSearchCompletionList() {
                         {...props}
                         query={match.query}
                         source={(query) => fetchAttributeNames(match.type, query)}
-                        renderItem={(name) => <AttributeNameSuggestion type={match.type} name={name} />}
+                        renderItem={(name, query) => <AttributeNameSuggestion type={match.type} name={name} query={query} />}
                         onPick={state.commit}
                     />
                 );
