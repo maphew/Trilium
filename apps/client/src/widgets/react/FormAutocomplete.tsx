@@ -55,9 +55,10 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     /**
      * Renders one suggestion, for lists where the bare text does not tell the whole story. Only the
      * appearance of the row is affected: what a suggestion means and what selecting it commits stay
-     * the string the source returned. Defaults to showing that string.
+     * the string the source returned. Defaults to showing that string. `query` is the text typed,
+     * for setting what matches it in bold.
      */
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     /**
      * Rendered inside the field, ahead of the box being typed into — the chips of a field holding
      * several values, which belong within its frame rather than above it.
@@ -166,6 +167,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
 
             <AutocompleteDropdown
                 autocomplete={autocomplete}
+                query={currentValue}
                 // The wrapper where there is one, so a field carrying chips is spanned whole.
                 anchor={fieldRef.current ?? inputEl.current}
                 minWidth={dropdownMinWidth}
@@ -182,21 +184,24 @@ export interface AutocompleteListHandle {
     handleKeyDown(e: KeyboardEvent): boolean;
 }
 
+/** The least width of an {@link AutocompleteList}, whose anchor at a caret has none. */
+const CARET_LIST_MIN_WIDTH = 220;
+
 /**
  * The dropdown of a {@link FormAutocomplete} for a query typed somewhere else, such as after a `#` in
  * a text editor, which keeps the focus and forwards its keys through `handleRef`. It opens with
  * nothing highlighted, so Enter stays with the host until an entry is arrowed to.
  */
-export function AutocompleteList({ query, source, anchor, minWidth, renderItem, onPick, handleRef, elementRef }: {
+export function AutocompleteList({ query, source, anchor, renderItem, onPick, handleRef, elementRef, onActiveDescendant }: {
     query: string;
     source(query: string): Promise<string[]>;
     anchor: DropdownAnchor;
-    /** See {@link FormAutocompleteProps.dropdownMinWidth}. */
-    minWidth?: number;
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     onPick(item: string): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
+    /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
+    onActiveDescendant?(id: string | null): void;
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
@@ -204,13 +209,14 @@ export function AutocompleteList({ query, source, anchor, minWidth, renderItem, 
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-    useForwardedKeys(autocomplete, handleRef);
+    useForwardedKeys(autocomplete, handleRef, onActiveDescendant);
 
     return (
         <AutocompleteDropdown
             autocomplete={autocomplete}
+            query={query}
             anchor={anchor}
-            minWidth={minWidth}
+            minWidth={CARET_LIST_MIN_WIDTH}
             renderItem={renderItem}
             elementRef={elementRef}
         />
@@ -219,9 +225,22 @@ export function AutocompleteList({ query, source, anchor, minWidth, renderItem, 
 
 /**
  * Takes the keys forwarded from where a list's query is typed. Tab takes the highlighted entry, as
- * Enter does, where a field leaves Tab to move the focus.
+ * Enter does, where a field leaves Tab to move the focus. Reports the highlighted entry's element id
+ * to `onActiveDescendant`, for the host to point its `aria-activedescendant` at, as a field's
+ * `comboboxProps` do.
  */
-export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocomplete<T>>, handleRef: MutableRef<AutocompleteListHandle | null>) {
+export function useForwardedKeys<T>(
+    autocomplete: ReturnType<typeof useAutocomplete<T>>,
+    handleRef: MutableRef<AutocompleteListHandle | null>,
+    onActiveDescendant?: (id: string | null) => void
+) {
+    const { isShown, activeIndex, itemId } = autocomplete;
+    const activeId = isShown && activeIndex >= 0 ? itemId(activeIndex) : null;
+    const onActiveDescendantRef = useRef(onActiveDescendant);
+    onActiveDescendantRef.current = onActiveDescendant;
+    useEffect(() => onActiveDescendantRef.current?.(activeId), [ activeId ]);
+    useEffect(() => () => onActiveDescendantRef.current?.(null), []);
+
     useLayoutEffect(() => {
         handleRef.current = {
             handleKeyDown(e) {
@@ -242,11 +261,13 @@ export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocompl
  * The list of a {@link useAutocomplete}, in a {@link Popup} under `anchor`, which places it again as
  * the list or the anchor changes size or moves.
  */
-function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, isHeading, elementRef }: {
+function AutocompleteDropdown({ autocomplete, query, anchor, minWidth = 0, renderItem, isHeading, elementRef }: {
     autocomplete: ReturnType<typeof useAutocomplete<string>>;
+    /** The text typed, which `renderItem` is given. */
+    query: string;
     anchor: DropdownAnchor | null;
     minWidth?: number;
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     isHeading?(item: string): boolean;
     elementRef?: PopupProps["elementRef"];
 }) {
@@ -274,7 +295,7 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
                 {items.map((item, index) => (
                     isHeading?.(item)
                         ? <li key={item} className="form-autocomplete-heading" role="presentation">
-                            {renderItem ? renderItem(item) : item}
+                            {renderItem ? renderItem(item, query) : item}
                         </li>
                         : <li
                             key={item}
@@ -285,7 +306,7 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
                             onMouseMove={(e) => autocomplete.hover(index, e)}
                             onClick={() => pick(item)}
                         >
-                            {renderItem ? renderItem(item) : item}
+                            {renderItem ? renderItem(item, query) : item}
                         </li>
                 ))}
             </ul>

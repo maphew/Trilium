@@ -248,6 +248,24 @@ describe("TriliumMentionUI", () => {
         expect(labels.state).toBe(null);
     });
 
+    it("points the editable at the entry the open list highlights, and at none once it closes", () => {
+        const root = editor.editing.view.getDomRoot();
+        type("#al");
+        const open = labels.state;
+
+        open?.setActiveDescendant("row-1");
+        expect(root?.getAttribute("aria-activedescendant")).toBe("row-1");
+        open?.setActiveDescendant(null);
+        expect(root?.hasAttribute("aria-activedescendant")).toBe(false);
+
+        open?.setActiveDescendant("row-2");
+        document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        expect(root?.hasAttribute("aria-activedescendant")).toBe(false);
+        // A list that has closed points at nothing.
+        open?.setActiveDescendant("row-3");
+        expect(root?.hasAttribute("aria-activedescendant")).toBe(false);
+    });
+
     it("hides the list when the editor becomes read-only", () => {
         type("#al");
         editor.enableReadOnlyMode("test");

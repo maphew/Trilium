@@ -1,4 +1,3 @@
-import { type CompletionContext, completionStatus, startCompletion } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
 import type { QuickSearchResponse } from "@triliumnext/commons";
 import { options, type VNode } from "preact";
@@ -12,11 +11,12 @@ import server from "../services/server";
 import { renderInto } from "../test/render";
 import QuickSearch from "./quick_search";
 import { ParentComponent } from "./react/react_utils";
+import type { SearchCompletion } from "./ribbon/search_completions";
 
 // The completions fetch attribute names and values through the server, so a spec that opens them
-// supplies its own source.
+// supplies its own.
 const completions = vi.hoisted(() => ({
-    source: null as ((context: CompletionContext) => unknown) | null
+    at: null as ((before: string, explicit: boolean) => SearchCompletion | null) | null
 }));
 // Echoes the key and its interpolation, so a spec can tell which message a row shows.
 vi.mock("../services/i18n", async (importOriginal) => ({
@@ -25,15 +25,13 @@ vi.mock("../services/i18n", async (importOriginal) => ({
 }));
 
 vi.mock("./ribbon/search_completions", () => ({
-    searchCompletionSource: (context: CompletionContext) => completions.source?.(context) ?? null,
-    searchCompletionIcon: () => undefined,
-    searchCompletionReactivates: () => false
+    searchCompletionAt: (before: string, explicit: boolean) => completions.at?.(before, explicit) ?? null
 }));
 
 describe("QuickSearch", () => {
     afterEach(() => {
         vi.restoreAllMocks();
-        completions.source = null;
+        completions.at = null;
     });
 
     it("renders the search field, focuses it on the quickSearch shortcut and marks a typed query", async () => {
@@ -313,7 +311,10 @@ describe("QuickSearch", () => {
 
     it("drops an open completion list on Escape before the results", async () => {
         vi.spyOn(server, "get").mockResolvedValue(response(3, []));
-        completions.source = () => ({ from: 0, options: [ { label: "and" }, { label: "asc" } ] });
+        completions.at = (before, explicit) => (explicit ? {
+            kind: "entries", key: "keywords", from: before.length, query: "", preselect: true,
+            entries: () => [ { id: "and", title: "and", insert: "and" }, { id: "asc", title: "asc", insert: "asc" } ]
+        } : null);
         const { editor } = await mount();
 
         typeQuery(editor, "a");
@@ -321,13 +322,14 @@ describe("QuickSearch", () => {
         await waitForResults(3);
         editor.focus();
 
-        startCompletion(editor);
-        await vi.waitFor(() => expect(completionStatus(editor.state)).toBe("active"));
-        // The list drops the keys pressed within its `interactionDelay` of opening.
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        act(() => {
+            editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: " ", ctrlKey: true, bubbles: true, cancelable: true }));
+        });
+        const completionList = () => document.querySelector(".note-autocomplete-menu:not(.quick-search-menu)");
+        await vi.waitFor(() => expect(completionList()).not.toBeNull());
 
         pressKey(editor.contentDOM, "Escape");
-        expect(completionStatus(editor.state)).toBe(null);
+        await vi.waitFor(() => expect(completionList()).toBeNull());
         expect(menu()).not.toBeNull();
 
         pressKey(editor.contentDOM, "Escape");

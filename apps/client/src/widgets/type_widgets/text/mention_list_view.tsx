@@ -1,19 +1,12 @@
-import "./mention_list_view.css";
-
-import type { ReferenceElement } from "@floating-ui/dom";
 import type { EmojiSuggestion, MentionFeedObjectItem, MentionHostedList, MentionHostedListState, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumEmojiMention, TriliumSlashCommands } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
-import { type ComponentChildren, render, type VNode } from "preact";
-import type { MutableRef } from "preact/hooks";
+import type { ComponentChildren } from "preact";
 
-import { AutocompleteList, type AutocompleteListHandle } from "../../react/FormAutocomplete";
-import { type CommandEntry, CommandMentionList, NoteMentionList } from "../../react/NoteAutocomplete";
+import { AutocompleteList } from "../../react/FormAutocomplete";
+import { type CommandEntry, CommandMentionList, createHostedList, NoteMentionList } from "../../react/NoteAutocomplete";
 
 /** The editor a list for a plugin's marker is created for. */
 type HostEditor = Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
-
-/** The least width of an {@link createAutocompleteMentionList} list, whose caret anchor has none. */
-const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
 
 /**
  * Lists the notes for the query typed after `@` as the note autocomplete does, for the editor config's
@@ -28,7 +21,7 @@ export function createNoteMentionList({ allowCreatingNotes, preselect, getParent
      */
     getParentNotePath?(): string | null | undefined;
 } = {}): MentionHostedList {
-    return createHostedList((state, list) => (
+    return createHostedList<MentionHostedListState>((state, list) => (
         <NoteMentionList
             {...list}
             query={state.query}
@@ -49,15 +42,14 @@ export function createNoteMentionList({ allowCreatingNotes, preselect, getParent
  */
 export function createAutocompleteMentionList({ source, renderItem, toMention }: {
     source(query: string): Promise<string[]>;
-    renderItem?(item: string): ComponentChildren;
+    renderItem?(item: string, query: string): ComponentChildren;
     toMention(item: string): MentionFeedObjectItem;
 }): MentionHostedList {
-    return createHostedList((state, list) => (
+    return createHostedList<MentionHostedListState>((state, list) => (
         <AutocompleteList
             {...list}
             query={state.query}
             source={source}
-            minWidth={AUTOCOMPLETE_MENTION_MIN_WIDTH}
             renderItem={renderItem}
             onPick={(item) => state.commit(toMention(item))}
         />
@@ -72,7 +64,7 @@ export function createSlashCommandList(editor: HostEditor): MentionHostedList {
     const palette = editor.plugins.get("TriliumSlashCommands") as TriliumSlashCommands;
     const source = async (query: string) => palette.search(query).map(toCommandEntry);
 
-    return createHostedList((state, list) => (
+    return createHostedList<MentionHostedListState>((state, list) => (
         <CommandMentionList<SlashCommandEntry>
             {...list}
             query={state.query}
@@ -91,7 +83,7 @@ export function createEmojiList(editor: HostEditor): MentionHostedList {
     const emoji = editor.plugins.get("TriliumEmojiMention") as TriliumEmojiMention;
     const source = async (query: string) => emoji.search(query).map(toEmojiEntry);
 
-    return createHostedList((state, list) => (
+    return createHostedList<MentionHostedListState>((state, list) => (
         <CommandMentionList<EmojiEntry>
             {...list}
             query={state.query}
@@ -99,44 +91,6 @@ export function createEmojiList(editor: HostEditor): MentionHostedList {
             onPick={({ suggestion }) => state.commit(suggestion)}
         />
     ));
-}
-
-/** What a list drawn by {@link createHostedList} is given to draw itself with. */
-interface HostedListProps {
-    /** At the caret, placed again each time the query changes. */
-    anchor: ReferenceElement;
-    handleRef: MutableRef<AutocompleteListHandle | null>;
-    elementRef(element: HTMLElement | null): void;
-}
-
-/**
- * A {@link MentionHostedList} that renders what `draw` returns for each query, and forwards the
- * editor's keys to it.
- */
-function createHostedList(draw: (state: MentionHostedListState, list: HostedListProps) => VNode): MentionHostedList {
-    const container = document.createElement("div");
-    const handleRef: { current: AutocompleteListHandle | null } = { current: null };
-    let element: HTMLElement | null = null;
-    const elementRef = (el: HTMLElement | null) => { element = el; };
-    const unmount = () => {
-        render(null, container);
-        element = null;
-    };
-
-    return {
-        show(state) {
-            // A new anchor each time, so the list is placed again at the caret. Its `contextElement`
-            // places it again as the containers around the editor scroll.
-            const anchor = { getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined };
-            render(draw(state, { anchor, handleRef, elementRef }), container);
-        },
-        hide: unmount,
-        handleKeyDown: (e) => handleRef.current?.handleKeyDown(e) ?? false,
-        get element() {
-            return element;
-        },
-        destroy: unmount
-    };
 }
 
 type SlashCommandEntry = CommandEntry & { definition: SlashCommandDefinition };

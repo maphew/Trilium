@@ -27,21 +27,27 @@ describe("createNoteMentionList", () => {
     async function open() {
         const list = createNoteMentionList({ allowCreatingNotes: true });
         const commit = vi.fn<MentionHostedListState["commit"]>();
-        await act(async () => list.show({ query: "al", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        const setActiveDescendant = vi.fn<MentionHostedListState["setActiveDescendant"]>();
+        await act(async () => list.show({ query: "al", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit, setActiveDescendant }));
         await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-        return { list, commit };
+        return { list, commit, setActiveDescendant };
     }
 
     it("lists the notes for the query, and mentions the one picked by its path", async () => {
-        const { list, commit } = await open();
+        const { list, commit, setActiveDescendant } = await open();
 
         expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true, limit: 10 });
         expect(list.element?.textContent).toContain("Alpha");
+        // The editor is pointed at the row the list opens on.
+        const active = list.element?.querySelector("[aria-selected=true]");
+        expect(active?.id).toBeTruthy();
+        expect(setActiveDescendant).toHaveBeenLastCalledWith(active?.id);
         expect(list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }))).toBe(true);
         expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "@root/a", notePath: "root/a" });
 
         await act(async () => list.hide());
         expect(list.element).toBeNull();
+        expect(setActiveDescendant).toHaveBeenLastCalledWith(null);
         expect(list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }))).toBe(false);
         list.destroy?.();
     });
@@ -70,7 +76,7 @@ describe("createNoteMentionList", () => {
         const commit = vi.fn<MentionHostedListState["commit"]>();
         // The editor is reused for the next note, so the parent is read as the list is shown.
         editedNotePath = "root/second";
-        await act(async () => list.show({ query: "al", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => list.show({ query: "al", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit, setActiveDescendant: vi.fn() }));
         await act(async () => { await vi.advanceTimersByTimeAsync(300); });
 
         list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
@@ -98,7 +104,7 @@ describe("createAutocompleteMentionList", () => {
         const commit = vi.fn<MentionHostedListState["commit"]>();
         const key = (k: string) => list.handleKeyDown(new KeyboardEvent("keydown", { key: k, cancelable: true }));
 
-        await act(async () => list.show({ query: "ab", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => list.show({ query: "ab", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit, setActiveDescendant: vi.fn() }));
         await act(async () => { await vi.advanceTimersByTimeAsync(300); });
 
         expect(source).toHaveBeenLastCalledWith("ab");
@@ -133,7 +139,7 @@ describe("createSlashCommandList", () => {
         const commit = vi.fn<MentionHostedListState["commit"]>();
         const key = (k: string) => list.handleKeyDown(new KeyboardEvent("keydown", { key: k, cancelable: true }));
 
-        await act(async () => list.show({ query: "q", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => list.show({ query: "q", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit, setActiveDescendant: vi.fn() }));
         // The list opens, then looks its entries up at once, with no debounce to wait out.
         await act(async () => {});
 
@@ -159,7 +165,7 @@ describe("createSlashCommandList", () => {
         const editor = { plugins: { get: () => ({ search }) } } as unknown as Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
         const list = createSlashCommandList(editor);
         const commit = vi.fn<MentionHostedListState["commit"]>();
-        const show = (query: string) => list.show({ query, caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit });
+        const show = (query: string) => list.show({ query, caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit, setActiveDescendant: vi.fn() });
 
         await act(async () => show(""));
         await act(async () => {});
@@ -187,7 +193,7 @@ describe("createEmojiList", () => {
         const commit = vi.fn<MentionHostedListState["commit"]>();
         const key = (k: string) => list.handleKeyDown(new KeyboardEvent("keydown", { key: k, cancelable: true }));
 
-        await act(async () => list.show({ query: "grin", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => list.show({ query: "grin", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit, setActiveDescendant: vi.fn() }));
         await act(async () => {});
 
         expect(search).toHaveBeenLastCalledWith("grin");

@@ -423,7 +423,7 @@ function attributeNameMention(marker: "#" | "~", type: "label" | "relation"): Me
         minimumCharacters: 0,
         list: () => createAutocompleteMentionList({
             source: (query) => fetchAttributeNames(type, query),
-            renderItem: (name) => <AttributeNameSuggestion type={type} name={name} />,
+            renderItem: (name, query) => <AttributeNameSuggestion type={type} name={name} query={query} />,
             toMention: (name) => ({ id: `${marker}${name}` })
         })
     };

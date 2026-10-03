@@ -171,7 +171,21 @@ Just like <a class="reference-link" href="Text.md">Text</a> notes, Markdown no
 *   Inserting task items (`/todo:<state>`, e.g. `/todo:done`), one per configured task state.
 *   Inserting code snippets (`/snippet:<name>`) from your Markdown/plain-text snippet notes.
 
+The list shows each command by its title, as in Text notes. Typing a command's title, its keyword (as listed above) or a related word such as `latex` or `grid` finds it.
+
 Note that slash commands only work outside of code blocks and inline code.
+
+#### Linking notes with `@` or `[[`
+
+As in <a class="reference-link" href="Text.md">Text</a> notes, typing `@` at the start of a line or after a space opens the note search. Picking a note replaces what was typed with a link to it in the Wikilinks-like format (`[[noteId]]`), which the preview shows as an <a class="reference-link" href="Text/Links/Internal%20(reference)%20links.md">internal link</a> with the note's title.
+
+The search runs on everything typed after the `@`, spaces included, so a title such as `@My meeting notes` can be typed out; press <kbd>Esc</kbd> to close the list and go on writing. If no note fits, the list offers to create one, as a child of the Markdown note or in the inbox; the link is inserted once the note is created.
+
+You can also start typing the link directly: `[[` opens the same list, and closing the brackets yourself dismisses it. To change where an existing link points, place the cursor inside it and pick another note.
+
+Like slash commands, `@` and `[[` do nothing inside code blocks and inline code.
+
+In the editor, a `[[noteId]]` link shows as the note's icon and title, so you can tell which note it points to without looking up its ID. Clicking it, or moving the cursor next to it, shows the link as written so it can be edited. Links inside code blocks and inline code are left as they are.
 
 #### Code block language auto-completion
 

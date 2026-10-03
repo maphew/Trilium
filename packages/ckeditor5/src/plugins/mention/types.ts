@@ -73,6 +73,11 @@ export interface MentionHostedListState {
      * stays for good where it settles on `undefined`.
      */
     commit( item: MentionFeedObjectItem | Promise<MentionFeedObjectItem | undefined> ): void;
+    /**
+     * Points the editable at the list's highlighted entry through `aria-activedescendant`, by the
+     * id of the entry's element, or at none for `null`. Once the list closes, it points at none.
+     */
+    setActiveDescendant( id: string | null ): void;
 }
 
 /** A host's list for a marker in `mention.hostedFeeds`. */

@@ -1,9 +1,10 @@
 import "./Menu.css";
 import "./NoteAutocomplete.css";
 
+import type { ReferenceElement } from "@floating-ui/dom";
 import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
-import { type ComponentChildren, type RefObject, render } from "preact";
+import { type ComponentChildren, type RefObject, render, type VNode } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -438,7 +439,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
  * creation row: `onPick` then receives a promise, settling on `undefined` where the creation is
  * canceled.
  */
-export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNotePath, preselect = true, onPick, handleRef, elementRef }: {
+export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNotePath, preselect = true, onPick, handleRef, elementRef, onActiveDescendant }: {
     query: string;
     anchor: PopupProps["anchor"];
     allowCreatingNotes?: boolean;
@@ -449,6 +450,8 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNoteP
     onPick(notePath: string | Promise<string | undefined>): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
+    /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
+    onActiveDescendant?(id: string | null): void;
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
@@ -475,7 +478,7 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNoteP
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-    useForwardedKeys(autocomplete, handleRef);
+    useForwardedKeys(autocomplete, handleRef, onActiveDescendant);
 
     return autocomplete.isShown && (
         <NoteSuggestionPopup anchor={anchor} elementRef={elementRef} className="note-mention-menu">
@@ -497,31 +500,37 @@ export interface CommandEntry {
     iconText?: string;
     /** Draws a divider above the entry, setting it and those after it apart from the ones before. */
     startsGroup?: boolean;
+    /** Further words the entry is found by, ranked below its title, as the text editor's `/` palette does. */
+    aliases?: string[];
 }
 
 /**
  * Lists commands for a query typed somewhere else, such as after a `/` in a text editor, as the
  * command palette lists its own after a `>`. The host keeps the focus and forwards its keys through
- * `handleRef`. It opens on the best match, so Enter takes it.
+ * `handleRef`. It opens on the best match, so Enter takes it, unless `preselect` is off.
  */
-export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, onPick, handleRef, elementRef }: {
+export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, preselect = true, onPick, handleRef, elementRef, onActiveDescendant }: {
     query: string;
     /** The entries for a query, looked up as soon as it changes, with no debounce. */
     source(query: string): Promise<T[]>;
     anchor: PopupProps["anchor"];
     /** A class for the popup, beside its own. */
     className?: string;
+    /** Opens the list with the best match highlighted, so that Enter takes it. */
+    preselect?: boolean;
     onPick(entry: T): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
+    /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
+    onActiveDescendant?(id: string | null): void;
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
-    const autocomplete = useAutocomplete({ query, source, onPick, inputRef, autoActivate: true, textOf: commandTitle, schedule: lookUpNow });
+    const autocomplete = useAutocomplete({ query, source, onPick, inputRef, autoActivate: preselect, textOf: commandTitle, schedule: lookUpNow });
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-    useForwardedKeys(autocomplete, handleRef);
+    useForwardedKeys(autocomplete, handleRef, onActiveDescendant);
 
     return autocomplete.isShown && (
         <NoteSuggestionPopup anchor={anchor} elementRef={elementRef} className={className}>
@@ -537,7 +546,7 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
                         <span>
                             <SuggestionRowContent
                                 icon={<CommandIcon entry={entry} />}
-                                header={<span className="search-result-title">{entry.title}</span>}
+                                header={<span className="search-result-title"><HighlightedText text={entry.title} query={query} /></span>}
                                 details={entry.description && <span className="note-suggestion-description">{entry.description}</span>}
                             />
                         </span>
@@ -546,6 +555,93 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
             </menu>
         </NoteSuggestionPopup>
     );
+}
+
+/**
+ * The entries of a {@link CommandMentionList} whose title or aliases hold `query`, ignoring case,
+ * ranked as the text editor's `/` palette ranks its commands: a title starting with it, then an
+ * alias starting with it, then a title holding it, then an alias holding it. Each rank keeps the
+ * order the entries are offered in.
+ */
+export function filterCommandEntries<T extends CommandEntry>(entries: T[], query: string) {
+    const typed = query.toLowerCase();
+    const rankOf = ({ title, aliases = [] }: T) => {
+        const words = aliases.map((alias) => alias.toLowerCase());
+        const name = title.toLowerCase();
+        if (name.startsWith(typed)) return 0;
+        if (words.some((word) => word.startsWith(typed))) return 1;
+        if (name.includes(typed)) return 2;
+        if (words.some((word) => word.includes(typed))) return 3;
+        return null;
+    };
+
+    const ranked: T[][] = [ [], [], [], [] ];
+    for (const entry of entries) {
+        const rank = rankOf(entry);
+        if (rank !== null) ranked[rank].push(entry);
+    }
+    return ranked.flat();
+}
+
+/** What a list drawn by {@link createHostedList} is given to draw itself with. */
+export interface HostedListProps {
+    /** At the caret, placed again each time the query changes. */
+    anchor: ReferenceElement;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
+    elementRef(element: HTMLElement | null): void;
+    /** Points the editor at the highlighted entry, through the state's `setActiveDescendant()`. */
+    onActiveDescendant(id: string | null): void;
+}
+
+/**
+ * A list an editor hosts for the query typed after a marker, such as for CKEditor's
+ * `mention.hostedFeeds` or CodeMirror's `hostedMention()`. It renders what `draw` returns for each
+ * query, at the caret, and forwards the editor's keys to it.
+ */
+export function createHostedList<S extends { caretRect(): DOMRect; editable: HTMLElement | null; setActiveDescendant(id: string | null): void }>(
+    draw: (state: S, list: HostedListProps) => VNode
+) {
+    const container = document.createElement("div");
+    const handleRef: { current: AutocompleteListHandle | null } = { current: null };
+    let element: HTMLElement | null = null;
+    const elementRef = (el: HTMLElement | null) => { element = el; };
+    let shown: S | null = null;
+    const onActiveDescendant = (id: string | null) => shown?.setActiveDescendant(id);
+    const unmount = () => {
+        render(null, container);
+        element = null;
+        shown = null;
+    };
+
+    return {
+        show(state: S) {
+            // A new anchor each time, so the list is placed again at the caret. Its `contextElement`
+            // places it again as the containers around the editor scroll.
+            const anchor = { getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined };
+            shown = state;
+            render(draw(state, { anchor, handleRef, elementRef, onActiveDescendant }), container);
+        },
+        hide: unmount,
+        handleKeyDown: (e: KeyboardEvent) => handleRef.current?.handleKeyDown(e) ?? false,
+        get element() {
+            return element;
+        },
+        destroy: unmount
+    };
+}
+
+/**
+ * `text` with the first occurrence of `query` in it, whatever its case, set in bold as the search
+ * sets its matches in a note's title. For a list filtered on the client, which matches the same way.
+ */
+export function HighlightedText({ text, query }: { text: string; query: string }) {
+    const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
+    if (at < 0) {
+        return <>{text}</>;
+    }
+
+    const end = at + query.length;
+    return <>{text.slice(0, at)}<b>{text.slice(at, end)}</b>{text.slice(end)}</>;
 }
 
 function CommandIcon({ entry }: { entry: CommandEntry }) {
@@ -720,17 +816,6 @@ function SuggestionRowContent({ icon, header, details, trailing }: {
         </div>
         {trailing}
     </>;
-}
-
-/**
- * Draws `suggestion` as the content of a `.dropdown-item` in a `.note-autocomplete-menu`, for a
- * list this component does not render, such as a search field's completions.
- */
-export function renderNoteSuggestion(suggestion: Suggestion): HTMLElement {
-    const element = document.createElement("span");
-    render(<NoteSuggestionMenuItemContent suggestion={suggestion} />, element);
-
-    return element;
 }
 
 /**

@@ -22,7 +22,7 @@ import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import type { AutocompleteListHandle } from "./FormAutocomplete";
-import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList, renderNoteSuggestion } from "./NoteAutocomplete";
+import NoteAutocomplete, { filterCommandEntries, HighlightedText, type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList } from "./NoteAutocomplete";
 import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
@@ -274,20 +274,6 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(badges[1].querySelector(".attribute-badge-value b")?.textContent).toBe("al");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
-    });
-
-    it("renders a row's content for a list it does not hold, as its own rows hold it", async () => {
-        const input = await mount();
-        await type(input, "al");
-        const beta = rows()[1];
-        const content = beta.querySelector(":scope > span");
-
-        // Class-less, as the menu's `.dropdown-item > span:not([class])` lays out.
-        const rendered = renderNoteSuggestion(notes[1]);
-        expect(rendered.tagName).toBe("SPAN");
-        expect(rendered.hasAttribute("class")).toBe(false);
-        expect(content).not.toBe(null);
-        expect(rendered.innerHTML).toBe(content?.innerHTML);
     });
 
     it("gives each kind of row its icon, and never shows a content snippet", async () => {
@@ -1292,5 +1278,51 @@ describe("NoteMentionList", () => {
         expect(await press("Enter")).toBe(true);
         expect(createNoteFromSuggestion).toHaveBeenCalledExactlyOnceWith(childRow, "root/edited");
         await unmount();
+    });
+});
+
+describe("HighlightedText", () => {
+    it("sets the first occurrence of the query in bold, whatever its case, and nothing where there is none", () => {
+        const html = (text: string, query: string) => {
+            const host = document.createElement("div");
+            preactRender(<HighlightedText text={text} query={query} />, host);
+            return host.innerHTML;
+        };
+
+        expect(html("ownedLabelCount", "label")).toBe("owned<b>Label</b>Count");
+        expect(html("labelCount", "la")).toBe("<b>la</b>belCount");
+        expect(html("a<b>&", "<b")).toBe("a<b>&lt;b</b>&gt;&amp;");
+        expect(html("title", "xyz")).toBe("title");
+        expect(html("title", "")).toBe("title");
+    });
+});
+
+describe("filterCommandEntries", () => {
+    it("keeps the entries holding the query, ignoring case, those starting with it first", () => {
+        const entries = [ "contentSize", "dateCreated", "content", "childrenCount", "title" ]
+            .map((title) => ({ id: title, title }));
+
+        expect(filterCommandEntries(entries, "CONT").map((entry) => entry.title)).toEqual([ "contentSize", "content" ]);
+        expect(filterCommandEntries(entries, "c").map((entry) => entry.title))
+            .toEqual([ "contentSize", "content", "childrenCount", "dateCreated" ]);
+        expect(filterCommandEntries(entries, "")).toEqual(entries);
+    });
+});
+
+describe("filterCommandEntries with aliases", () => {
+    it("ranks title prefixes, then alias prefixes, then titles and aliases holding the query", () => {
+        const entries = [
+            { id: "toc", title: "Table of contents", aliases: [ "outline" ] },
+            { id: "rule", title: "Horizontal line", aliases: [ "divider", "rule" ] },
+            { id: "table", title: "Table", aliases: [ "grid" ] },
+            { id: "code", title: "Code block", aliases: [ "snippet", "pre" ] },
+            { id: "quote", title: "Block quote", aliases: [ "citation" ] }
+        ];
+        const ids = (query: string) => filterCommandEntries(entries, query).map((entry) => entry.id);
+
+        expect(ids("ta")).toEqual([ "toc", "table", "rule", "quote" ]);
+        expect(ids("r")).toEqual([ "rule", "table", "code" ]);
+        expect(ids("GRID")).toEqual([ "table" ]);
+        expect(ids("tline")).toEqual([ "toc" ]);
     });
 });
