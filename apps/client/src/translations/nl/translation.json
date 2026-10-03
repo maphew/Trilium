@@ -61,7 +61,7 @@
     "link_title_mirrors": "De titel van de link komt overeen met de huidige titel van de notitie",
     "link_title": "Link titel",
     "button_add_link": "Link toevoegen",
-    "link_title_arbitrary": "de titel van de link kan naar willekeurig worden gewijzigd",
+    "link_title_arbitrary": "de titel van de link kan naar believen worden gewijzigd",
     "anchor": "Anker (optioneel)",
     "anchor_none": "Geen (koppeling naar notitie)",
     "edit_link": "Wijzig link",
@@ -268,7 +268,7 @@
     "newTabWithActivationNoteLink": "open notitielinks in een nieuw tabblad en focus deze",
     "editBranchPrefix": "pas het <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/tree-concepts.html#prefix\">voorvoegsel</a> aan van een actieve notitiekloon",
     "multiSelectNote": "selecteer meerdere notities boven/onder",
-    "editingNotes": "Notitie opmerkingen",
+    "editingNotes": "Notities bewerken",
     "headings": "<code>##</code>, <code>###</code>, <code>####</code>  etc. gevolgd door spatie voor kop"
   },
   "import": {
@@ -428,7 +428,7 @@
     },
     "admonition": "Voeg {{type}} waarschuwing toe",
     "todo": "Voeg een \"{{title}}\" taak item toe",
-    "todo_nonstandard": "Voeg een \"{{title}}\" taak item (niet standaard)"
+    "todo_nonstandard": "Voeg een \"{{title}}\" taak item toe (niet standaard)"
   },
   "move_to": {
     "dialog_title": "Notities verplaatsen naar ...",
@@ -501,7 +501,7 @@
     "confirm_restore": "Wilt u deze versie herstellen? Dit overschrijft de huidige titel en inhoud van de notitie met deze versie.",
     "delete_button": "Verwijderen",
     "confirm_delete": "Wilt u deze versie verwijderen?",
-    "revisions_deleted": "Notitie versie is verwijderd.",
+    "revisions_deleted": "Notitieversies zijn verwijderd.",
     "revision_restored": "Notitie versie is hersteld.",
     "revision_deleted": "Notitie versie is verwijderd."
   }
