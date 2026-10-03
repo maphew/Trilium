@@ -31,11 +31,12 @@ test("Open the note in the correct split pane", async ({ page, context }) => {
     await expect(noteContent.locator("p")).toBeVisible();
     await noteContent.focus();
 
-    // Click the search result in the second split.
+    // Click the search result in the second split. The notes come ahead of the search and
+    // creation rows, which also carry the title.
     await resultsSelector.locator(".aa-suggestion", { hasText: CODE_NOTE_TITLE })
-        .nth(1).click();
+        .first().click();
 
-    await expect(split2).toContainText(CODE_NOTE_TITLE);
+    await expect(split2.locator(".note-title").first()).toHaveValue(CODE_NOTE_TITLE);
 });
 
 test("Can directly focus the autocomplete input within the split", async ({ page, context }) => {
