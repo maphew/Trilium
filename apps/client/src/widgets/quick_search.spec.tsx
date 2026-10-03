@@ -11,7 +11,7 @@ import server from "../services/server";
 import { renderInto } from "../test/render";
 import QuickSearch from "./quick_search";
 import { ParentComponent } from "./react/react_utils";
-import type { SearchCompletion, SearchEntry } from "./ribbon/search_completions";
+import type { SearchCompletion } from "./ribbon/search_completions";
 
 // The completions fetch attribute names and values through the server, so a spec that opens them
 // supplies its own.
@@ -25,8 +25,7 @@ vi.mock("../services/i18n", async (importOriginal) => ({
 }));
 
 vi.mock("./ribbon/search_completions", () => ({
-    searchCompletionAt: (before: string, explicit: boolean) => completions.at?.(before, explicit) ?? null,
-    filterSearchEntries: (entries: SearchEntry[]) => entries
+    searchCompletionAt: (before: string, explicit: boolean) => completions.at?.(before, explicit) ?? null
 }));
 
 describe("QuickSearch", () => {

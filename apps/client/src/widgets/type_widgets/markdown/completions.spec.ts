@@ -2,8 +2,8 @@ import type { CompletionContext } from "@codemirror/autocomplete";
 import { markdown } from "@codemirror/lang-markdown";
 import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import type VanillaCodeMirror from "@triliumnext/codemirror";
-import type { MimeType } from "@triliumnext/commons";
+import VanillaCodeMirror from "@triliumnext/codemirror";
+import type { MimeType, TaskStateDef } from "@triliumnext/commons";
 import { h, render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type FNote from "../../../entities/fnote";
 import mime_types from "../../../services/mime_types.js";
 import type { TypeWidgetProps } from "../type_widget";
-import { buildCodeFenceOptions, buildTaskItemInsert, codeFenceCompletionSource, isClosingFence, parseCodeFencePrefix, useSlashCommands } from "./completions.js";
+import { buildCodeFenceOptions, buildSlashCommands, buildTaskItemInsert, codeFenceCompletionSource, isClosingFence, parseCodeFencePrefix, slashCommandAt, useSlashCommands } from "./completions";
 
 // The hook's two asynchronous sources of menu entries, stubbed so mounting it needs no server.
 vi.mock("../code/snippets", async (importOriginal) => ({
@@ -19,6 +19,8 @@ vi.mock("../code/snippets", async (importOriginal) => ({
     useCodeSnippets: () => ({ current: [] })
 }));
 vi.mock("../../../services/task_states", () => ({ getTaskStateDefinitions: () => Promise.resolve([]) }));
+// The catalogue is not loaded in specs, and the sample diagrams translate their names as they load.
+vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 
 describe("buildTaskItemInsert", () => {
     it("prepends a bullet when not already in a list item", () => {
@@ -150,6 +152,97 @@ describe("codeFenceCompletionSource", () => {
     });
 });
 
+describe("slashCommandAt", () => {
+    /** What is found with the caret at `pos`, or at the end. */
+    function at(doc: string, pos = doc.length) {
+        const state = EditorState.create({ doc, extensions: [ markdown() ], selection: { anchor: pos } });
+        ensureSyntaxTree(state, doc.length);
+        const line = state.doc.lineAt(pos);
+        return slashCommandAt(line.text.slice(0, pos - line.from), false, state);
+    }
+
+    it("finds a command at the start of a line or after whitespace, from its slash", () => {
+        expect(at("/")).toEqual({ from: 0, query: "/" });
+        expect(at("some text /todo:in-progress")).toEqual({ from: 10, query: "/todo:in-progress" });
+        expect(at("first\n  /ta")).toEqual({ from: 2, query: "/ta" });
+    });
+
+    it("finds none inside a word, past a space, or in code", () => {
+        expect(at("and/or")).toBeNull();
+        expect(at("/table ")).toBeNull();
+        expect(at("```js\nconst a = 1 /")).toBeNull();
+        expect(at("text `a /` b", 9)).toBeNull();
+    });
+});
+
+describe("buildSlashCommands", () => {
+    let editor: VanillaCodeMirror;
+    const triggerCommand = vi.fn();
+
+    beforeEach(() => {
+        triggerCommand.mockReset();
+        const parent = document.createElement("div");
+        document.body.append(parent);
+        editor = new VanillaCodeMirror({ parent });
+    });
+
+    afterEach(() => editor.destroy());
+
+    const todo = (name: string, markdownSymbol: string): TaskStateDef => ({ name, title: name, markdownSymbol, isCompleted: false, icon: `bx bx-${name}` });
+
+    function commands(taskStates: TaskStateDef[] = []) {
+        return buildSlashCommands({
+            parentComponent: { triggerCommand } as unknown as TypeWidgetProps["parentComponent"],
+            note: {} as FNote,
+            editorView: editor,
+            taskStates,
+            snippets: [ { noteId: "s1", title: "Greeting", description: "Says hello", content: "Hello!" } ]
+        });
+    }
+
+    /** Puts `doc` in the editor and runs `title` on the command typed at its end. */
+    function run(title: string, doc: string, taskStates: TaskStateDef[] = []) {
+        editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: doc }, selection: { anchor: doc.length } });
+        const entry = commands(taskStates).find((candidate) => candidate.title === title);
+        if (!entry) throw new Error(`no command ${title}`);
+        entry.apply(editor, doc.lastIndexOf("/"), doc.length);
+        return editor.state.doc.toString();
+    }
+
+    it("lists each command with its icon, setting each group apart", () => {
+        const entries = commands([ todo("done", "x") ]);
+        const byTitle = (title: string) => entries.find((entry) => entry.title === title);
+
+        expect(byTitle("/table")?.icon).toBe("bx bx-table");
+        expect(byTitle("/todo:done")).toMatchObject({ icon: "bx bx-done", startsGroup: true });
+        expect(byTitle("/snippet:Greeting")).toMatchObject({ description: "Says hello", icon: "bx bx-code-curly", startsGroup: true });
+        expect(byTitle("/date")?.startsGroup).toBeUndefined();
+        expect(byTitle("/tip")?.startsGroup).toBeUndefined();
+        expect(byTitle("/note")?.startsGroup).toBe(true);
+    });
+
+    it("replaces the typed command with what it inserts", () => {
+        expect(run("/snippet:Greeting", "Hi /snip")).toBe("Hi Hello!");
+        expect(run("/todo:done", "- /todo", [ todo("done", "x") ])).toBe("- [x] ");
+        expect(run("/todo:done", "/todo", [ todo("done", "x") ])).toBe("- [x] ");
+        expect(run("/tip", "/tip")).toBe("> [!TIP]\n> ");
+    });
+
+    it("numbers a footnote past the highest one, and selects what to type over", () => {
+        expect(run("/footnote", "a[^2] b /foot")).toBe("a[^2] b [^3]\n\n[^3]: ");
+        expect(editor.state.selection.main.head).toBe(editor.state.doc.length);
+
+        run("/table", "/table");
+        const { from, to } = editor.state.selection.main;
+        expect(editor.state.sliceDoc(from, to)).toBe("markdown_slash_commands.placeholders.table_column");
+    });
+
+    it("removes the typed command before running one of the text editor's commands", () => {
+        expect(run("/date", "On /date")).toBe("On ");
+        expect(triggerCommand).toHaveBeenCalledExactlyOnceWith("insertDateTimeToText");
+    });
+});
+
 describe("useSlashCommands", () => {
     let container: HTMLElement;
 
@@ -163,33 +256,47 @@ describe("useSlashCommands", () => {
         container.remove();
     });
 
-    /** Mounts the hook against an editor that only records what it is asked to register. */
-    function mount() {
-        const setCompletionSource = vi.fn();
-        const editorView = { setCompletionSource } as unknown as VanillaCodeMirror;
-
+    /** Mounts the hook against `editorView`. */
+    function mount(editorView: VanillaCodeMirror) {
         function Probe() {
-            useSlashCommands({} as TypeWidgetProps["parentComponent"], editorView, {} as FNote);
+            useSlashCommands({} as TypeWidgetProps["parentComponent"], editorView, { noteId: "n1" } as FNote);
             return null;
         }
 
         act(() => render(h(Probe, {}), container));
-        return setCompletionSource;
     }
 
-    it("contributes both sources to the editor's shared aggregate", () => {
-        const setCompletionSource = mount();
+    it("registers the list and the fence languages with the editor, and withdraws both on unmount", () => {
+        const setNamedExtension = vi.fn();
+        const setCompletionSource = vi.fn();
+        mount({ setNamedExtension, setCompletionSource } as unknown as VanillaCodeMirror);
 
-        expect(setCompletionSource.mock.calls.map(([ name ]) => name)).toEqual([ "slashCommands", "markdownCodeFence" ]);
-        for (const [ , source ] of setCompletionSource.mock.calls) expect(source).toBeTypeOf("function");
-    });
-
-    it("withdraws both sources on unmount, so a later editor does not inherit them", () => {
-        const setCompletionSource = mount();
-        setCompletionSource.mockClear();
+        expect(setNamedExtension).toHaveBeenCalledExactlyOnceWith("slashCommands", expect.anything());
+        expect(setCompletionSource).toHaveBeenCalledExactlyOnceWith("markdownCodeFence", expect.any(Function));
 
         act(() => render(null, container));
+        expect(setNamedExtension).toHaveBeenLastCalledWith("slashCommands", []);
+        expect(setCompletionSource).toHaveBeenLastCalledWith("markdownCodeFence", null);
+    });
 
-        expect(setCompletionSource.mock.calls).toEqual([ [ "slashCommands", null ], [ "markdownCodeFence", null ] ]);
+    it("lists the commands for what follows a slash, as the text editor does, and runs the one picked", async () => {
+        const parent = document.createElement("div");
+        document.body.append(parent);
+        const editor = new VanillaCodeMirror({ parent });
+        mount(editor);
+        editor.focus();
+
+        editor.dispatch({ changes: { from: 0, insert: "/tab" }, selection: { anchor: 4 } });
+        const rows = () => [ ...document.querySelectorAll(".note-autocomplete-menu [role=option]") ];
+        await vi.waitFor(() => expect(rows().map((row) => row.textContent)).toEqual([ expect.stringContaining("/table") ]));
+        expect(rows()[0]?.querySelector("b")?.textContent).toBe("/tab");
+
+        // Opened on the best match, so Enter runs it.
+        editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toMatch(/^\| /));
+        await vi.waitFor(() => expect(rows()).toEqual([]));
+
+        act(() => render(null, container));
+        editor.destroy();
     });
 });

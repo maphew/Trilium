@@ -22,7 +22,7 @@ import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import type { AutocompleteListHandle } from "./FormAutocomplete";
-import NoteAutocomplete, { HighlightedText, type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList } from "./NoteAutocomplete";
+import NoteAutocomplete, { filterCommandEntries, HighlightedText, type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList } from "./NoteAutocomplete";
 import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
@@ -1294,5 +1294,17 @@ describe("HighlightedText", () => {
         expect(html("a<b>&", "<b")).toBe("a<b>&lt;b</b>&gt;&amp;");
         expect(html("title", "xyz")).toBe("title");
         expect(html("title", "")).toBe("title");
+    });
+});
+
+describe("filterCommandEntries", () => {
+    it("keeps the entries holding the query, ignoring case, those starting with it first", () => {
+        const entries = [ "contentSize", "dateCreated", "content", "childrenCount", "title" ]
+            .map((title) => ({ id: title, title }));
+
+        expect(filterCommandEntries(entries, "CONT").map((entry) => entry.title)).toEqual([ "contentSize", "content" ]);
+        expect(filterCommandEntries(entries, "c").map((entry) => entry.title))
+            .toEqual([ "contentSize", "content", "childrenCount", "dateCreated" ]);
+        expect(filterCommandEntries(entries, "")).toEqual(entries);
     });
 });

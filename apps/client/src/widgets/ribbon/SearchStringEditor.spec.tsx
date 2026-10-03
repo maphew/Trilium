@@ -10,8 +10,7 @@ import SearchStringEditor from "./SearchStringEditor";
 
 // The completions fetch attribute names and values through the server; nothing here opens their list.
 vi.mock("./search_completions", () => ({
-    searchCompletionAt: () => null,
-    filterSearchEntries: () => []
+    searchCompletionAt: () => null
 }));
 
 describe("SearchStringEditor", () => {

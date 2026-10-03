@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import server from "../../services/server";
-import { filterSearchEntries, type SearchCompletion, searchCompletionAt, type SearchEntry } from "./search_completions";
+import { type SearchCompletion, searchCompletionAt, type SearchEntry } from "./search_completions";
 
 // The descriptions are catalogue lookups, which specs don't initialize; the keys identify them.
 vi.mock("../../services/i18n", () => ({ t: (key: string) => key }));
@@ -269,18 +269,6 @@ describe("searchCompletionAt", () => {
             // `@` is a name character to the lexer, so the names go on being offered.
             expect(complete("#foo@")).toMatchObject({ kind: "attributes", query: "foo@" });
         });
-    });
-});
-
-describe("filterSearchEntries", () => {
-    it("keeps the entries holding the query, ignoring case, those starting with it first", () => {
-        const entries = [ "contentSize", "dateCreated", "content", "childrenCount", "title" ]
-            .map((title) => ({ id: title, title, insert: title }));
-
-        expect(filterSearchEntries(entries, "CONT").map((entry) => entry.title)).toEqual([ "contentSize", "content" ]);
-        expect(filterSearchEntries(entries, "c").map((entry) => entry.title))
-            .toEqual([ "contentSize", "content", "childrenCount", "dateCreated" ]);
-        expect(filterSearchEntries(entries, "")).toEqual(entries);
     });
 });
 

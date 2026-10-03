@@ -555,6 +555,18 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
     );
 }
 
+/**
+ * The entries of a {@link CommandMentionList} whose title holds `query`, ignoring case: those it
+ * starts first, then the rest, each in the order they are offered in.
+ */
+export function filterCommandEntries<T extends CommandEntry>(entries: T[], query: string) {
+    const typed = query.toLowerCase();
+    const starting = entries.filter(({ title }) => title.toLowerCase().startsWith(typed));
+    const containing = entries.filter(({ title }) => !title.toLowerCase().startsWith(typed) && title.toLowerCase().includes(typed));
+
+    return [ ...starting, ...containing ];
+}
+
 /** What a list drawn by {@link createHostedList} is given to draw itself with. */
 export interface HostedListProps {
     /** At the caret, placed again each time the query changes. */

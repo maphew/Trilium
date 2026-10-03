@@ -99,18 +99,6 @@ export function searchCompletionAt(before: string, explicit: boolean): SearchCom
 }
 
 /**
- * The entries whose title holds `query`, ignoring case: those it starts first, then the rest, each
- * in the order they are offered in.
- */
-export function filterSearchEntries(entries: SearchEntry[], query: string) {
-    const typed = query.toLowerCase();
-    const starting = entries.filter(({ title }) => title.toLowerCase().startsWith(typed));
-    const containing = entries.filter(({ title }) => !title.toLowerCase().startsWith(typed) && title.toLowerCase().includes(typed));
-
-    return [ ...starting, ...containing ];
-}
-
-/**
  * A note picked with `@`, which opens only where a value can stand — at the start, or after
  * whitespace, an opening bracket or an operator. `@` is a name character to the lexer, so one
  * typed inside an attribute name is left alone.

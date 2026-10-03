@@ -7,6 +7,12 @@ export interface HostedCompletionMatch {
     from: number;
 }
 
+/**
+ * What a pick does in place of inserting text: changes the document between `from`, where the match
+ * starts, and `to`, the caret, or runs something else, as a command does.
+ */
+export type HostedCompletionApply = (view: EditorView, from: number, to: number) => void;
+
 /** What a {@link HostedCompletionList} is shown for, each time the text before the caret changes. */
 export interface HostedCompletionState<M extends HostedCompletionMatch> {
     match: M;
@@ -14,8 +20,11 @@ export interface HostedCompletionState<M extends HostedCompletionMatch> {
     caretRect(): DOMRect;
     /** The editor's element. A list anchored at {@link caretRect} watches the containers around it. */
     editable: HTMLElement;
-    /** Replaces what stands between the match's `from` and the caret with `text`, as a pick does. */
-    commit(text: string): void;
+    /**
+     * Replaces what stands between the match's `from` and the caret with `insert`, as a pick does,
+     * or runs `insert` on that range.
+     */
+    commit(insert: string | HostedCompletionApply): void;
     /**
      * Points the editor at the list's highlighted entry through `aria-activedescendant`, by the id
      * of the entry's element, or at none for `null`. Once the list closes, it points at none.
@@ -41,9 +50,9 @@ export interface HostedCompletionConfig<M extends HostedCompletionMatch> {
     /**
      * What can be completed at the caret, read from the text of the line before it, or `null` where
      * nothing can. `explicit` is set after Ctrl-Space, which asks for completions where typing alone
-     * offers none.
+     * offers none. `state` is there for what the text alone does not tell, such as the syntax tree.
      */
-    match(before: string, explicit: boolean): M | null;
+    match(before: string, explicit: boolean, state: EditorState): M | null;
     /** Creates the list, once per editor. */
     list(view: EditorView): HostedCompletionList<M>;
 }
@@ -96,6 +105,10 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
                 this.dismissedAt = -1;
                 this.from = -1;
                 this.sync();
+                // Nothing to complete here, so the key goes on to the editor's own completion.
+                if (this.from < 0) {
+                    return false;
+                }
             } else if (this.from < 0) {
                 return false;
             } else if (event.key === "Escape") {
@@ -150,7 +163,7 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
                         match: found.match,
                         caretRect: () => (showing ? measured : caretRect(this.view)),
                         editable: this.view.dom,
-                        commit: (text) => this.commit(found.from, text),
+                        commit: (insert) => this.commit(found.from, insert),
                         setActiveDescendant: (id) => {
                             if (this.from === found.from) {
                                 this.setActiveDescendant(id);
@@ -162,12 +175,18 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
             });
         }
 
-        private commit(from: number, text: string) {
+        private commit(from: number, insert: string | HostedCompletionApply) {
             if (this.from !== from) {
                 return;
             }
 
             this.explicit = false;
+            if (typeof insert === "function") {
+                insert(this.view, from, this.view.state.selection.main.head);
+                return;
+            }
+
+            const text = insert;
             this.view.dispatch({
                 changes: { from, to: this.view.state.selection.main.head, insert: text },
                 selection: { anchor: from + text.length },
@@ -221,7 +240,7 @@ function matchAt<M extends HostedCompletionMatch>(state: EditorState, match: Hos
 
     const line = state.doc.lineAt(main.head);
     const before = line.text.slice(0, main.head - line.from);
-    const found = match(before, explicit);
+    const found = match(before, explicit, state);
 
     return found && { match: found, from: line.from + found.from, before };
 }

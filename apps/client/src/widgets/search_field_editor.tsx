@@ -12,8 +12,8 @@ import { t } from "../services/i18n";
 import server from "../services/server";
 import { AttributeNameSuggestion, fetchAttributeNames } from "./attribute_widgets/attribute_detail";
 import { AutocompleteList } from "./react/FormAutocomplete";
-import { CommandMentionList, createHostedList, NoteMentionList } from "./react/NoteAutocomplete";
-import { filterSearchEntries, type SearchCompletion, searchCompletionAt, type SearchEntry } from "./ribbon/search_completions";
+import { CommandMentionList, createHostedList, filterCommandEntries, NoteMentionList } from "./react/NoteAutocomplete";
+import { type SearchCompletion, searchCompletionAt, type SearchEntry } from "./ribbon/search_completions";
 
 /** The class the styles in `search_field_editor.css` are scoped under. */
 export const SEARCH_FIELD_EDITOR_CLASS = "search-string-editor";
@@ -97,7 +97,7 @@ function createSearchCompletionList() {
                         {...props}
                         query={match.query}
                         preselect={match.preselect}
-                        source={async (query) => filterSearchEntries(await entries, query)}
+                        source={async (query) => filterCommandEntries(await entries, query)}
                         onPick={(entry) => state.commit(entry.insert)}
                     />
                 );

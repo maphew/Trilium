@@ -1,4 +1,4 @@
-import { EditorSelection } from "@codemirror/state";
+import { EditorSelection, type EditorState } from "@codemirror/state";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createFieldEditor, type FieldEditor, type FieldEditorConfig } from "../field_editor.js";
@@ -16,21 +16,24 @@ interface TestMatch {
     from: number;
     query: string;
     explicit: boolean;
+    /** Where the caret is, read from the state `match` is given. */
+    at: number;
 }
 
 /**
  * An `@` where a value can stand, the query running to whitespace, as the search field has it; and
  * when asked explicitly, the word before the caret, empty as it can be.
  */
-function match(before: string, explicit: boolean): TestMatch | null {
+function match(before: string, explicit: boolean, state: EditorState): TestMatch | null {
+    const at = state.selection.main.head;
     const mention = /(?:^|\s)@([^\s@]*)$/.exec(before);
     if (mention) {
         const from = before.length - mention[1].length - 1;
-        return { from, query: mention[1], explicit };
+        return { from, query: mention[1], explicit, at };
     }
 
     const word = /\w*$/.exec(before)?.[0] ?? "";
-    return explicit ? { from: before.length - word.length, query: word, explicit } : null;
+    return explicit ? { from: before.length - word.length, query: word, explicit, at } : null;
 }
 
 describe("hostedCompletion", () => {
@@ -44,6 +47,7 @@ describe("hostedCompletion", () => {
         type("Fo");
         await vi.waitFor(() => expect(shown()?.match.query).toBe("Fo"));
         expect(list.show).toHaveBeenCalledTimes(2);
+        expect(shown()?.match.at).toBe(9);
 
         // Neither a selection change that keeps the text before the caret nor an empty update shows
         // it again.
@@ -83,6 +87,16 @@ describe("hostedCompletion", () => {
         // The list it was shown for has closed, so a late commit changes nothing.
         shown()?.commit("def456");
         expect(editor?.state.doc.toString()).toBe("#book\nabc123");
+
+        // A function commits whatever it does to the text between the match and the caret.
+        type(" @x");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("x"));
+        shown()?.commit((view, from, to) => {
+            view.dispatch({ changes: { from, to, insert: "[1]" }, selection: { anchor: from } });
+        });
+        expect(editor?.state.doc.toString()).toBe("#book\nabc123 [1]");
+        expect(editor?.state.selection.main.head).toBe(13);
+        editor?.dispatch({ changes: { from: 12, to: 16 }, selection: EditorSelection.cursor(12) });
 
         // A commit that leaves something to complete opens the list on it.
         type(" @Ba");
@@ -158,7 +172,7 @@ describe("hostedCompletion", () => {
         expect(list.show).not.toHaveBeenCalled();
 
         expect(press(" ", { ctrlKey: true })).toBe(true);
-        await vi.waitFor(() => expect(shown()?.match).toEqual({ from: 6, query: "bo", explicit: true }));
+        await vi.waitFor(() => expect(shown()?.match).toEqual({ from: 6, query: "bo", explicit: true, at: 8 }));
 
         // Asked for while the list is open, or closed with Escape, it shows the list again.
         expect(press("`", { altKey: true })).toBe(true);
@@ -174,6 +188,15 @@ describe("hostedCompletion", () => {
         type(" x");
         await settle();
         expect(list.show).toHaveBeenCalledTimes(3);
+    });
+
+    it("leaves Ctrl-Space to the editor where nothing can be completed", async () => {
+        const { list } = build({}, () => null);
+
+        type("#book");
+        expect(press(" ", { ctrlKey: true })).toBe(false);
+        await settle();
+        expect(list.show).not.toHaveBeenCalled();
     });
 
     it("closes as the editor loses the focus, and takes the list down with it", async () => {
@@ -235,7 +258,7 @@ describe("hostedCompletion", () => {
     });
 });
 
-function build(config: Partial<FieldEditorConfig> = {}) {
+function build(config: Partial<FieldEditorConfig> = {}, matchAt: typeof match = match) {
     let element: HTMLElement | null = null;
     let state: HostedCompletionState<TestMatch> | undefined;
     let placed: unknown;
@@ -260,7 +283,7 @@ function build(config: Partial<FieldEditorConfig> = {}) {
     editor = createFieldEditor({
         parent,
         ...config,
-        extensions: [ hostedCompletion({ match, list: () => list }) ]
+        extensions: [ hostedCompletion({ match: matchAt, list: () => list }) ]
     });
     editor.focus();
     editor.dispatch({ selection: EditorSelection.cursor(editor.state.doc.length) });
