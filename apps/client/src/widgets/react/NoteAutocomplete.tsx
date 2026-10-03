@@ -1,9 +1,10 @@
 import "./Menu.css";
 import "./NoteAutocomplete.css";
 
+import type { ReferenceElement } from "@floating-ui/dom";
 import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
-import { type ComponentChildren, type RefObject, render } from "preact";
+import { type ComponentChildren, type RefObject, render, type VNode } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -502,22 +503,24 @@ export interface CommandEntry {
 /**
  * Lists commands for a query typed somewhere else, such as after a `/` in a text editor, as the
  * command palette lists its own after a `>`. The host keeps the focus and forwards its keys through
- * `handleRef`. It opens on the best match, so Enter takes it.
+ * `handleRef`. It opens on the best match, so Enter takes it, unless `preselect` is off.
  */
-export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, onPick, handleRef, elementRef }: {
+export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, preselect = true, onPick, handleRef, elementRef }: {
     query: string;
     /** The entries for a query, looked up as soon as it changes, with no debounce. */
     source(query: string): Promise<T[]>;
     anchor: PopupProps["anchor"];
     /** A class for the popup, beside its own. */
     className?: string;
+    /** Opens the list with the best match highlighted, so that Enter takes it. */
+    preselect?: boolean;
     onPick(entry: T): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
-    const autocomplete = useAutocomplete({ query, source, onPick, inputRef, autoActivate: true, textOf: commandTitle, schedule: lookUpNow });
+    const autocomplete = useAutocomplete({ query, source, onPick, inputRef, autoActivate: preselect, textOf: commandTitle, schedule: lookUpNow });
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
@@ -546,6 +549,47 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
             </menu>
         </NoteSuggestionPopup>
     );
+}
+
+/** What a list drawn by {@link createHostedList} is given to draw itself with. */
+export interface HostedListProps {
+    /** At the caret, placed again each time the query changes. */
+    anchor: ReferenceElement;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
+    elementRef(element: HTMLElement | null): void;
+}
+
+/**
+ * A list an editor hosts for the query typed after a marker, such as for CKEditor's
+ * `mention.hostedFeeds` or CodeMirror's `hostedMention()`. It renders what `draw` returns for each
+ * query, at the caret, and forwards the editor's keys to it.
+ */
+export function createHostedList<S extends { caretRect(): DOMRect; editable: HTMLElement | null }>(
+    draw: (state: S, list: HostedListProps) => VNode
+) {
+    const container = document.createElement("div");
+    const handleRef: { current: AutocompleteListHandle | null } = { current: null };
+    let element: HTMLElement | null = null;
+    const elementRef = (el: HTMLElement | null) => { element = el; };
+    const unmount = () => {
+        render(null, container);
+        element = null;
+    };
+
+    return {
+        show(state: S) {
+            // A new anchor each time, so the list is placed again at the caret. Its `contextElement`
+            // places it again as the containers around the editor scroll.
+            const anchor = { getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined };
+            render(draw(state, { anchor, handleRef, elementRef }), container);
+        },
+        hide: unmount,
+        handleKeyDown: (e: KeyboardEvent) => handleRef.current?.handleKeyDown(e) ?? false,
+        get element() {
+            return element;
+        },
+        destroy: unmount
+    };
 }
 
 function CommandIcon({ entry }: { entry: CommandEntry }) {
@@ -720,17 +764,6 @@ function SuggestionRowContent({ icon, header, details, trailing }: {
         </div>
         {trailing}
     </>;
-}
-
-/**
- * Draws `suggestion` as the content of a `.dropdown-item` in a `.note-autocomplete-menu`, for a
- * list this component does not render, such as a search field's completions.
- */
-export function renderNoteSuggestion(suggestion: Suggestion): HTMLElement {
-    const element = document.createElement("span");
-    render(<NoteSuggestionMenuItemContent suggestion={suggestion} />, element);
-
-    return element;
 }
 
 /**

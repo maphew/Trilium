@@ -22,7 +22,7 @@ import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import type { AutocompleteListHandle } from "./FormAutocomplete";
-import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList, renderNoteSuggestion } from "./NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList } from "./NoteAutocomplete";
 import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
@@ -274,20 +274,6 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(badges[1].querySelector(".attribute-badge-value b")?.textContent).toBe("al");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
-    });
-
-    it("renders a row's content for a list it does not hold, as its own rows hold it", async () => {
-        const input = await mount();
-        await type(input, "al");
-        const beta = rows()[1];
-        const content = beta.querySelector(":scope > span");
-
-        // Class-less, as the menu's `.dropdown-item > span:not([class])` lays out.
-        const rendered = renderNoteSuggestion(notes[1]);
-        expect(rendered.tagName).toBe("SPAN");
-        expect(rendered.hasAttribute("class")).toBe(false);
-        expect(content).not.toBe(null);
-        expect(rendered.innerHTML).toBe(content?.innerHTML);
     });
 
     it("gives each kind of row its icon, and never shows a content snippet", async () => {

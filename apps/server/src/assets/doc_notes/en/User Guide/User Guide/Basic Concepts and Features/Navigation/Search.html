@@ -97,9 +97,11 @@
   operators, values, and notes after <code>@</code>. Keywords such as <code>and</code>, <code>or</code>, <code>not</code>, <code>orderBy</code> and <code>limit</code> appear
   only on <kbd>Ctrl</kbd>+<kbd>Space</kbd>, since a plain word is usually
   a search term.</p>
-<p>No suggestion is selected when the list opens, so <kbd>Enter</kbd> runs
+<p>No suggestion is selected when a list opens on its own, so <kbd>Enter</kbd> runs
   the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and
-  press <kbd>Enter</kbd>.</p>
+  press <kbd>Enter</kbd>. The list opened with <kbd>Ctrl</kbd>+<kbd>Space</kbd> and
+  the notes after <code>@</code> open on the best match instead, so <kbd>Enter</kbd> inserts
+  it.</p>
 <p>The autocomplete offers:</p>
 <ul>
   <li>
@@ -113,10 +115,9 @@
     <p>Contextual enumerations such as <code>note.type = "</code> or <code>note.mime = "</code>.</p>
   </li>
   <li>
-    <p><a href="#root/_help_HI6GBBIduIgv">Label</a> names by typing <code>#</code>,
-      with user-defined ones shown first.</p>
+    <p><a href="#root/_help_HI6GBBIduIgv">Label</a> names by typing <code>#</code>.</p>
     <ul>
-      <li>A gear icon indicates system attributes.</li>
+      <li>A small gear on the name's icon indicates a system attribute.</li>
       <li>After typing the label name, the value is also autocompleted with values
         that are present in the database.</li>
     </ul>

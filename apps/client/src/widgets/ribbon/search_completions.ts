@@ -1,85 +1,113 @@
-import type { Completion, CompletionContext, CompletionResult } from "@triliumnext/codemirror/src/field_editor";
-import { ALLOWED_NOTE_TYPES, allowedSearchOperators, type AutocompleteResult, MIME_TYPES_DICT, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
+import { ALLOWED_NOTE_TYPES, allowedSearchOperators, MIME_TYPES_DICT, NOTE_TYPE_ICONS, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
 
-import { isBuiltinAttribute } from "../../services/attributes";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
-import { fetchAttributeNames } from "../attribute_widgets/attribute_detail";
-
-/** A branch answers at once, or after what it offers has been fetched. */
-type CompletionOutcome = CompletionResult | Promise<CompletionResult | null> | null;
+import type { CommandEntry } from "../react/NoteAutocomplete";
 
 /**
- * Offers Trilium's search syntax: the `note` object, the keywords, the property path that hangs off
- * `note` or off a relation, the comparison operators — whose spellings (`*=*`, `=*`, `~=`) are the
- * part of the syntax hardest to recall — the label and relation names in the database, and the
- * values a label is compared against.
+ * What can be completed at the cursor of a search string: what a pick replaces, from `from` up to
+ * the cursor, and which list offers it.
+ *
+ * - `notes`: the notes an `@` picks, listed as the note autocomplete lists them.
+ * - `attributes`: the label or relation names in the database, listed as the attribute panel lists them.
+ * - `entries`: everything else the syntax offers, listed as the command palette lists its commands.
  */
-export function searchCompletionSource(context: CompletionContext): CompletionOutcome {
-    // Read before the rest: `@` is a name character to the lexer, so the branches below would
-    // answer for one typed inside an attribute name.
-    const mention = context.matchBefore(NOTE_MENTION);
-    if (mention) {
-        const typedAt = mention.text.indexOf("@");
+export type SearchCompletion = { from: number; query: string } & (
+    | { kind: "notes" }
+    | { kind: "attributes"; type: "label" | "relation" }
+    | {
+        kind: "entries";
+        /** Identifies the entries among the others offered at the same place. */
+        key: string;
+        entries(): SearchEntry[] | Promise<SearchEntry[]>;
+        /** Opens the list with the best match highlighted, so that Enter takes it. */
+        preselect: boolean;
+    }
+);
 
-        return noteCompletions(mention.text.slice(typedAt + 1), mention.from + typedAt);
+/** An entry of the syntax, and the text a pick inserts for it. */
+export interface SearchEntry extends CommandEntry {
+    insert: string;
+}
+
+/**
+ * Offers Trilium's search syntax at the end of `before`, the text of the line up to the cursor: the
+ * notes picked with `@`, the `note` object, the keywords, the property path that hangs off `note`
+ * or off a relation, the comparison operators — whose spellings (`*=*`, `=*`, `~=`) are the part of
+ * the syntax hardest to recall — the label and relation names in the database, and the values a
+ * label or a property is compared against. `explicit` is set where the user asked with Ctrl-Space.
+ */
+export function searchCompletionAt(before: string, explicit: boolean): SearchCompletion | null {
+    const context = { before, pos: before.length, explicit };
+
+    // Read before the rest: `@` is a name character to the lexer, so the branches below would answer
+    // for one typed inside an attribute name, and the value branches for the query after it.
+    const mention = matchBefore(context, NOTE_MENTION);
+    if (mention) {
+        const at = mention.from + mention.text.indexOf("@");
+
+        return { kind: "notes", from: at, query: before.slice(at + 1) };
     }
 
-    const path = context.matchBefore(PROPERTY_PATH);
+    const path = matchBefore(context, PROPERTY_PATH);
     if (path) {
-        return pathCompletions(path.text, context.pos);
+        return pathCompletion(path.text, context.pos);
     }
 
     // `~=` and `~*` reach the operators below instead: an attribute name cannot be spelled with
     // either character, so the pattern finds nothing ending at the cursor.
-    const attribute = context.matchBefore(ATTRIBUTE_PREFIX);
+    const attribute = matchBefore(context, ATTRIBUTE_PREFIX);
     if (attribute) {
-        const isNegated = attribute.text[1] === "!";
+        const from = attribute.from + (attribute.text[1] === "!" ? 2 : 1);
 
-        return attributeCompletions(
-            attribute.text[0] === "#" ? "label" : "relation",
-            attribute.from + (isNegated ? 2 : 1)
-        );
+        return { kind: "attributes", type: attribute.text[0] === "#" ? "label" : "relation", from, query: before.slice(from) };
     }
 
     const value = labelValueBeingTyped(context);
     if (value) {
-        return valueCompletions(value.name, context.pos - value.typed.length, value.quote);
+        const { name, quote } = value;
+
+        return entries(context, `values:${name}`, context.pos - value.typed.length, () => labelValues(name, quote));
     }
 
     const property = propertyValueBeingTyped(context);
     if (property) {
-        return {
-            from: context.pos - property.typed.length,
-            options: property.options,
-            validFor: validForValue(property.quote)
-        };
+        return entries(context, `property:${property.property}`, context.pos - property.typed.length, () => property.entries);
     }
 
     // An ordering names a key and sorts on it, comparing nothing.
     const ordering = orderingPosition(context);
-    const operators = () => (ordering === "none" ? operatorOptions(context) : []);
+    const operators = () => (ordering === "none" ? operatorEntries(context) : []);
 
-    const operator = context.matchBefore(OPERATOR_PREFIX);
+    const operator = matchBefore(context, OPERATOR_PREFIX);
     if (operator) {
-        const options = operators();
-
-        return options.length ? { from: operator.from, options, validFor: OPERATOR_PREFIX } : null;
+        return operators().length ? entries(context, "operators", operator.from, operators) : null;
     }
 
     // A plain word is most often a search term, so the keywords wait for Ctrl-Space.
-    const word = context.matchBefore(WORD_PREFIX);
+    const word = matchBefore(context, WORD_PREFIX);
     if (word) {
-        if (!context.explicit) return null;
-        return { from: word.from, options: wordOptions(ordering), validFor: WORD_PREFIX };
+        return explicit ? entries(context, `words:${ordering}`, word.from, () => wordEntries(ordering)) : null;
     }
 
     // Ctrl-Space on empty space asks for everything on offer.
-    if (context.explicit) {
-        return { from: context.pos, options: [ ...wordOptions(ordering), ...operators() ] };
+    if (explicit) {
+        return entries(context, `all:${ordering}`, context.pos, () => [ ...wordEntries(ordering), ...operators() ]);
     }
 
     return null;
+}
+
+/**
+ * The entries whose title holds `query`, ignoring case: those it starts first, then the rest, each
+ * in the order they are offered in.
+ */
+export function filterSearchEntries(entries: SearchEntry[], query: string) {
+    const typed = query.toLowerCase();
+    const starting = entries.filter(({ title }) => title.toLowerCase().startsWith(typed));
+    const containing = entries.filter(({ title }) => !title.toLowerCase().startsWith(typed) && title.toLowerCase().includes(typed));
+
+    return [ ...starting, ...containing ];
 }
 
 /**
@@ -95,7 +123,6 @@ const WORD_PREFIX = /[a-zA-Z]+/;
 const SEGMENT = "[^\\s#~().,=<>*!%+\\-'\"`]";
 /** The `note` object or a relation, followed by the dotted path walked from it. */
 const PROPERTY_PATH = new RegExp(`(?:^|[\\s(])(?:note|~${SEGMENT}+)(?:\\.${SEGMENT}*)+`);
-const SEGMENT_TYPED = new RegExp(`${SEGMENT}*`);
 /** Matches once an `orderBy` has been opened anywhere before the cursor. */
 const ORDER_BY_BEFORE = /orderby[^]*/i;
 /** A `#label` or `~relation`, either optionally negated with `!`. */
@@ -121,8 +148,6 @@ const PROPERTY_COMPARISON = new RegExp(
     `(?:note|~${SEGMENT}+)(?:\\.${SEGMENT}+)*\\.(${SEGMENT}+)\\s*[=!*<>%~]+(\\s*[^\\s#~()]*)`
 );
 const QUOTES = [ "\"", "'", "`" ];
-/** A bare value runs until whitespace or a character that would start another clause. */
-const VALUE_TYPED = /[^\s#~()'"`]*/;
 /** What the lexer reads as structure, so a value holding one of these only survives in quotes. */
 const VALUE_NEEDS_QUOTES = /[\s"'`\\#~().=*<>!%+,-]/;
 /**
@@ -132,122 +157,30 @@ const VALUE_NEEDS_QUOTES = /[\s"'`\\#~().=*<>!%+,-]/;
  */
 const RESERVED_VALUES = new Set([ "note", "now", "today", "month", "year" ]);
 
-/** A completion for a note, drawn as a row of the note autocomplete from the result it carries. */
-interface NoteCompletion extends Completion {
-    note: AutocompleteResult;
+/** The text before the cursor, and whether the user asked with Ctrl-Space. */
+interface Context {
+    before: string;
+    pos: number;
+    explicit: boolean;
 }
 
-/**
- * Offers the notes matching what follows an `@`, through the call the jump-to dialog reads, and
- * inserts the id of the one picked. The id is what the query keeps, so it goes on matching the
- * note after a rename; with nothing typed yet the call answers with the recently visited notes.
- */
-async function noteCompletions(term: string, atPos: number): Promise<CompletionResult | null> {
-    let suggestions: AutocompleteResult[];
-    try {
-        suggestions = await server.get<AutocompleteResult[]>(
-            `autocomplete?query=${encodeURIComponent(term)}&activeNoteId=none&fastSearch=true`
-        );
-    } catch {
-        return null;
-    }
+/** Where `expr` matches ending at the cursor, and what it matches there. */
+function matchBefore({ before }: Context, expr: RegExp) {
+    const match = new RegExp(`(?:${expr.source})$`, expr.flags).exec(before);
 
-    const options: NoteCompletion[] = [];
-
-    for (const [ index, suggestion ] of suggestions.entries()) {
-        const noteId = suggestion.notePath?.split("/").filter(Boolean).pop();
-        if (!noteId || !suggestion.noteTitle) {
-            continue;
-        }
-
-        options.push({
-            label: suggestion.noteTitle,
-            note: suggestion,
-            // The call ranks the notes; this keeps that order among the ones matching as well as
-            // each other, while leaving a distinctly better match free to rise past them.
-            boost: -index,
-            // Rewrites the `@` along with what was typed after it. CodeMirror would replace only
-            // what it matched against, which starts past the `@`.
-            apply: (view, _completion, _from, to) => view.dispatch({
-                changes: { from: atPos, to, insert: noteId },
-                selection: { anchor: atPos + noteId.length }
-            })
-        });
-    }
-
-    // Offered from past the `@`, so what was typed is matched against the titles rather than
-    // against a marker no title carries.
-    return options.length ? { from: atPos + 1, options } : null;
+    return match ? { from: match.index, text: match[0] } : null;
 }
 
-/**
- * Fetches the label or relation names the database holds, through the same call the sidebar's
- * attribute picker makes, and marks the built-in ones as that picker does. The whole set is asked
- * for once and narrowed by `validFor` as more of the name is typed, rather than per keystroke.
- */
-async function attributeCompletions(type: "label" | "relation", from: number): Promise<CompletionResult | null> {
-    let names: string[];
-    try {
-        names = await fetchAttributeNames(type, "");
-    } catch {
-        return null;
-    }
-
-    return {
-        from,
-        options: names.map((name) => {
-            const isBuiltin = isBuiltinAttribute(type, name);
-
-            return {
-                label: name,
-                type: isBuiltin ? SYSTEM_ATTRIBUTE : type,
-                boost: isBuiltin ? BUILTIN_BOOST : undefined
-            };
-        }),
-        validFor: SEGMENT_TYPED
-    };
-}
-
-/** Stands in for a completion's own type, a name Trilium attaches a meaning to being marked first. */
-const SYSTEM_ATTRIBUTE = "system-attribute";
-
-/**
- * The furthest CodeMirror lets an option be moved down, which it adds to the match score. Penalties
- * there run to the hundreds, so a built-in sinks below a name of the user's own that matches as
- * well, while a distinctly better match keeps its place.
- */
-const BUILTIN_BOOST = -99;
-
-/**
- * The furthest an option can be moved up, the other end of {@link BUILTIN_BOOST}. CodeMirror never
- * reads the order options are offered in — it sorts by match score, and a pattern of a character or
- * two scores everything alike, leaving the tie to be broken by label. That puts `~` last of all, so
- * the markers carry the boost instead.
- */
-const MARKER_BOOST = 99;
-
-const COMPLETION_ICONS: Record<string, string> = {
-    [SYSTEM_ATTRIBUTE]: "bx bx-cog",
-    label: "bx bx-hash",
-    relation: "bx bx-transfer"
-};
-
-/** The icon an option is drawn with. Only the attribute names carry one. */
-export function searchCompletionIcon(completion: Completion): string | undefined {
-    return completion.type ? COMPLETION_ICONS[completion.type] : undefined;
-}
-
-/** The note an option offers, which is drawn as the note autocomplete draws it. */
-export function searchCompletionNote(completion: Completion): AutocompleteResult | undefined {
-    return "note" in completion ? (completion as NoteCompletion).note : undefined;
+function entries(context: Context, key: string, from: number, list: () => SearchEntry[] | Promise<SearchEntry[]>): SearchCompletion {
+    return { kind: "entries", key, from, query: context.before.slice(from), entries: list, preselect: context.explicit };
 }
 
 /**
  * Reads the label name and the part of its value typed so far out of the text before the cursor,
  * and answers nothing where the cursor does not stand in a value.
  */
-function labelValueBeingTyped(context: CompletionContext) {
-    const comparison = context.matchBefore(LABEL_COMPARISON);
+function labelValueBeingTyped(context: Context) {
+    const comparison = matchBefore(context, LABEL_COMPARISON);
     const match = comparison && LABEL_COMPARISON.exec(comparison.text);
     if (!match) {
         return null;
@@ -263,8 +196,8 @@ function labelValueBeingTyped(context: CompletionContext) {
  * The values a note property is compared against, for the properties holding a closed set of them.
  * The rest — a title, a date, a count — are the user's to type.
  */
-function propertyValueBeingTyped(context: CompletionContext) {
-    const comparison = context.matchBefore(PROPERTY_COMPARISON);
+function propertyValueBeingTyped(context: Context) {
+    const comparison = matchBefore(context, PROPERTY_COMPARISON);
     const match = comparison && PROPERTY_COMPARISON.exec(comparison.text);
     if (!match) {
         return null;
@@ -279,15 +212,17 @@ function propertyValueBeingTyped(context: CompletionContext) {
 
     // A quote the user opened is a value they are spelling out, so the ones that mean anything
     // only bare are dropped. For a date property that leaves nothing to offer.
-    const options = values()
+    const offered = values()
         .filter(({ verbatim }) => !(verbatim && value.quote))
-        .map(({ label, detail, verbatim }) => {
-            const applied = verbatim ? label : applyValue(label, value.quote);
+        .map(({ label, detail, icon, verbatim }) => ({
+            id: label,
+            title: label,
+            description: detail,
+            icon,
+            insert: verbatim ? label : applyValue(label, value.quote)
+        }));
 
-            return { label, detail, apply: applied === label ? undefined : applied };
-        });
-
-    return options.length ? { ...value, options } : null;
+    return offered.length ? { ...value, property: property.toLowerCase(), entries: offered } : null;
 }
 
 /**
@@ -316,8 +251,8 @@ function valueBeingTyped(tail: string) {
  * already use, so a type or a MIME added there is offered here without further work.
  */
 const PROPERTY_VALUES = new Map<string, () => PropertyValue[]>([
-    [ "type", () => ALLOWED_NOTE_TYPES.map((noteType) => ({ label: noteType })) ],
-    [ "mime", () => MIME_TYPES_DICT.map(({ mime, title }) => ({ label: mime, detail: title })) ],
+    [ "type", () => ALLOWED_NOTE_TYPES.map((noteType) => ({ label: noteType, icon: noteTypeIcon(noteType) })) ],
+    [ "mime", () => MIME_TYPES_DICT.map(({ mime, title }) => ({ label: mime, detail: title, icon: "bx bx-code-alt" })) ],
     [ "isprotected", booleanValues ],
     [ "isarchived", booleanValues ],
     [ "datecreated", dateValues ],
@@ -329,12 +264,17 @@ const PROPERTY_VALUES = new Map<string, () => PropertyValue[]>([
 interface PropertyValue {
     label: string;
     detail?: string;
+    icon: string;
     /** Inserted as it stands, the parser reading it as something other than the text it spells. */
     verbatim?: boolean;
 }
 
+function noteTypeIcon(noteType: string) {
+    return (NOTE_TYPE_ICONS as Record<string, string>)[noteType] ?? "bx bx-note";
+}
+
 function booleanValues(): PropertyValue[] {
-    return [ { label: "true" }, { label: "false" } ];
+    return [ { label: "true", icon: "bx bx-toggle-right" }, { label: "false", icon: "bx bx-toggle-left" } ];
 }
 
 /**
@@ -344,43 +284,25 @@ function booleanValues(): PropertyValue[] {
  */
 function dateValues(): PropertyValue[] {
     return [
-        { label: "now", detail: t("search_completion.date_now"), verbatim: true },
-        { label: "now-60", detail: t("search_completion.date_now_offset"), verbatim: true },
-        { label: "today", detail: t("search_completion.date_today"), verbatim: true },
-        { label: "today-30", detail: t("search_completion.date_today_offset"), verbatim: true },
-        { label: "month", detail: t("search_completion.date_month"), verbatim: true },
-        { label: "month-1", detail: t("search_completion.date_month_offset"), verbatim: true },
-        { label: "year", detail: t("search_completion.date_year"), verbatim: true },
-        { label: "year-1", detail: t("search_completion.date_year_offset"), verbatim: true }
-    ];
+        { label: "now", detail: t("search_completion.date_now") },
+        { label: "now-60", detail: t("search_completion.date_now_offset") },
+        { label: "today", detail: t("search_completion.date_today") },
+        { label: "today-30", detail: t("search_completion.date_today_offset") },
+        { label: "month", detail: t("search_completion.date_month") },
+        { label: "month-1", detail: t("search_completion.date_month_offset") },
+        { label: "year", detail: t("search_completion.date_year") },
+        { label: "year-1", detail: t("search_completion.date_year_offset") }
+    ].map((value) => ({ ...value, icon: "bx bx-calendar", verbatim: true }));
 }
 
 /**
- * Offers the values `name` already holds across the database. Only labels reach here: a relation's
- * value is a note ID, and the endpoint behind this collects label values alone.
+ * The values `name` already holds across the database. Only labels reach here: a relation's value
+ * is a note ID, and the endpoint behind this collects label values alone.
  */
-async function valueCompletions(name: string, from: number, quote: string): Promise<CompletionResult | null> {
-    let values: string[];
-    try {
-        values = await server.get<string[]>(`attribute-values/${encodeURIComponent(name)}`);
-    } catch {
-        return null;
-    }
+async function labelValues(name: string, quote: string): Promise<SearchEntry[]> {
+    const values = await server.get<string[]>(`attribute-values/${encodeURIComponent(name)}`);
 
-    return {
-        from,
-        options: values.map((value) => {
-            const applied = applyValue(value, quote);
-
-            return { label: value, apply: applied === value ? undefined : applied };
-        }),
-        validFor: validForValue(quote)
-    };
-}
-
-/** How far the offered values stay valid as more of the one being typed arrives. */
-function validForValue(quote: string) {
-    return quote ? new RegExp(`[^${quote}]*`) : VALUE_TYPED;
+    return values.map((value) => ({ id: value, title: value, icon: "bx bx-purchase-tag-alt", insert: applyValue(value, quote) }));
 }
 
 /**
@@ -408,7 +330,7 @@ function escapeInQuotes(value: string, quote: string) {
  * `note.relations.` that is an attribute name; after `note.title.` it is nothing at all, a
  * terminal property having nothing to walk onto.
  */
-function pathCompletions(path: string, pos: number): CompletionOutcome {
+function pathCompletion(path: string, pos: number): SearchCompletion | null {
     const segments = path.split(".");
     const typed = segments[segments.length - 1];
     const previous = segments[segments.length - 2];
@@ -416,7 +338,7 @@ function pathCompletions(path: string, pos: number): CompletionOutcome {
     const from = pos - typed.length;
 
     if (previous === "labels" || previous === "relations") {
-        return attributeCompletions(previous === "labels" ? "label" : "relation", from);
+        return { kind: "attributes", type: previous === "labels" ? "label" : "relation", from, query: typed };
     }
 
     // A segment follows the root, a traversal, or the relation name reached through `relations`.
@@ -428,31 +350,31 @@ function pathCompletions(path: string, pos: number): CompletionOutcome {
         return null;
     }
 
-    return { from, options: segmentOptions(), validFor: SEGMENT_TYPED };
+    return { kind: "entries", key: "segments", from, query: typed, entries: segmentEntries, preselect: false };
 }
 
 /**
  * Everything spelled as a word: the `note` object and the keywords that join, order and cut down a
- * query. Built per request rather than once, so the options read the catalogue after i18n has
+ * query. Built per request rather than once, so the entries read the catalogue after i18n has
  * loaded and follow a language switched while the app is running.
  */
-function wordOptions(ordering: OrderingPosition): Completion[] {
+function wordEntries(ordering: OrderingPosition): SearchEntry[] {
     // Both complete with what has to follow them: a bare `note`, or a `not` without its
-    // parenthesised sub-expression, is never a clause on its own.
-    const noteObject: Completion = { label: "note", apply: "note.", type: "namespace", detail: t("search_completion.note") };
-    const limit: Completion = { label: "limit", type: "keyword", detail: t("search_completion.keyword_limit") };
+    // parenthesised sub-expression, is never a clause on its own. The list then opens on that.
+    const noteObject = entry("note", t("search_completion.note"), "bx bx-note", "note.");
+    const limit = entry("limit", t("search_completion.keyword_limit"), "bx bx-list-ol");
     // The characters the whole syntax turns on, and the only part of it a reader cannot arrive at
     // by typing a word, so they lead. `ValueExtractor` rewrites either into a path, so a sort key
-    // takes them too. Drawn as keywords: the marker is already the icon.
-    const attributeMarkers: Completion[] = [
-        { label: "#", apply: "#", type: "keyword", boost: MARKER_BOOST, detail: t("search_completion.label_marker") },
-        { label: "#!", apply: "#!", type: "keyword", boost: MARKER_BOOST - 1, detail: t("search_completion.label_marker_negated") },
-        { label: "~", apply: "~", type: "keyword", boost: MARKER_BOOST - 2, detail: t("search_completion.relation_marker") },
-        { label: "~!", apply: "~!", type: "keyword", boost: MARKER_BOOST - 3, detail: t("search_completion.relation_marker_negated") }
+    // takes them too.
+    const attributeMarkers = [
+        entry("#", t("search_completion.label_marker"), "bx bx-hash"),
+        entry("#!", t("search_completion.label_marker_negated"), "bx bx-hash"),
+        entry("~", t("search_completion.relation_marker"), "bx bx-transfer"),
+        entry("~!", t("search_completion.relation_marker_negated"), "bx bx-transfer")
     ];
     // A sort key names the value to order by, which a negated marker has none of: `ValueExtractor`
     // reads `#!foo` as a label named `!foo` and would quietly order by one no note carries.
-    const sortKeyMarkers = attributeMarkers.filter(({ label }) => !label.endsWith("!"));
+    const sortKeyMarkers = attributeMarkers.filter(({ title }) => !title.endsWith("!"));
 
     if (ordering === "key") {
         return [ ...sortKeyMarkers, noteObject ];
@@ -460,8 +382,8 @@ function wordOptions(ordering: OrderingPosition): Completion[] {
 
     if (ordering === "sorted") {
         return [
-            { label: "asc", type: "keyword", detail: t("order_by.asc") },
-            { label: "desc", type: "keyword", detail: t("order_by.desc") },
+            entry("asc", t("order_by.asc"), "bx bx-sort-up"),
+            entry("desc", t("order_by.desc"), "bx bx-sort-down"),
             limit
         ];
     }
@@ -469,25 +391,17 @@ function wordOptions(ordering: OrderingPosition): Completion[] {
     return [
         ...attributeMarkers,
         noteObject,
-        { label: "and", type: "keyword", detail: t("search_completion.keyword_and") },
-        { label: "or", type: "keyword", detail: t("search_completion.keyword_or") },
-        { label: "not", apply: "not(", type: "keyword", detail: t("search_completion.keyword_not") },
-        { label: "orderBy", type: "keyword", detail: t("search_completion.keyword_order_by") },
+        entry("and", t("search_completion.keyword_and"), "bx bx-git-merge"),
+        entry("or", t("search_completion.keyword_or"), "bx bx-git-merge"),
+        entry("not", t("search_completion.keyword_not"), "bx bx-block", "not("),
+        entry("orderBy", t("search_completion.keyword_order_by"), "bx bx-sort-alt-2"),
         limit
     ];
 }
 
-/**
- * Whether picking `completion` reopens the popup. Every option that inserts one of these leaves a
- * clause unfinished: `note.`, `#` and `#!` are waiting for a name, `not(` for a sub-expression.
- */
-export function searchCompletionReactivates(completion: Completion): boolean {
-    const applied = completion.apply;
-
-    return typeof applied === "string" && OPENERS.includes(applied.slice(-1));
+function entry(title: string, description: string | undefined, icon: string, insert = title): SearchEntry {
+    return { id: title, title, description, icon, insert };
 }
-
-const OPENERS = [ ".", "(", "#", "~", "!" ];
 
 /**
  * Where the cursor stands in an `orderBy`, which decides what can follow it.
@@ -496,8 +410,8 @@ const OPENERS = [ ".", "(", "#", "~", "!" ];
  */
 type OrderingPosition = "none" | "key" | "sorted";
 
-function orderingPosition(context: CompletionContext): OrderingPosition {
-    const ordering = context.matchBefore(ORDER_BY_BEFORE);
+function orderingPosition(context: Context): OrderingPosition {
+    const ordering = matchBefore(context, ORDER_BY_BEFORE);
     if (!ordering) {
         return "none";
     }
@@ -514,12 +428,9 @@ function orderingPosition(context: CompletionContext): OrderingPosition {
     return written ? "sorted" : "key";
 }
 
-function segmentOptions(): Completion[] {
-    return SEARCH_NOTE_PATH_SEGMENTS.map((segment) => ({
-        label: segment,
-        type: "property",
-        detail: SEGMENT_DETAILS[segment] ? t(SEGMENT_DETAILS[segment]) : undefined
-    }));
+function segmentEntries(): SearchEntry[] {
+    return SEARCH_NOTE_PATH_SEGMENTS.map((segment) =>
+        entry(segment, SEGMENT_DETAILS[segment] ? t(SEGMENT_DETAILS[segment]) : undefined, "bx bx-detail"));
 }
 
 /**
@@ -553,33 +464,31 @@ const SEGMENT_DETAILS: Record<string, string> = {
 };
 
 /** The operators the operand standing before the cursor can be compared with. */
-function operatorOptions(context: CompletionContext): Completion[] {
+function operatorEntries(context: Context): SearchEntry[] {
     const allowed = allowedOperators(context);
 
     return [
-        { label: "=", detail: t("search_completion.operator_equal") },
-        { label: "!=", detail: t("search_completion.operator_not_equal") },
-        { label: "*=*", detail: t("search_completion.operator_contains") },
-        { label: "=*", detail: t("search_completion.operator_starts_with") },
-        { label: "*=", detail: t("search_completion.operator_ends_with") },
-        { label: ">", detail: t("search_completion.operator_greater_than") },
-        { label: ">=", detail: t("search_completion.operator_greater_or_equal") },
-        { label: "<", detail: t("search_completion.operator_less_than") },
-        { label: "<=", detail: t("search_completion.operator_less_or_equal") },
-        { label: "%=", detail: t("search_completion.operator_regex") },
-        { label: "~=", detail: t("search_completion.operator_fuzzy_equal") },
-        { label: "~*", detail: t("search_completion.operator_fuzzy_contains") }
-    ]
-        .filter(({ label }) => !allowed || allowed.has(label))
-        .map((option) => ({ ...option, type: "keyword" }));
+        entry("=", t("search_completion.operator_equal"), "bx bx-math"),
+        entry("!=", t("search_completion.operator_not_equal"), "bx bx-math"),
+        entry("*=*", t("search_completion.operator_contains"), "bx bx-math"),
+        entry("=*", t("search_completion.operator_starts_with"), "bx bx-math"),
+        entry("*=", t("search_completion.operator_ends_with"), "bx bx-math"),
+        entry(">", t("search_completion.operator_greater_than"), "bx bx-math"),
+        entry(">=", t("search_completion.operator_greater_or_equal"), "bx bx-math"),
+        entry("<", t("search_completion.operator_less_than"), "bx bx-math"),
+        entry("<=", t("search_completion.operator_less_or_equal"), "bx bx-math"),
+        entry("%=", t("search_completion.operator_regex"), "bx bx-math"),
+        entry("~=", t("search_completion.operator_fuzzy_equal"), "bx bx-math"),
+        entry("~*", t("search_completion.operator_fuzzy_contains"), "bx bx-math")
+    ].filter(({ title }) => !allowed || allowed.has(title));
 }
 
 /**
  * What the operand restricts the comparison to, `undefined` standing for no restriction. Offering
  * more would build a query the parser rejects.
  */
-function allowedOperators(context: CompletionContext): ReadonlySet<string> | undefined {
-    const comparison = context.matchBefore(COMPARISON_OPERAND);
+function allowedOperators(context: Context): ReadonlySet<string> | undefined {
+    const comparison = matchBefore(context, COMPARISON_OPERAND);
     const operand = comparison && COMPARISON_OPERAND.exec(comparison.text)?.[1];
     if (!operand) {
         return undefined;
@@ -587,4 +496,3 @@ function allowedOperators(context: CompletionContext): ReadonlySet<string> | und
 
     return allowedSearchOperators(operand);
 }
-

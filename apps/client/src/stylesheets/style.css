@@ -639,7 +639,7 @@ body.mobile .dropdown-menu .dropdown-submenu {
 /* Firefox draws the caret against the spacer CodeMirror puts before the placeholder widget,
    short (https://bugzilla.mozilla.org/show_bug.cgi?id=904846). The spacer must stay in layout:
    CodeMirror measures a position next to a widget from its rect, and a hidden one reads as
-   zeros, which hides the completion popup as off-screen. */
+   zeros, which places a completion list at the caret off-screen. */
 @supports (-moz-appearance: none) {
     .cm-editor .cm-widgetBuffer:has(+ .cm-placeholder) {
         vertical-align: baseline;

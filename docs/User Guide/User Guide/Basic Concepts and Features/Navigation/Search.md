@@ -52,16 +52,16 @@ To help with the syntax, Trilium offers an autocomplete functionality which can 
 
 Some suggestions also open on their own as you type: label and relation names after `#` and `~`, fields after `.`, operators, values, and notes after `@`. Keywords such as `and`, `or`, `not`, `orderBy` and `limit` appear only on <kbd>Ctrl</kbd>+<kbd>Space</kbd>, since a plain word is usually a search term.
 
-No suggestion is selected when the list opens, so <kbd>Enter</kbd> runs the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and press <kbd>Enter</kbd>.
+No suggestion is selected when a list opens on its own, so <kbd>Enter</kbd> runs the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and press <kbd>Enter</kbd>. The list opened with <kbd>Ctrl</kbd>+<kbd>Space</kbd> and the notes after `@` open on the best match instead, so <kbd>Enter</kbd> inserts it.
 
 The autocomplete offers:
 
 *   Basic operators such as `*=` and keywords (`limit`, `not`).
 *   Fields for object-like fields such as `note` or `~relation`, triggered by typing `.`.
 *   Contextual enumerations such as `note.type = "` or `note.mime = "`.
-*   [Label](../../Advanced%20Usage/Attributes/Labels.md) names by typing `#`, with user-defined ones shown first.
+*   [Label](../../Advanced%20Usage/Attributes/Labels.md) names by typing `#`.
     
-    *   A gear icon indicates system attributes.
+    *   A small gear on the name's icon indicates a system attribute.
     *   After typing the label name, the value is also autocompleted with values that are present in the database.
 *   [Relation](../../Advanced%20Usage/Attributes/Relations.md) names by typing `~`.
 *   [Note ID](../../Advanced%20Usage/Note%20ID.md)s can be inserted easily by typing `@` and looking for a note.

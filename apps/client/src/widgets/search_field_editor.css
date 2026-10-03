@@ -29,55 +29,9 @@
     }
 
     /* Over a `Popup` (1200, Popup.css): the quick search's results hang off this field, and the
-       completions and lint tooltips have to cover them. */
+       lint tooltips have to cover them. */
     .cm-editor .cm-tooltip {
         z-index: 1210;
-    }
-
-    /*
-     * The popup carries the note autocomplete's menu classes (`search_field_editor.ts`), which draw
-     * its frame and rows. These rules undo only what CodeMirror's theme sets over them: its
-     * `&light .cm-tooltip` and `.cm-tooltip-autocomplete > ul > li` outweigh `.dropdown-menu` and
-     * `.dropdown-item`.
-     */
-    .cm-editor .cm-tooltip.cm-tooltip-autocomplete {
-        border-color: var(--dropdown-border-color);
-        overflow: hidden;
-
-        /* CodeMirror sets monospace on the popup; the field itself is in the UI font. */
-        & > ul {
-            font-family: inherit;
-            max-height: 18em;
-        }
-
-        /* Bootstrap's row padding, which the Next theme overrides with `!important`. */
-        & > ul > li {
-            flex-wrap: wrap;
-            padding: var(--bs-dropdown-item-padding-y) var(--bs-dropdown-item-padding-x);
-            line-height: inherit;
-        }
-
-        /* Matches the `.tn-menu-gap` beside a note row's icon. */
-        .cm-completion-glyph {
-            margin-inline-end: 0.5em;
-            opacity: 0.7;
-        }
-
-        /* Matches the second line of a command row, `.note-suggestion-description`. */
-        .cm-completionDetail {
-            flex-basis: 100%;
-            margin-left: 0;
-            font-size: small;
-            font-style: normal;
-            color: var(--muted-text-color);
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        & > ul > li[aria-selected] {
-            background: var(--suggestion-active-background-color);
-            color: var(--suggestion-active-text-color);
-        }
     }
 
     .cm-editor .cm-tooltip.cm-tooltip-hover {

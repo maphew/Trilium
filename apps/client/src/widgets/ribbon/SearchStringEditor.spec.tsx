@@ -8,11 +8,10 @@ import { renderInto } from "../../test/render";
 import { ParentComponent } from "../react/react_utils";
 import SearchStringEditor from "./SearchStringEditor";
 
-// The completions fetch attribute names and values through the server; nothing here opens the popup.
+// The completions fetch attribute names and values through the server; nothing here opens their list.
 vi.mock("./search_completions", () => ({
-    searchCompletionSource: () => null,
-    searchCompletionIcon: () => undefined,
-    searchCompletionReactivates: () => false
+    searchCompletionAt: () => null,
+    filterSearchEntries: () => []
 }));
 
 describe("SearchStringEditor", () => {

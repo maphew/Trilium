@@ -182,17 +182,18 @@ export interface AutocompleteListHandle {
     handleKeyDown(e: KeyboardEvent): boolean;
 }
 
+/** The least width of an {@link AutocompleteList}, whose anchor at a caret has none. */
+const CARET_LIST_MIN_WIDTH = 220;
+
 /**
  * The dropdown of a {@link FormAutocomplete} for a query typed somewhere else, such as after a `#` in
  * a text editor, which keeps the focus and forwards its keys through `handleRef`. It opens with
  * nothing highlighted, so Enter stays with the host until an entry is arrowed to.
  */
-export function AutocompleteList({ query, source, anchor, minWidth, renderItem, onPick, handleRef, elementRef }: {
+export function AutocompleteList({ query, source, anchor, renderItem, onPick, handleRef, elementRef }: {
     query: string;
     source(query: string): Promise<string[]>;
     anchor: DropdownAnchor;
-    /** See {@link FormAutocompleteProps.dropdownMinWidth}. */
-    minWidth?: number;
     renderItem?(item: string): ComponentChildren;
     onPick(item: string): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
@@ -210,7 +211,7 @@ export function AutocompleteList({ query, source, anchor, minWidth, renderItem, 
         <AutocompleteDropdown
             autocomplete={autocomplete}
             anchor={anchor}
-            minWidth={minWidth}
+            minWidth={CARET_LIST_MIN_WIDTH}
             renderItem={renderItem}
             elementRef={elementRef}
         />
