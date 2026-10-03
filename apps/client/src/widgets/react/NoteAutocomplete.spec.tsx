@@ -1167,6 +1167,23 @@ describe("NoteMentionList", () => {
         await unmount();
     });
 
+    it("runs no search held back for a query once the list is closed, and lets go of its keys", async () => {
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
+        const host = document.createElement("div");
+        const draw = (text: string) => act(async () => {
+            preactRender(<NoteMentionList query={text} anchor={anchor} onPick={() => {}} handleRef={handleRef} />, host);
+        });
+
+        await draw("al");
+        // Typed within the scheduler's window, so its search waits.
+        await draw("alp");
+        await act(() => preactRender(null, host));
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+        expect(getNoteSuggestions).not.toHaveBeenCalledWith("alp", expect.anything());
+        expect(handleRef.current).toBeNull();
+    });
+
     it("takes the highlighted note on Tab as on Enter", async () => {
         const { onPick, press, unmount } = await show("al");
 

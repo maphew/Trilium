@@ -236,6 +236,10 @@ export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocompl
                 return e.defaultPrevented;
             }
         };
+        // Lets go of the list, so a host that outlives it holds none of its entries.
+        return () => {
+            handleRef.current = null;
+        };
     });
 }
 
@@ -385,6 +389,12 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         setIsOpen(false);
         setActiveIndex(-1);
         setItems([]);
+    }, []);
+
+    // A lookup a scheduler still holds supersedes nothing once the list is gone, so it is dropped
+    // rather than run for a list no longer there.
+    useEffect(() => () => {
+        latestQuery.current++;
     }, []);
 
     // Fetch suggestions for the current query, debounced. The previous items stay visible while
