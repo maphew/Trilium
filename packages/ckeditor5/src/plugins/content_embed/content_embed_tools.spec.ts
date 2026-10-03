@@ -1,11 +1,14 @@
 import {
-    ClassicEditor, DropdownView, Essentials, Paragraph, Widget, _setModelData as setModelData
+    ClassicEditor, DropdownView, Essentials, LinkEditing, Paragraph, Widget,
+    _setModelData as setModelData
 } from "ckeditor5";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import { installGlobMock } from "../../../test/globals-test-kit.js";
+import ReferenceLink from "../referencelink.js";
 import ContentEmbed from "./content_embed.js";
+import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
 import ContentEmbedTools, {
     CONTENT_EMBED_TOOLS, ContentEmbedToolsView
 } from "./content_embed_tools.js";
@@ -57,7 +60,8 @@ describe("ContentEmbedTools", () => {
         });
 
         editor = await createTestEditor([
-            Essentials, Paragraph, Widget, ContentEmbed, ContentEmbedTools
+            Essentials, Paragraph, Widget, LinkEditing, ReferenceLink, ContentEmbed,
+            ContentEmbedBoxSizeDropdown, ContentEmbedTools
         ]);
     });
 
@@ -234,6 +238,33 @@ describe("ContentEmbedTools", () => {
         expect(tools.isVisible).toBe(false);
     });
 
+    it("hides the items of the embed toolbar that the content leaves to the embed menu", () => {
+        const names = [
+            "contentEmbedBoxSizeDropdown", "toggleContentEmbedTitle", "convertEmbedToLink",
+            "toggleContentEmbedCaption"
+        ];
+        const items = names.map((name) => {
+            const item = editor.ui.componentFactory.create(name);
+            item.render();
+            return item;
+        });
+        const getShown = () => items.map((item) => !item.element?.classList.contains("ck-hidden"));
+        selectEmbed();
+        expect(getShown()).toEqual([ true, true, true, true ]);
+
+        provider = createProvider([ SELECTION ], names.slice(0, 3));
+        editor.ui.update();
+        expect(getShown()).toEqual([ false, false, false, true ]);
+        const embed = editor.editing.view.getDomRoot()?.querySelector("figure.include-note");
+        expect(embed && editor.plugins.get(ContentEmbed).getEmbedStateAt(embed)).toMatchObject({
+            boxSize: "medium", isTitleToggleable: true, isConvertibleToLink: true
+        });
+
+        provider = createProvider([ SELECTION ]);
+        editor.ui.update();
+        expect(getShown()).toEqual([ true, true, true, true ]);
+    });
+
     it("focuses its first button, and stops following the provider once destroyed", () => {
         const tools = createView();
         selectEmbed();
@@ -250,13 +281,14 @@ describe("ContentEmbedTools", () => {
 });
 
 /** A provider whose tools the spec changes. */
-function createProvider(initialTools: Tool[]) {
+function createProvider(initialTools: Tool[], hiddenToolbarItems?: string[]) {
     let tools = initialTools;
     let listener: (() => void) | undefined;
     const unsubscribe = vi.fn();
 
     return {
         unsubscribe,
+        hiddenToolbarItems,
         getTools: () => tools,
         execute: vi.fn(),
         subscribe: vi.fn((callback: () => void) => {

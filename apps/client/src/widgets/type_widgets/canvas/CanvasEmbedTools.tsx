@@ -26,6 +26,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import {
     type ContentEmbedTool,
+    type ContentEmbedToolbarItem,
     type ContentEmbedToolProvider,
     registerContentEmbedTools
 } from "../text/content_embed_tools";
@@ -125,6 +126,9 @@ export function useExcalidrawTranslation() {
 
 /** Excalidraw's tools and commands, as buttons of the toolbar of the embed with the drawing. */
 export class CanvasTools implements ContentEmbedToolProvider {
+    readonly hiddenToolbarItems: readonly ContentEmbedToolbarItem[] = [
+        "contentEmbedBoxSizeDropdown", "toggleContentEmbedTitle", "convertEmbedToLink"
+    ];
     private api: ExcalidrawImperativeAPI | null = null;
     private translate: Translate | null = null;
     private listeners = new Set<() => void>();

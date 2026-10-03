@@ -27,31 +27,19 @@ export default class ContentEmbedTools extends Plugin {
 
     init() {
         const editor = this.editor;
+        const contentEmbed = editor.plugins.get(ContentEmbed);
 
         editor.ui.componentFactory.add(CONTENT_EMBED_TOOLS, locale => {
             const view = new ContentEmbedToolsView(locale);
+            view.setProvider(contentEmbed.selectedEmbedTools);
 
-            // Runs before `WidgetToolbarRepository` positions the toolbar from its width.
-            this.listenTo(editor.ui, "update", () => view.setProvider(this.getProvider()), {
-                priority: "high"
+            this.listenTo(contentEmbed, "change:selectedEmbedTools", () => {
+                view.setProvider(contentEmbed.selectedEmbedTools);
             });
             this.listenTo<ContentEmbedToolsResizeEvent>(view, "resize", () => editor.ui.update());
 
             return view;
         });
-    }
-
-    /** The buttons that the content of the selected embed adds, or `null`. */
-    private getProvider() {
-        const embed = this.editor.plugins.get(ContentEmbed).getSelectedEmbedDom();
-        if (!embed) {
-            return null;
-        }
-
-        const editorEl = this.editor.editing.view.getDomRoot();
-        const component: EditorComponent | undefined =
-            glob.getComponentByEl<EditorComponent>(editorEl);
-        return component?.getContentEmbedTools?.(embed) ?? null;
     }
 
 }

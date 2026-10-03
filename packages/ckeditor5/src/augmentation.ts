@@ -51,12 +51,18 @@ declare global {
         class?: string;
     }
 
+    /** An item of the embed toolbar that the content of an embed can hide. */
+    type ContentEmbedToolbarItem =
+        "contentEmbedBoxSizeDropdown" | "toggleContentEmbedTitle" | "convertEmbedToLink";
+
     /** The buttons that the content of an embed, such as a canvas drawing, adds to its toolbar. */
     interface ContentEmbedToolProvider {
         getTools(): ContentEmbedTool[];
         execute(id: string): void;
         /** Calls `callback` when `getTools()` changes, until the returned function is called. */
         subscribe(callback: () => void): () => void;
+        /** The items of the embed toolbar to hide. The menu of the embed still offers them. */
+        hiddenToolbarItems?: readonly ContentEmbedToolbarItem[];
     }
 
     interface EditorComponent extends Component {

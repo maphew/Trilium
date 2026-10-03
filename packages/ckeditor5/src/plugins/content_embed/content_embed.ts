@@ -81,12 +81,28 @@ export function getBoxSizeLabel(t: (message: string) => string, size: BoxSizeVal
 }
 
 export default class ContentEmbed extends Plugin {
+	/** The buttons that the content of the selected embed adds to its toolbar, or `null`. */
+	declare public selectedEmbedTools: ContentEmbedToolProvider | null;
+
 	static get requires() {
 		return [ ContentEmbedEditing, ContentEmbedUI ];
 	}
 
 	static get pluginName() {
 		return 'ContentEmbed' as const;
+	}
+
+	constructor( editor: Editor ) {
+		super( editor );
+		// Set before `init()` of the plugins it requires, whose toolbar items bind to it.
+		this.set( 'selectedEmbedTools', null );
+	}
+
+	init() {
+		// Runs before `WidgetToolbarRepository` positions the toolbar from its width.
+		this.listenTo( this.editor.ui, 'update', () => {
+			this.selectedEmbedTools = getSelectedEmbedTools( this.editor );
+		}, { priority: 'high' } );
 	}
 
 	/**
@@ -126,11 +142,6 @@ export default class ContentEmbed extends Plugin {
 			isCaptionToggleable: isEmbedCaptionToggleable( editor, embed ),
 			isConvertibleToLink: isEmbedConvertibleToLink( editor, embed )
 		};
-	}
-
-	/** The rendered `<figure>` of the selected embed, or `null`. */
-	getSelectedEmbedDom(): HTMLElement | null {
-		return getSelectedContentEmbedDom( this.editor );
 	}
 
 	/** Whether `domElement` is a reference link that `convertLinkToEmbed` turns into an embed. */
@@ -190,7 +201,9 @@ class ContentEmbedUI extends Plugin {
 			// Shown only on an embed that names a note or an attachment.
 			if ( command ) {
 				buttonView.bind( 'isEnabled' ).to( command );
-				buttonView.bind( 'isVisible' ).to( command, 'isEnabled' );
+				bindToolbarItemVisibility(
+					editor, buttonView, command, CONVERT_EMBED_TO_LINK_COMMAND
+				);
 			}
 
 			this.listenTo( buttonView, 'execute', () => {
@@ -238,7 +251,7 @@ class ContentEmbedUI extends Plugin {
 
 			if ( command ) {
 				buttonView.bind( 'isOn', 'isEnabled' ).to( command, 'value', 'isEnabled' );
-				buttonView.bind( 'isVisible' ).to( command, 'isEnabled' );
+				bindToolbarItemVisibility( editor, buttonView, command, TOGGLE_TITLE_COMMAND_NAME );
 			}
 
 			this.listenTo( buttonView, 'execute', () => {
@@ -895,6 +908,40 @@ function getEmbeddedEntityAttributes( element: ModelElement ): Record<string, st
 /** The `data-hide-title` attribute of an embed whose title is hidden. */
 function getTitleAttributes( element: ModelElement ): Record<string, string> {
 	return element.getAttribute( 'hideTitle' ) ? { 'data-hide-title': 'true' } : {};
+}
+
+/** Whether the content of the selected embed, whose buttons are `tools`, hides `name`. */
+export function isToolbarItemHidden(
+	tools: ContentEmbedToolProvider | null,
+	name: ContentEmbedToolbarItem
+) {
+	return !!tools?.hiddenToolbarItems?.includes( name );
+}
+
+/**
+ * Shows `button` while `command` is enabled, unless the content of the selected embed hides the
+ * toolbar item `name`.
+ */
+function bindToolbarItemVisibility(
+	editor: Editor, button: ButtonView, command: Command, name: ContentEmbedToolbarItem
+) {
+	button.bind( 'isVisible' ).to(
+		command, 'isEnabled',
+		editor.plugins.get( ContentEmbed ), 'selectedEmbedTools',
+		( isEnabled, tools ) => isEnabled && !isToolbarItemHidden( tools, name )
+	);
+}
+
+/** The buttons that the content of the selected embed adds to its toolbar, or `null`. */
+function getSelectedEmbedTools( editor: Editor ): ContentEmbedToolProvider | null {
+	const embed = getSelectedContentEmbedDom( editor );
+	if ( !embed ) {
+		return null;
+	}
+
+	const component: EditorComponent | undefined =
+		glob.getComponentByEl<EditorComponent>( editor.editing.view.getDomRoot() );
+	return component?.getContentEmbedTools?.( embed ) ?? null;
 }
 
 /** Has the host open the context menu of the selected embed, below `anchor`. */

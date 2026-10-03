@@ -70,6 +70,9 @@ describe("CanvasEmbedTools", () => {
         provider.subscribe(listener);
 
         expect(getContentEmbedTools(document.createElement("figure"))).toBeNull();
+        expect(provider.hiddenToolbarItems).toEqual([
+            "contentEmbedBoxSizeDropdown", "toggleContentEmbedTitle", "convertEmbedToLink"
+        ]);
         const tools = provider.getTools();
         const count = MAIN_TOOL_IDS.length;
         expect(tools[0]).toEqual({

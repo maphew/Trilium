@@ -5,7 +5,9 @@ import ContentEmbed, {
     TOGGLE_CAPTION_COMMAND_NAME,
     TOGGLE_TITLE_COMMAND_NAME
 } from "./content_embed.js";
-import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
+import ContentEmbedBoxSizeDropdown, {
+    CONTENT_EMBED_BOX_SIZE_DROPDOWN
+} from "./content_embed_box_size_dropdown.js";
 import ContentEmbedTools, { CONTENT_EMBED_TOOLS } from "./content_embed_tools.js";
 
 export default class ContentEmbedToolbar extends Plugin {
@@ -23,7 +25,7 @@ export default class ContentEmbedToolbar extends Plugin {
         widgetToolbarRepository.register("contentEmbed", {
             items: [
                 CONTENT_EMBED_TOOLS,
-                "contentEmbedBoxSizeDropdown",
+                CONTENT_EMBED_BOX_SIZE_DROPDOWN,
                 TOGGLE_TITLE_COMMAND_NAME,
                 TOGGLE_CAPTION_COMMAND_NAME,
                 CONVERT_EMBED_TO_LINK_COMMAND,
