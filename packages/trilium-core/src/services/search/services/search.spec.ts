@@ -1108,6 +1108,16 @@ describe("Search", () => {
         expect(result.highlightedContentSnippet).toBe("Summary Title<br><b>Body</b> text here<br>After the block");
     });
 
+    it("keeps soft line breaks and paragraphs apart in the snippet (#11787)", () => {
+        // Shift+Enter in the text editor inserts a <br> rather than starting a new paragraph.
+        const noteBuilder = note("Soft breaks note");
+        noteBuilder.note.getContent = () => "<p>First line<br>second line<br/>third line</p><p>Next paragraph</p>";
+        rootNote.child(noteBuilder);
+
+        const snippet = searchService.extractContentSnippet(noteBuilder.note.noteId, [ "second" ]);
+        expect(snippet.split("\n")).toEqual([ "First line", "second line", "third line", "Next paragraph" ]);
+    });
+
     it("escapes angle brackets in the note title instead of dropping them", () => {
         // The title is interpolated into the autocomplete dropdown as raw HTML, so a title
         // containing markup-like text must come back escaped. Stripping only "<" would render
