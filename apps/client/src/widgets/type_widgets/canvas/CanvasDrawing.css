@@ -14,7 +14,7 @@
 }
 
 .canvas-drawing {
-    height: 20em;
+    height: var(--include-note-height, 20em);
     background-color: var(--canvas-drawing-background-color);
 
     /* Resets the typography inherited from the text note. */
@@ -110,7 +110,7 @@
 
 .include-note {
     &[data-box-size="small"] .canvas-drawing {
-        height: 10em;
+        height: var(--include-note-height, 10em);
     }
 
     &[data-box-size="full"] .canvas-drawing {

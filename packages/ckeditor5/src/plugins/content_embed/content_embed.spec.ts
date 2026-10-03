@@ -1284,6 +1284,73 @@ describe("ContentEmbed title", () => {
     });
 });
 
+describe("ContentEmbed resizing", () => {
+    const RESIZED = "<figure class=\"include-note\""
+        + " style=\"--include-note-height:12.5em;--include-note-width:30em;\""
+        + " data-note-id=\"n1\" data-box-size=\"medium\">&nbsp;</figure>";
+    let editor: ClassicEditor;
+
+    beforeEach(async () => {
+        installGlobMock({ getComponentByEl: () => ({ loadEmbeddedNote: vi.fn() }) });
+        editor = await createTestEditor([ Essentials, Paragraph, Undo, Widget, ContentEmbed ]);
+    });
+
+    function getRenderedEmbed() {
+        const embed = editor.editing.view.getDomRoot()?.querySelector("figure.include-note");
+        if (!embed) {
+            throw new Error("Expected a rendered embed.");
+        }
+        return embed;
+    }
+
+    it("loads and saves the size of a resized embed", () => {
+        editor.setData(RESIZED);
+
+        expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+            "<contentEmbed boxSize=\"medium\" customHeight=\"12.5em\" customWidth=\"30em\""
+            + " noteId=\"n1\"></contentEmbed>"
+        );
+        expect(editor.getData()).toBe(RESIZED);
+    });
+
+    it("offers resizing to a Small, Medium or Expandable embed, but not to a Tiny or Full one", () => {
+        insertContentEmbed(editor, "n1", "medium");
+        const embed = getRenderedEmbed();
+        const handles = embed.querySelector(":scope > .ck-widget__resize-handles");
+        expect([ ...handles?.children ?? [] ].map((handle) => handle.className)).toEqual([
+            "ck-widget__resize-handle ck-widget__resize-handle_width",
+            "ck-widget__resize-handle ck-widget__resize-handle_height",
+            "ck-widget__resize-handle ck-widget__resize-handle_corner"
+        ]);
+
+        for (const [ boxSize, isResizable ] of [
+            [ "tiny", false ], [ "small", true ], [ "full", false ], [ "expandable", true ],
+            [ "medium", true ]
+        ] as const) {
+            editor.execute(BOX_SIZE_COMMAND_NAME, { value: boxSize });
+            expect(embed.classList.contains("ck-widget_resizable"), boxSize).toBe(isResizable);
+        }
+    });
+
+    it("resets the height on a new box size, and the width too on Tiny or Full", () => {
+        editor.setData(RESIZED);
+        const embed = findContentEmbed(editor);
+        if (!embed) {
+            throw new Error("Expected an embed.");
+        }
+        editor.model.change((writer) => writer.setSelection(embed, "on"));
+
+        editor.execute(BOX_SIZE_COMMAND_NAME, { value: "small" });
+        expect(editor.getData()).toContain("style=\"--include-note-width:30em;\"");
+
+        for (const value of [ "tiny", "full" ] as const) {
+            editor.execute("undo");
+            editor.execute(BOX_SIZE_COMMAND_NAME, { value });
+            expect(editor.getData(), value).not.toContain("style=");
+        }
+    });
+});
+
 function findContentEmbed(editor: ClassicEditor): ModelElement | undefined {
     const root = editor.model.document.getRoot();
     if (!root) {

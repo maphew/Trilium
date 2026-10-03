@@ -29,6 +29,19 @@ A new include gets the size that suits what it shows:
 
 The dialog that includes a note selects that size once the note is picked, and you can choose another one there. To change the size later, select the include and use the _Box size_ menu in its toolbar, or the _Size_ submenu of its _More actions_ menu.
 
+## Resizing
+
+A _Small_, _Medium_ or _Expandable_ include can be resized to any width and height. A _Tiny_ or _Full_ include always fits its content.
+
+*   To resize an include, select it and drag one of its handles: the handle on its right edge changes the width, the handle on its bottom edge changes the height, and the handle in its bottom-right corner changes both. In right-to-left text, the width handle is on the left edge. With a mouse, the handles also show while the pointer is over the include.
+*   The handles work with a mouse, a pen or a finger. On a touch screen, tap the include first to show them.
+*   While the height changes, moving the handle near the top or the bottom of the note scrolls the note.
+*   Making an include as wide as the note returns it to the full width.
+*   To cancel a resize, press <kbd>Esc</kbd> before releasing the handle.
+*   To reset the size, double-click a handle, or double-tap it on a touch screen. The corner handle resets both the width and the height.
+*   Choosing a box size resets the height. Choosing _Tiny_ or _Full_ resets the width too.
+*   While an _Expandable_ include is collapsed, only its width can be changed.
+
 ## Caption
 
 An include can have a caption, shown centered at the bottom of its box. The caption is part of the text note, so it can be formatted like the rest of the text, for example in bold or with a link.
@@ -96,7 +109,7 @@ A drawing canvas is an Excalidraw canvas, like the one of a <a class="reference-
 *   To insert a drawing canvas, press the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button in the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a>, next to the <span class="tn-icon cke cke-paper-clip"></span> _Attach file_ button. The canvas is added empty, in a _Medium_ box with its title hidden, and takes the focus, ready for drawing.
 *   To draw on a canvas that does not have the focus, click it first. Until then, the mouse wheel and touch gestures scroll the note. The canvas then has the tools, menus and keyboard shortcuts of a Canvas note. The toolbars, the menus and the properties of the selected shapes show only while the canvas has the focus, so elsewhere the drawing reads like a picture in the text.
 *   A new drawing has the background color of the note. A background chosen from the Excalidraw menu replaces it.
-*   The box sizes, the caption and the title work as for an included note. In a short box, Excalidraw uses a more compact layout for its toolbars. For more room, choose _Full_, or show the title and press <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_.
+*   The box sizes, resizing, the caption and the title work as for an included note. In a short box, Excalidraw uses a more compact layout for its toolbars. For more room, choose _Full_, or show the title and press <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_.
 *   Pictures added to the drawing are stored in the same attachment.
 *   In a [read-only note](../../Basic%20Concepts%20and%20Features/Notes/Read-Only%20Notes.md), the drawing can be viewed but not changed.
 

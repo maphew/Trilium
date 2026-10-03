@@ -24,6 +24,7 @@ import {
 import windowIcon from 'boxicons/svg/regular/bx-window-alt.svg?raw';
 import noteIcon from '../../icons/note.svg?raw';
 import { getAttachmentId, getNoteId } from '../referencelink.js';
+import ResizableWidgets, { SIZE_ATTRIBUTES } from '../resizable_widgets/resizable_widgets.js';
 
 export const COMMAND_NAME = 'insertContentEmbed';
 export const BOX_SIZE_COMMAND_NAME = 'contentEmbedBoxSize';
@@ -37,6 +38,9 @@ export const CONTENT_EMBED_MENU = 'contentEmbedMenu';
 export const BOX_SIZES = [ 'tiny', 'small', 'medium', 'full', 'expandable' ] as const;
 
 export type BoxSizeValue = typeof BOX_SIZES[number];
+
+/** The box sizes that can be resized. Tiny and Full fit their content. */
+const RESIZABLE_BOX_SIZES: unknown[] = [ 'small', 'medium', 'expandable' ];
 
 /** What the toolbar of an embed shows of it, for a menu offering the same commands. */
 export interface ContentEmbedState {
@@ -273,7 +277,7 @@ class ContentEmbedUI extends Plugin {
 
 class ContentEmbedEditing extends Plugin {
 	static get requires() {
-		return [ Widget ];
+		return [ Widget, ResizableWidgets ];
 	}
 
 	static get pluginName() {
@@ -291,6 +295,16 @@ class ContentEmbedEditing extends Plugin {
 		this._defineConverters();
 
 		const editor = this.editor;
+		editor.plugins.get( ResizableWidgets ).register( 'contentEmbed', {
+			propertyPrefix: '--include-note',
+			isWidthResizable: true,
+			isHeightResizable: true,
+			heightTarget: '.include-note-content',
+			minWidth: 10,
+			minHeight: 3,
+			isResizable: embed => RESIZABLE_BOX_SIZES.includes( embed.getAttribute( 'boxSize' ) )
+		} );
+
 		const commands = editor.commands;
 		commands.add( COMMAND_NAME, new InsertContentEmbedCommand( editor ) );
 		commands.add( BOX_SIZE_COMMAND_NAME, new ContentEmbedBoxSizeCommand( editor ) );
@@ -585,8 +599,8 @@ class ContentEmbedBoxSizeCommand extends Command {
 	declare value: BoxSizeValue | null;
 
 	/**
-	 * Sets the box size of the selected embed. Tiny takes the caption away, and a larger size
-	 * shows it again.
+	 * Sets the box size of the selected embed and resets its height. Tiny and Full reset the
+	 * width too. Tiny takes the caption away, and a larger size shows it again.
 	 */
 	override execute( options: { value: BoxSizeValue } ) {
 		const editor = this.editor;
@@ -596,6 +610,10 @@ class ContentEmbedBoxSizeCommand extends Command {
 			editor.model.change( writer => {
 				const wasTiny = embedElement.getAttribute( 'boxSize' ) === 'tiny';
 				writer.setAttribute( 'boxSize', options.value, embedElement );
+				writer.removeAttribute( SIZE_ATTRIBUTES.height, embedElement );
+				if ( !RESIZABLE_BOX_SIZES.includes( options.value ) ) {
+					writer.removeAttribute( SIZE_ATTRIBUTES.width, embedElement );
+				}
 
 				if ( options.value === 'tiny' ) {
 					writer.setSelection( embedElement, 'on' );
