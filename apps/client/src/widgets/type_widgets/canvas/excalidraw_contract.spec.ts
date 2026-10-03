@@ -29,9 +29,12 @@ const CODE_CLASSES = [
  * Excalidraw names the parts to review.
  */
 describe("Excalidraw contract of the canvas drawing", () => {
-    const productionDir = dirname(createRequire(import.meta.url).resolve("@excalidraw/excalidraw"));
+    // Vitest resolves the `development` export, so both folders come from `dist`.
+    const entry = createRequire(import.meta.url).resolve("@excalidraw/excalidraw");
+    const distDir = join(dirname(entry), "..");
+    const productionDir = join(distDir, "prod");
     // The minified bundle renames the objects of the translations and the zoom constants.
-    const developmentDir = join(productionDir, "../dev");
+    const developmentDir = join(distDir, "dev");
 
     it("renders every class and test id that the drawing selects", () => {
         const bundle = readBundle(productionDir, [ ".js", ".css" ]);
@@ -85,6 +88,14 @@ describe("Excalidraw contract of the canvas drawing", () => {
         const source = readBundle(developmentDir, [ ".js" ]).replace(/\s+/g, "");
 
         expect(source).toContain(`varDEFAULT_SIDEBAR={name:"${LIBRARY_SIDEBAR}"`);
+    });
+
+    it("takes the layout from `UIOptions.getFormFactor`, which the Trilium patch adds", () => {
+        const unpatched = [ productionDir, developmentDir ].filter((dir) => {
+            const source = readBundle(dir, [ ".js" ]).replace(/\s+/g, "");
+            return !source.includes("this.props.UIOptions.getFormFactor?.(");
+        });
+        expect(unpatched).toEqual([]);
     });
 });
 

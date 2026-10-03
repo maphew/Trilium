@@ -47,13 +47,16 @@ export interface CanvasEditorProps {
     persistence: Partial<ExcalidrawProps>;
     /** Whether the editor moves on the page, as inside a text note that scrolls. */
     isEmbedded?: boolean;
+    /** Whether Excalidraw keeps its desktop layout however small the editor is. */
+    isDesktopLayout?: boolean;
     /** Rendered inside Excalidraw, where its hooks such as `useI18n()` work. */
     children?: ComponentChildren;
 }
 
 /** The Excalidraw editor of a canvas note or drawing, loaded and saved by `persistence`. */
 export function CanvasEditor({
-    apiRef, isReadOnly, colorScheme, persistence, isEmbedded = false, children
+    apiRef, isReadOnly, colorScheme, persistence, isEmbedded = false, isDesktopLayout = false,
+    children
 }: CanvasEditorProps) {
     const [ locale ] = useTriliumOption("locale");
     const noteDrop = useCanvasNoteDrop(apiRef, isReadOnly);
@@ -129,7 +132,8 @@ export function CanvasEditor({
                         canvasActions: {
                             saveToActiveFile: false,
                             export: false
-                        }
+                        },
+                        getFormFactor: isDesktopLayout ? getDesktopFormFactor : undefined
                     }}
                     onLinkOpen={onLinkOpen}
                     validateEmbeddable={validateEmbeddable}
@@ -141,6 +145,11 @@ export function CanvasEditor({
             </div>
         </div>
     )
+}
+
+/** The form factor of Excalidraw's desktop layout, for an editor of any size. */
+function getDesktopFormFactor() {
+    return "desktop" as const;
 }
 
 /**

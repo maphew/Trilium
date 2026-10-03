@@ -7,8 +7,11 @@ vi.mock("@excalidraw/excalidraw", () => ({ exportToSvg: vi.fn() }));
 vi.mock("./Canvas", () => ({ CanvasEditor: MockCanvasEditor }));
 vi.mock("./persistence", () => ({ useCanvasDrawingPersistence: () => ({}) }));
 
+const canvasEditorProps = vi.fn();
+
 /** Renders Excalidraw's focusable container after a render, as once its language loads. */
-function MockCanvasEditor() {
+function MockCanvasEditor(props: { isDesktopLayout?: boolean }) {
+    canvasEditorProps(props);
     const [ isLoaded, setIsLoaded ] = useState(false);
     useEffect(() => setIsLoaded(true), []);
     return isLoaded ? <div className="excalidraw" tabIndex={0} /> : <span className="loading" />;
@@ -322,5 +325,21 @@ describe("CanvasDrawing", () => {
         await mount();
         expect(document.activeElement).toBe(editable);
         editable.remove();
+    });
+
+    it("keeps the desktop layout of Excalidraw in the desktop layout of Trilium only", async () => {
+        const device = window.glob.device;
+        await mount();
+        expect(canvasEditorProps).toHaveBeenLastCalledWith(
+            expect.objectContaining({ isDesktopLayout: true })
+        );
+
+        render(null, box);
+        window.glob.device = "mobile";
+        await mount();
+        window.glob.device = device;
+        expect(canvasEditorProps).toHaveBeenLastCalledWith(
+            expect.objectContaining({ isDesktopLayout: false })
+        );
     });
 });

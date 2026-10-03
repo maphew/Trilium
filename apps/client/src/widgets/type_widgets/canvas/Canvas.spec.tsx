@@ -3,6 +3,8 @@ import { type ComponentChildren, type RefObject, render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { CanvasEditorProps } from "./Canvas";
+
 const excalidrawProps = vi.fn((_props: ExcalidrawProps) => undefined);
 vi.mock("@excalidraw/excalidraw", () => ({
     Excalidraw: (props: ExcalidrawProps) => {
@@ -46,7 +48,7 @@ describe("CanvasEditor", () => {
         container.remove();
     });
 
-    async function mount(isEmbedded?: boolean, children?: ComponentChildren) {
+    async function mount(props: Partial<CanvasEditorProps> = {}) {
         await act(async () => {
             render(
                 <CanvasEditor
@@ -54,10 +56,8 @@ describe("CanvasEditor", () => {
                     isReadOnly={false}
                     colorScheme="light"
                     persistence={{}}
-                    isEmbedded={isEmbedded}
-                >
-                    {children}
-                </CanvasEditor>,
+                    {...props}
+                />,
                 container
             );
         });
@@ -73,7 +73,7 @@ describe("CanvasEditor", () => {
     }
 
     it("reads its position again before pointer input once the drawing moved", async () => {
-        const excalidraw = await mount(true);
+        const excalidraw = await mount({ isEmbedded: true });
         point(excalidraw);
         expect(refresh).not.toHaveBeenCalled();
 
@@ -94,8 +94,26 @@ describe("CanvasEditor", () => {
     });
 
     it("renders its children inside Excalidraw", async () => {
-        const excalidraw = await mount(true, <span className="excalidraw-child" />);
+        const excalidraw = await mount({
+            isEmbedded: true,
+            children: <span className="excalidraw-child" />
+        });
 
         expect(excalidraw?.querySelector(".excalidraw-child")).not.toBeNull();
+    });
+
+    it("keeps Excalidraw's desktop layout at any size only with `isDesktopLayout`", async () => {
+        const getFormFactor = () => excalidrawProps.mock.lastCall?.[0].UIOptions?.getFormFactor;
+
+        await mount({ isDesktopLayout: true });
+        const desktopFormFactor = getFormFactor();
+        expect(desktopFormFactor?.(320, 200)).toBe("desktop");
+
+        // Excalidraw renders again when a function in `UIOptions` changes.
+        await mount({ isDesktopLayout: true, isReadOnly: true });
+        expect(getFormFactor()).toBe(desktopFormFactor);
+
+        await mount();
+        expect(getFormFactor()).toBeUndefined();
     });
 });

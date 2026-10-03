@@ -10,6 +10,7 @@ import type FAttachment from "../../../entities/fattachment";
 import type FNote from "../../../entities/fnote";
 import type { AttachmentEditor } from "../../../services/content_renderer";
 import options from "../../../services/options";
+import { isDesktop } from "../../../services/utils";
 import { useColorScheme } from "../../react/hooks";
 import { CanvasEditor } from "./Canvas";
 import CanvasDrawingMenu from "./CanvasDrawingMenu";
@@ -49,6 +50,7 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
                 colorScheme={colorScheme}
                 persistence={persistence}
                 isEmbedded
+                isDesktopLayout={isDesktop()}
             >
                 <CanvasDrawingMenu apiRef={apiRef} isEditable={isEditable} />
                 {isEditable && <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} />}
