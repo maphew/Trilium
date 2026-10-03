@@ -6,29 +6,6 @@ import type { ViewDocumentClipboardInputEvent } from "ckeditor5";
 export const VSCODE_EDITOR_DATA = "vscode-editor-data";
 
 /**
- * VS Code language IDs that `getMimeTypeFromMarkdownName()` does not resolve, or resolves to a
- * variant (`java` to JSP, `json` to JSON-LD, `sql` to MariaDB).
- */
-const VSCODE_LANGUAGE_MIMES: Record<string, string> = {
-    bat: "application/x-bat",
-    dockercompose: "text/x-yaml",
-    java: "text/x-java",
-    javascriptreact: "text/jsx",
-    json: "application/json",
-    jsonc: "application/json",
-    "objective-c": "text/x-objectivec",
-    perl: "text/x-perl",
-    php: "text/x-php",
-    shellscript: "text/x-sh",
-    sql: "text/x-sql",
-    swift: "text/x-swift",
-    terraform: "text/x-hcl",
-    toml: "text/x-toml",
-    typescriptreact: "text/typescript-jsx",
-    vb: "text/x-vb"
-};
-
-/**
  * Pastes code copied from VS Code as code: a single line as inline code, several lines as a code
  * block in the language of the VS Code editor.
  *
@@ -97,7 +74,7 @@ export function vsCodePasteHtml(dataTransfer: { getData(type: string): string })
  * language ID, or `null` if Trilium has no MIME type for it.
  */
 export function codeBlockLanguage(mode: string): string | null {
-    const mime = VSCODE_LANGUAGE_MIMES[mode] ?? getMimeTypeFromMarkdownName(mode)?.mime;
+    const mime = getMimeTypeFromMarkdownName(mode)?.mime;
     return mime ? normalizeMimeTypeForCKEditor(mime) : null;
 }
 
