@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import imageService from "../../../services/image.js";
 import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlight.js";
 import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from "./config.js";
-import { createMentionListView } from "./mention_list_view.js";
 
 // Mutable option values, reset before each test (see `beforeEach`).
 const optionsState = vi.hoisted(() => ({
@@ -113,7 +112,6 @@ interface DynamicConfig {
     mention?: {
         feeds: unknown[];
         hostedFeeds?: { marker: string; minimumCharacters?: number; allowSpaces?: boolean; list(): unknown }[];
-        listView?: unknown;
     };
 }
 
@@ -561,8 +559,6 @@ describe("CK config - mention feed", () => {
         const off = await buildDynamicConfig();
         expect(off.mention?.feeds).toEqual([]);
         expect(off.mention?.hostedFeeds).toEqual([]);
-        // The `/` and emoji feeds the plugins add are drawn through it all the same.
-        expect(off.mention?.listView).toBe(createMentionListView);
 
         optionsState.map["textNoteCompletionEnabled"] = "true";
         const config = await buildDynamicConfig();

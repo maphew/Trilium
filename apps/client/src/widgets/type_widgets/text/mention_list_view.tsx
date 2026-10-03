@@ -1,63 +1,19 @@
 import "./mention_list_view.css";
 
 import type { ReferenceElement } from "@floating-ui/dom";
-import type { EmojiSuggestion, MentionFeedObjectItem, MentionHostedList, MentionHostedListState, MentionListEntry, MentionListState, MentionListView, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumEmojiMention, TriliumSlashCommands } from "@triliumnext/ckeditor5";
+import type { EmojiSuggestion, MentionFeedObjectItem, MentionHostedList, MentionHostedListState, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumEmojiMention, TriliumSlashCommands } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
 import { type ComponentChildren, render, type VNode } from "preact";
-import { type MutableRef, useLayoutEffect, useRef } from "preact/hooks";
+import type { MutableRef } from "preact/hooks";
 
 import { AutocompleteList, type AutocompleteListHandle } from "../../react/FormAutocomplete";
 import { type CommandEntry, CommandMentionList, NoteMentionList } from "../../react/NoteAutocomplete";
-import Popup from "../../react/Popup";
 
 /** The editor a list for a plugin's marker is created for. */
 type HostEditor = Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
 
 /** The least width of an {@link createAutocompleteMentionList} list, whose caret anchor has none. */
 const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
-
-/**
- * Draws a text editor's suggestion list (emoji) as the note
- * autocomplete's menu, in a {@link Popup} at the caret, for the editor config's `mention.listView`.
- *
- * `TriliumMentionUI` keeps everything but the drawing: when the list opens and closes, the keys, the
- * selection and the commit. The menu never takes the focus, which stays in the editor.
- */
-export function createMentionListView(): MentionListView {
-    const container = document.createElement("div");
-    let element: HTMLDivElement | null = null;
-    // Set while the pointer moves the selection, which must not scroll the list under it.
-    let selectedByPointer = false;
-
-    return {
-        show(state) {
-            render(<MentionMenu
-                state={state}
-                elementRef={(el) => { element = el; }}
-                scrollsToSelection={() => {
-                    const scrolls = !selectedByPointer;
-                    selectedByPointer = false;
-                    return scrolls;
-                }}
-                onPointerSelect={(index) => {
-                    selectedByPointer = true;
-                    state.select(index);
-                }}
-            />, container);
-        },
-        hide() {
-            render(null, container);
-            element = null;
-        },
-        get element() {
-            return element;
-        },
-        destroy() {
-            render(null, container);
-            element = null;
-        }
-    };
-}
 
 /**
  * Lists the notes for the query typed after `@` as the note autocomplete does, for the editor config's
@@ -216,69 +172,4 @@ function toEmojiEntry(suggestion: EmojiSuggestion): EmojiEntry {
 /** The mention `MentionCustomization` turns into a reference link to `notePath`. */
 function toMention(notePath: string) {
     return { id: `@${notePath}`, notePath };
-}
-
-function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }: {
-    state: MentionListState;
-    elementRef(element: HTMLDivElement | null): void;
-    scrollsToSelection(): boolean;
-    onPointerSelect(index: number): void;
-}) {
-    const menuRef = useRef<HTMLMenuElement>(null);
-    const lastPointer = useRef<{ x: number; y: number }>();
-    const { entries, selectedIndex } = state;
-
-    useLayoutEffect(() => {
-        if (!scrollsToSelection() || selectedIndex < 0) return;
-        menuRef.current?.querySelectorAll(":scope > .dropdown-item")[selectedIndex]?.scrollIntoView({ block: "nearest" });
-    }, [ selectedIndex, entries ]);
-
-    return (
-        <Popup
-            // A new anchor each time the list changes, so it is placed again at the caret as it moves.
-            // Its `contextElement` places it again as the containers around the editor scroll.
-            anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
-            elementRef={elementRef}
-            // The pointer moves the highlighted row, so `:hover` marks no second one.
-            className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu mention-list-menu"
-        >
-            <menu
-                ref={menuRef}
-                className="tn-menu-scroll"
-                role="listbox"
-                // Keeps the focus in the editor, which closes the list without it.
-                onMouseDown={(e) => e.preventDefault()}
-            >
-                {entries.map((entry, index) => (
-                    <li
-                        key={`${entry.marker}:${entry.item.id}`}
-                        className={clsx("dropdown-item", index === selectedIndex && "tn-menu-active")}
-                        role="option"
-                        aria-selected={index === selectedIndex}
-                        onMouseMove={(e) => {
-                            // A row scrolled under a still pointer does not take the highlight.
-                            const last = lastPointer.current;
-                            if (last && last.x === e.clientX && last.y === e.clientY) return;
-                            lastPointer.current = { x: e.clientX, y: e.clientY };
-                            if (index !== selectedIndex) onPointerSelect(index);
-                        }}
-                        onClick={() => state.pick(index)}
-                    >
-                        <EntryContent entry={entry} />
-                    </li>
-                ))}
-            </menu>
-        </Popup>
-    );
-}
-
-/** An entry as its feed's `itemRenderer` draws it, or by its id where the feed has none. */
-function EntryContent({ entry }: { entry: MentionListEntry }) {
-    const ref = useRef<HTMLSpanElement>(null);
-
-    useLayoutEffect(() => {
-        ref.current?.replaceChildren(entry.render() ?? entry.item.id);
-    }, [ entry.item, entry.marker ]);
-
-    return <span ref={ref} />;
 }

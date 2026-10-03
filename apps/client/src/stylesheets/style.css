@@ -1290,27 +1290,6 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     width: auto;
 }
 
-.ck-mentions .ck-button {
-    font-size: var(--detail-font-size) !important;
-    padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
-}
-
-.ck-mentions .ck-button b {
-    font-size: var(--detail-font-size) !important;
-}
-
-.ck-mentions {
-    --ck-color-list-button-on-background: var(--suggestion-active-background-color);
-    --ck-color-list-button-on-background-focus: var(--ck-color-list-button-on-background);
-    --ck-color-list-button-on-text: var(--suggestion-active-text-color);
-}
-
-.ck-mentions .ck-button b {
-    font-weight: bold !important;
-    color: inherit !important;
-    vertical-align: baseline !important;
-}
-
 .side-checkbox {
     display: flex;
     align-items: end;
@@ -1878,24 +1857,6 @@ body.desktop .dropdown-submenu > .dropdown-menu {
 .hidden-int,
 .hidden-ext {
     display: none !important;
-}
-
-.ck.ck-mentions > .ck-list__item {
-    max-width: 700px;
-}
-
-.ck.ck-mentions > .ck-list__item .ck-button {
-    /* wrap text for very long note path title */
-    white-space: normal !important;
-}
-
-/*
- * The panel stays within the viewport: twice `VIEWPORT_MARGIN` in `trilium_mention_ui.ts` narrower
- * than it, and no taller than the space `TriliumMentionUI` measures beside the caret.
- */
-.ck.ck-mention-balloon .ck-mentions {
-    max-width: calc(100vw - 2 * 8px);
-    max-height: min(var(--ck-mention-list-max-height), var(--tn-mention-visible-height, 100vh));
 }
 
 /* Snippet form */

@@ -1,34 +1,4 @@
 /*
- * A feed's own rows (emoji) are CKEditor buttons, which keep the
- * padding and layout they have in CKEditor's balloon. The menu row draws the highlight, so the
- * button draws none: `!important` outranks CKEditor's `:hover`, `:focus` and `.ck-on` rules.
- */
-.mention-list-menu .dropdown-item:has(> span > .ck-button) {
-    /* Outranks the `!important` padding of `.dropdown-item` in the theme. */
-    padding: 0 !important;
-}
-
-.mention-list-menu .ck.ck-button.ck-button {
-    width: 100%;
-    min-height: 0;
-    border: 0;
-    box-shadow: none !important;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: inherit;
-    background: none !important;
-}
-
-.mention-list-menu {
-    max-width: min(700px, calc(100vw - 10px));
-}
-
-.mention-list-menu > .tn-menu-scroll {
-    max-height: var(--ck-mention-list-max-height);
-}
-
-/*
  * The `/` palette, at a width that fits all but the longest descriptions, and given more height than
  * a list usually is: it is long, and the query only narrows it.
  */
