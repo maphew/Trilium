@@ -14,7 +14,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
-import type { MentionListState, MentionListView, TriliumMentionFeed } from "./types.js";
+import type { MentionHostedList, MentionHostedListState, MentionListState, MentionListView, TriliumMentionFeed } from "./types.js";
 import TriliumMentionUI, { balloonPositions } from "./trilium_mention_ui.js";
 
 /** Longer than the plugin's 100 ms feed debounce. */
@@ -680,6 +680,136 @@ describe("TriliumMentionUI", () => {
             await createWithView();
             await editor.destroy();
             expect(view.destroy).toHaveBeenCalled();
+        });
+    });
+
+    describe("a hosted list", () => {
+        let state: MentionHostedListState | null;
+        let listElement: HTMLElement;
+        let list: MentionHostedList & {
+            show: ReturnType<typeof vi.fn>;
+            hide: ReturnType<typeof vi.fn>;
+            handleKeyDown: ReturnType<typeof vi.fn>;
+            destroy: ReturnType<typeof vi.fn>;
+        };
+
+        beforeEach(async () => {
+            state = null;
+            listElement = document.createElement("div");
+            document.body.append(listElement);
+            list = {
+                show: vi.fn((shown: MentionHostedListState) => { state = shown; }),
+                hide: vi.fn(() => { state = null; }),
+                handleKeyDown: vi.fn(() => true),
+                destroy: vi.fn(),
+                get element() { return state ? listElement : null; }
+            };
+
+            labelFeed = vi.fn(async () => [ { id: "#alpha", text: "#alpha" } ]);
+            editor = await createTestEditor([ Essentials, Paragraph, MentionEditing, TriliumMentionUI ], {
+                mention: {
+                    feeds: [ { marker: "#", feed: labelFeed as unknown as TriliumMentionFeed["feed"], minimumCharacters: 0 } ],
+                    hostedFeeds: [ { marker: "@", minimumCharacters: 0, allowSpaces: true, list: () => list } ]
+                }
+            });
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+        });
+
+        /** Presses a key in the editor, and returns whether the plugin kept it from the editor. */
+        function press(keyCode: number) {
+            const domEvent = new KeyboardEvent("keydown");
+            const preventDefault = vi.fn();
+            editor.editing.view.document.fire("keydown", {
+                keyCode,
+                domEvent,
+                preventDefault,
+                stopPropagation: () => {},
+                domTarget: editor.editing.view.getDomRoot()
+            });
+            return { domEvent, consumed: preventDefault.mock.calls.length > 0 };
+        }
+
+        const text = () => getModelData(editor.model, { withoutSelection: true });
+
+        it("is shown the query typed after its marker, and closed when the caret leaves it", async () => {
+            type("@my no");
+            expect(state?.query).toBe("my no");
+            expect(state?.caretRect().height).toBeGreaterThan(0);
+            expect(state?.editable).toBe(editor.editing.view.getDomRoot());
+            type("te");
+            expect(state?.query).toBe("my note");
+
+            // The feeds are left alone, and their list never opens over the hosted one.
+            await settle();
+            expect(labelFeed).not.toHaveBeenCalled();
+
+            moveCaretTo(0);
+            expect(list.hide).toHaveBeenCalled();
+            expect(state).toBe(null);
+        });
+
+        it("takes the keys while it is open, and Escape dismisses it where it shows entries", () => {
+            type("@al");
+            const arrow = press(keyCodes.arrowdown);
+            expect(list.handleKeyDown).toHaveBeenCalledWith(arrow.domEvent);
+            expect(arrow.consumed).toBe(true);
+
+            list.handleKeyDown.mockReturnValue(false);
+            expect(press(keyCodes.enter).consumed).toBe(false);
+
+            expect(press(keyCodes.esc).consumed).toBe(true);
+            expect(state).toBe(null);
+            // Dismissed: typing on does not bring it back.
+            type("p");
+            expect(state).toBe(null);
+        });
+
+        it("leaves Escape to the editor while it shows nothing", () => {
+            Object.defineProperty(list, "element", { get: () => null });
+            type("@al");
+
+            expect(press(keyCodes.esc).consumed).toBe(false);
+            expect(list.handleKeyDown).not.toHaveBeenCalled();
+        });
+
+        it("closes on a press outside its element, and not on one inside it", () => {
+            type("@al");
+            listElement.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+            expect(state).not.toBe(null);
+            document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+            expect(state).toBe(null);
+        });
+
+        it("replaces the trigger text with what it commits, at once or once a promise settles", async () => {
+            setModelData(editor.model, "<paragraph>x []</paragraph>");
+            type("@al");
+            state?.commit({ id: "@alpha", text: "@alpha" });
+            expect(text()).toContain("x <$text");
+            expect(text()).toContain(">@alpha</$text>");
+            expect(state).toBe(null);
+
+            setModelData(editor.model, "<paragraph>x []</paragraph>");
+            type("@be");
+            let resolveCommit: (item: MentionFeedObjectItem | undefined) => void = () => {};
+            state?.commit(new Promise((resolve) => { resolveCommit = resolve; }));
+            // The text stays while the promise is pending, and the list is closed.
+            expect(text()).toBe("<paragraph>x @be</paragraph>");
+            expect(state).toBe(null);
+            resolveCommit({ id: "@beta", text: "@beta" });
+            await Promise.resolve();
+            expect(text()).toContain("@beta</$text>");
+            expect(text()).not.toContain("@be<");
+
+            setModelData(editor.model, "<paragraph>x []</paragraph>");
+            type("@ga");
+            state?.commit(Promise.resolve(undefined));
+            await Promise.resolve();
+            expect(text()).toBe("<paragraph>x @ga</paragraph>");
+        });
+
+        it("is destroyed with the editor", async () => {
+            await editor.destroy();
+            expect(list.destroy).toHaveBeenCalled();
         });
     });
 });

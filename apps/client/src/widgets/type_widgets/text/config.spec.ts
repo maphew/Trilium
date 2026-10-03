@@ -3,7 +3,6 @@ import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES, SANITIZER_DEFAULT_ALLOWED
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import imageService from "../../../services/image.js";
-import noteAutocompleteService from "../../../services/note_autocomplete.js";
 import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlight.js";
 import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from "./config.js";
 import { createMentionListView } from "./mention_list_view.js";
@@ -27,7 +26,9 @@ const catalogState = vi.hoisted(() => ({
 vi.mock("../../../services/i18n.js", () => ({
     t: (key: string) => catalogState.entries[key] ?? key,
     // Read while the AI assistant's Translate submenu is built, which every config goes through.
-    getAvailableLocales: () => []
+    getAvailableLocales: () => [],
+    // Awaited by `command_registry.ts` as it loads, through the `@` list's note autocomplete.
+    translationsInitializedPromise: Promise.resolve()
 }));
 vi.mock("i18next", () => ({
     default: {
@@ -77,12 +78,6 @@ vi.mock("../../../services/image.js", () => ({
     }
 }));
 
-vi.mock("../../../services/note_autocomplete.js", () => ({
-    default: {
-        autocompleteSourceForCKEditor: vi.fn(async () => [])
-    }
-}));
-
 // Keep the real module, but skip the actual theme/mime loading the lazy loader would trigger.
 vi.mock("../../../services/syntax_highlight.js", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../../services/syntax_highlight.js")>()),
@@ -116,13 +111,8 @@ interface DynamicConfig {
     mermaid: { lazyLoad(): Promise<unknown> };
     syntaxHighlighting: { loadHighlightJs(): Promise<{ default: unknown }> };
     mention?: {
-        feeds: {
-            marker: string;
-            minimumCharacters: number;
-            dropdownLimit?: number;
-            feed(queryText: string): Promise<unknown>;
-            itemRenderer?: unknown;
-        }[];
+        feeds: unknown[];
+        hostedFeeds?: { marker: string; minimumCharacters?: number; allowSpaces?: boolean; list(): unknown }[];
         listView?: unknown;
     };
 }
@@ -567,27 +557,18 @@ describe("CK config - lazy loaders", () => {
 });
 
 describe("CK config - mention feed", () => {
-    it("draws the list as the note autocomplete's, with the @ feed only when note completion is enabled", async () => {
+    it("lists notes after @ as the note autocomplete does, only when note completion is enabled", async () => {
         const off = await buildDynamicConfig();
         expect(off.mention?.feeds).toEqual([]);
+        expect(off.mention?.hostedFeeds).toEqual([]);
         // The `/` and emoji feeds the plugins add are drawn through it all the same.
         expect(off.mention?.listView).toBe(createMentionListView);
 
         optionsState.map["textNoteCompletionEnabled"] = "true";
         const config = await buildDynamicConfig();
-        expect(config.mention?.listView).toBe(createMentionListView);
-
-        const feedConfig = config.mention?.feeds[0];
-        if (!feedConfig) throw new Error("expected the mention feed to be configured");
-        expect(feedConfig.marker).toBe("@");
-        expect(feedConfig.minimumCharacters).toBe(0);
-        // The creation rows come after every note.
-        expect(feedConfig.dropdownLimit).toBe(Number.MAX_SAFE_INTEGER);
-        // The view draws a note as the note autocomplete does, so the feed renders nothing itself.
-        expect(feedConfig.itemRenderer).toBeUndefined();
-
-        await feedConfig.feed("query-text");
-        expect(noteAutocompleteService.autocompleteSourceForCKEditor).toHaveBeenCalledWith("query-text");
+        const hosted = config.mention?.hostedFeeds?.[0];
+        expect(hosted).toMatchObject({ marker: "@", minimumCharacters: 0, allowSpaces: true });
+        expect(hosted?.list()).toEqual(expect.objectContaining({ show: expect.any(Function), handleKeyDown: expect.any(Function) }));
     });
 });
 

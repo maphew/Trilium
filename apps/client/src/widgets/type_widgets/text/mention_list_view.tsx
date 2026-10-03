@@ -1,19 +1,16 @@
 import "./mention_list_view.css";
 
-import type { MentionListEntry, MentionListState, MentionListView } from "@triliumnext/ckeditor5";
+import type { MentionHostedList, MentionListEntry, MentionListState, MentionListView } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
 import { render } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { Suggestion } from "../../../services/note_autocomplete";
-import { FormDropdownDivider } from "../../react/FormList";
-import { renderNoteSuggestion, startsGroup } from "../../react/NoteAutocomplete";
+import { NoteMentionList, type NoteMentionListHandle } from "../../react/NoteAutocomplete";
 import Popup from "../../react/Popup";
 
 /**
- * Draws a text editor's suggestion list (`@` notes, `#`/`~` attributes, `/` commands, emoji) as the
- * note autocomplete's menu, in a {@link Popup} at the caret, for the editor config's
- * `mention.listView`.
+ * Draws a text editor's suggestion list (`#`/`~` attributes, `/` commands, emoji) as the note
+ * autocomplete's menu, in a {@link Popup} at the caret, for the editor config's `mention.listView`.
  *
  * `TriliumMentionUI` keeps everything but the drawing: when the list opens and closes, the keys, the
  * selection and the commit. The menu never takes the focus, which stays in the editor.
@@ -54,6 +51,53 @@ export function createMentionListView(): MentionListView {
     };
 }
 
+/**
+ * Lists the notes for the query typed after `@` as the note autocomplete does, for the editor config's
+ * `mention.hostedFeeds`, and mentions the note picked as a reference link.
+ */
+export function createNoteMentionList({ allowCreatingNotes, preselect }: {
+    allowCreatingNotes?: boolean;
+    preselect?: boolean;
+} = {}): MentionHostedList {
+    const container = document.createElement("div");
+    const handle: { current: NoteMentionListHandle | null } = { current: null };
+    let element: HTMLDivElement | null = null;
+
+    return {
+        show(state) {
+            render(<NoteMentionList
+                query={state.query}
+                // A new anchor each time the query changes, so it is placed again at the caret.
+                anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
+                allowCreatingNotes={allowCreatingNotes}
+                preselect={preselect}
+                onPick={(notePath) => state.commit(typeof notePath === "string"
+                    ? toMention(notePath)
+                    : notePath.then((path) => path ? toMention(path) : undefined))}
+                handleRef={handle}
+                elementRef={(el) => { element = el; }}
+            />, container);
+        },
+        hide() {
+            render(null, container);
+            element = null;
+        },
+        handleKeyDown: (e) => handle.current?.handleKeyDown(e) ?? false,
+        get element() {
+            return element;
+        },
+        destroy() {
+            render(null, container);
+            element = null;
+        }
+    };
+}
+
+/** The mention `MentionCustomization` turns into a reference link to `notePath`. */
+function toMention(notePath: string) {
+    return { id: `@${notePath}`, notePath };
+}
+
 function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }: {
     state: MentionListState;
     elementRef(element: HTMLDivElement | null): void;
@@ -63,8 +107,6 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
     const menuRef = useRef<HTMLMenuElement>(null);
     const lastPointer = useRef<{ x: number; y: number }>();
     const { entries, selectedIndex } = state;
-    // Grouped as the note autocomplete groups its rows; any other feed's entries form one group.
-    const suggestions = entries.map(({ item }) => (isNoteSuggestion(item) ? item : {}));
 
     useLayoutEffect(() => {
         if (!scrollsToSelection() || selectedIndex < 0) return;
@@ -87,8 +129,7 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
                 // Keeps the focus in the editor, which closes the list without it.
                 onMouseDown={(e) => e.preventDefault()}
             >
-                {entries.map((entry, index) => [
-                    startsGroup(suggestions, index) && <FormDropdownDivider key={`divider-${index}`} />,
+                {entries.map((entry, index) => (
                     <li
                         key={`${entry.marker}:${entry.item.id}`}
                         className={clsx("dropdown-item", index === selectedIndex && "tn-menu-active")}
@@ -105,34 +146,19 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
                     >
                         <EntryContent entry={entry} />
                     </li>
-                ])}
+                ))}
             </menu>
         </Popup>
     );
 }
 
-/**
- * A note as the note autocomplete draws it, and any other entry as its feed's `itemRenderer` does, or
- * by its id where the feed has none.
- */
+/** An entry as its feed's `itemRenderer` draws it, or by its id where the feed has none. */
 function EntryContent({ entry }: { entry: MentionListEntry }) {
     const ref = useRef<HTMLSpanElement>(null);
 
     useLayoutEffect(() => {
-        const host = ref.current;
-        if (!host) return;
-
-        if (isNoteSuggestion(entry.item)) {
-            // The row's content itself, as the note autocomplete lays it out in its `<span>`.
-            host.replaceChildren(...renderNoteSuggestion(entry.item).childNodes);
-        } else {
-            host.replaceChildren(entry.render() ?? entry.item.id);
-        }
+        ref.current?.replaceChildren(entry.render() ?? entry.item.id);
     }, [ entry.item, entry.marker ]);
 
     return <span ref={ref} />;
-}
-
-function isNoteSuggestion(item: MentionListEntry["item"]): item is MentionListEntry["item"] & Suggestion {
-    return "highlightedNotePathTitle" in item;
 }

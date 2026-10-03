@@ -54,7 +54,7 @@ vi.mock("./ws.js", () => ({
 }));
 
 import type { CommandDefinition } from "./command_registry.js";
-import noteAutocomplete, { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, recentNoteGroup, type Suggestion } from "./note_autocomplete.js";
+import { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, recentNoteGroup, type Suggestion } from "./note_autocomplete.js";
 import server from "./server.js";
 
 beforeEach(() => {
@@ -155,42 +155,6 @@ describe("getNoteSuggestions", () => {
         expect((await getNoteSuggestions("   ", all)).map((r) => r.action)).toEqual([ undefined ]);
         // And only when asked for.
         expect((await getNoteSuggestions("https://example.com/x")).map((r) => r.action)).toEqual([ undefined ]);
-    });
-});
-
-describe("autocompleteSourceForCKEditor", () => {
-    it("maps the rows into mention feed items, in the note autocomplete's order", async () => {
-        server.get = vi.fn(async () => [ {
-            noteTitle: "Foo",
-            notePathTitle: "Root / Foo",
-            notePath: "root/abc",
-            highlightedNotePathTitle: "<b>Foo</b>",
-            icon: "bx bx-note"
-        } ]) as typeof server.get;
-
-        const items = await noteAutocomplete.autocompleteSourceForCKEditor("Foo");
-        expect(items.map((item) => (item as Suggestion).action)).toEqual([ undefined, "create-note", "create-child-note" ]);
-        expect(items[0]).toEqual({
-            action: undefined,
-            noteTitle: "Foo",
-            id: "@Root / Foo",
-            name: "Root / Foo",
-            link: "#root/abc",
-            notePath: "root/abc",
-            highlightedNotePathTitle: "<b>Foo</b>",
-            icon: "bx bx-note"
-        });
-        // A creation row has no path title of its own.
-        expect(items[1]).toMatchObject({ id: "@undefined", name: "" });
-    });
-
-    it("omits the creation rows when the host cannot act on them", async () => {
-        server.get = vi.fn(async () => [
-            { noteTitle: "Foo", notePathTitle: "Root / Foo", notePath: "root/abc" }
-        ]) as typeof server.get;
-
-        const items = await noteAutocomplete.autocompleteSourceForCKEditor("Foo", false);
-        expect(items.map((item) => (item as Suggestion).action)).toEqual([ undefined ]);
     });
 });
 

@@ -110,3 +110,55 @@ export interface MentionListView {
     readonly element: HTMLElement | null;
     destroy?(): void;
 }
+
+declare module "@ckeditor/ckeditor5-mention" {
+    interface MentionConfig {
+        /**
+         * Markers whose list the host runs entirely: what it lists, how it draws it, which entry is
+         * highlighted and what a pick means. {@link TriliumMentionUI} only reports the query typed
+         * after the marker, forwards the keys while the list is open and commits what the host hands
+         * back.
+         */
+        hostedFeeds?: MentionHostedFeed[];
+    }
+}
+
+/** A marker whose list the host runs. See `mention.hostedFeeds`. */
+export interface MentionHostedFeed {
+    marker: string;
+    /** See `MentionFeed.minimumCharacters`. */
+    minimumCharacters?: number;
+    /** See `MentionFeed.allowSpaces`. */
+    allowSpaces?: boolean;
+    /** Creates the list, once per editor. */
+    list( editor: Editor ): MentionHostedList;
+}
+
+/** What a {@link MentionHostedList} is shown for, each time the query changes. */
+export interface MentionHostedListState {
+    /** The text typed after the marker, up to the caret. */
+    query: string;
+    /** Where the caret ends the query, in viewport coordinates. */
+    caretRect(): DOMRect;
+    /** The editable element the caret is in. See {@link MentionListState.editable}. */
+    editable: HTMLElement | null;
+    /**
+     * Replaces the marker and the query with a mention of `item`, as a pick from the list does. For a
+     * promise, the text stays until it settles, and stays for good where it settles on `undefined`.
+     */
+    commit( item: MentionFeedObjectItem | Promise<MentionFeedObjectItem | undefined> ): void;
+}
+
+/** A host's list for a marker in `mention.hostedFeeds`. */
+export interface MentionHostedList {
+    show( state: MentionHostedListState ): void;
+    hide(): void;
+    /**
+     * Handles a key pressed in the editor while the list is open, other than Escape, which closes it.
+     * Returns whether the list took the key, which then reaches the editor no further.
+     */
+    handleKeyDown( event: KeyboardEvent ): boolean;
+    /** The list's element while it shows entries, inside which a press does not close it. */
+    readonly element: HTMLElement | null;
+    destroy?(): void;
+}

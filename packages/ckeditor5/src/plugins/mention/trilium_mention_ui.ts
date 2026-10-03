@@ -12,6 +12,7 @@ import {
     MentionListItemView,
     MentionsView,
     ModelLivePosition,
+    ModelLiveRange,
     type ModelPosition,
     Plugin,
     Rect,
@@ -20,7 +21,7 @@ import {
 } from "ckeditor5";
 
 import { createMarkerPattern, findMarkerMatch, type MarkerMatch } from "./marker_pattern.js";
-import type { MentionListView, TriliumMentionFeed } from "./types.js";
+import type { MentionHostedFeed, MentionHostedList, MentionListView, TriliumMentionFeed } from "./types.js";
 
 const VERTICAL_SPACING = 3;
 /** The least gap kept between the panel and an edge of the visible viewport, which `style.css` matches. */
@@ -36,6 +37,9 @@ const MENTION_LIST_CLASS = "ck-mention-list";
 
 /** A configured feed with its compiled trigger pattern. */
 type Pattern = TriliumMentionFeed & { pattern: RegExp };
+
+/** A marker of `mention.hostedFeeds` with its compiled trigger pattern and the host's list. */
+type HostedPattern = MentionHostedFeed & { pattern: RegExp; hostedList: MentionHostedList };
 
 /**
  * A drop-in replacement for CKEditor's `MentionUI` that fixes three behaviours we can neither
@@ -69,6 +73,10 @@ export default class TriliumMentionUI extends Plugin {
     private _listShown = false;
     /** The entry {@link _listView} highlights, or `-1`. */
     private _selectedIndex = -1;
+    /** The markers whose list the host runs, from `mention.hostedFeeds`. */
+    private _hosted: HostedPattern[] = [];
+    /** The hosted marker whose list is open, or `null`. */
+    private _openHosted: HostedPattern | null = null;
 
     private _balloon?: ContextualBalloon;
     private _feedTimer?: ReturnType<typeof setTimeout>;
@@ -105,9 +113,17 @@ export default class TriliumMentionUI extends Plugin {
         const feeds = (editor.config.get("mention.feeds") ?? []) as TriliumMentionFeed[];
         this._patterns = feeds.map((feed) => ({ ...feed, pattern: createMarkerPattern(feed.marker, feed) }));
         this._listView = editor.config.get("mention.listView")?.(editor);
+        this._hosted = (editor.config.get("mention.hostedFeeds") ?? []).map((feed) => ({
+            ...feed,
+            pattern: createMarkerPattern(feed.marker, feed),
+            hostedList: feed.list(editor)
+        }));
 
         editor.editing.view.document.on<ViewDocumentKeyDownEvent>("keydown", (evt, data) => {
-            if (this._isVisible && this._handleKeyDown(data.keyCode)) {
+            const consumed = this._openHosted
+                ? this._handleHostedKeyDown(this._openHosted.hostedList, data.keyCode, data.domEvent)
+                : this._isVisible && this._handleKeyDown(data.keyCode);
+            if (consumed) {
                 data.preventDefault();
                 evt.stop(); // Required to override the Enter key.
             }
@@ -118,7 +134,8 @@ export default class TriliumMentionUI extends Plugin {
             activator: () => this._isVisible,
             /* v8 ignore next -- `clickOutsideHandler` only calls `contextElements()` once the activator reported the panel visible, and a visible balloon is a rendered one, so its element is never null */
             contextElements: () => {
-                const element = this._listView ? this._listView.element : this._balloon?.view.element;
+                const element = this._openHosted?.hostedList.element
+                    ?? (this._listView ? this._listView.element : this._balloon?.view.element);
                 return element ? [ element ] : [];
             },
             callback: () => this._hide()
@@ -136,9 +153,16 @@ export default class TriliumMentionUI extends Plugin {
         // Balloon views are not destroyed automatically — see ckeditor5#1341.
         this._view.destroy();
         this._listView?.destroy?.();
+        for (const { hostedList } of this._hosted) {
+            hostedList.destroy?.();
+        }
     }
 
     private get _isVisible() {
+        if (this._openHosted) {
+            return !!this._openHosted.hostedList.element;
+        }
+
         return this._listView ? this._listShown : this._balloon?.visibleView === this._view;
     }
 
@@ -191,6 +215,23 @@ export default class TriliumMentionUI extends Plugin {
     }
 
     /**
+     * Hands a key to a hosted list, and returns whether it took it. Escape is handled here whatever
+     * the host does, so that the dismissal is remembered as it is for a feed's list.
+     */
+    private _handleHostedKeyDown(list: MentionHostedList, keyCode: number, event: KeyboardEvent): boolean {
+        if (keyCode !== keyCodes.esc) {
+            return list.handleKeyDown(event);
+        }
+
+        if (!list.element) {
+            return false;
+        }
+
+        this._dismiss();
+        return true;
+    }
+
+    /**
      * Hides the panel and remembers that the user rejected *this* marker, so it does not immediately
      * reopen on the next keystroke. No document mutation is involved.
      */
@@ -234,7 +275,7 @@ export default class TriliumMentionUI extends Plugin {
 
         // Returning the match object makes `TextWatcher` merge it into the event data, so the
         // handler does not have to re-derive the block text and re-run the patterns.
-        const watcher = new TextWatcher(editor.model, (text) => findMarkerMatch(this._patterns, text) ?? false);
+        const watcher = new TextWatcher(editor.model, (text) => findMarkerMatch<Pattern | HostedPattern>([ ...this._patterns, ...this._hosted ], text) ?? false);
 
         // Only typing opens the panel. `matched:selection` fires on any direct caret move — a click
         // or an arrow key — and reopening there is the "clicking always triggers an autocomplete"
@@ -253,7 +294,7 @@ export default class TriliumMentionUI extends Plugin {
         }
     }
 
-    private _onTyped({ feed, query }: MarkerMatch<Pattern>) {
+    private _onTyped({ feed, query }: MarkerMatch<Pattern | HostedPattern>) {
         const model = this.editor.model;
         const focus = model.document.selection.focus;
 
@@ -286,6 +327,12 @@ export default class TriliumMentionUI extends Plugin {
             }
         });
 
+        if ("hostedList" in feed) {
+            this._showHosted(feed, query);
+            return;
+        }
+
+        this._hideHosted();
         const requestId = ++this._requestId;
         clearTimeout(this._feedTimer);
         this._feedTimer = setTimeout(() => void this._requestFeed(feed, query, requestId), FEED_DEBOUNCE_MS);
@@ -384,7 +431,16 @@ export default class TriliumMentionUI extends Plugin {
 
     private _hide() {
         clearTimeout(this._feedTimer);
+        this._hideHosted();
+        this._hideFeedList();
 
+        if (this.editor.model.markers.has(MARKER_NAME)) {
+            this.editor.model.change((writer) => writer.removeMarker(MARKER_NAME));
+        }
+    }
+
+    /** Hides a feed's list, in {@link _listView} or the balloon, and leaves the marker. */
+    private _hideFeedList() {
         if (this._listShown) {
             this._listShown = false;
             this._selectedIndex = -1;
@@ -395,11 +451,77 @@ export default class TriliumMentionUI extends Plugin {
             this._balloon.remove(this._view);
         }
 
-        if (this.editor.model.markers.has(MARKER_NAME)) {
-            this.editor.model.change((writer) => writer.removeMarker(MARKER_NAME));
+        this._view.position = undefined;
+    }
+
+    /** Shows the host's list of `feed` for `query`, in place of any other list. */
+    private _showHosted(feed: HostedPattern, query: string) {
+        const marker = this.editor.model.markers.get(MARKER_NAME);
+
+        /* v8 ignore next 3 -- `_onTyped()` sets the marker just before calling this; the guard only narrows its type */
+        if (!marker) {
+            return;
         }
 
-        this._view.position = undefined;
+        // A feed's request still pending would otherwise open its list over this one.
+        clearTimeout(this._feedTimer);
+        this._requestId++;
+        this._hideFeedList();
+        if (this._openHosted !== feed) {
+            this._hideHosted();
+        }
+
+        this._openHosted = feed;
+        feed.hostedList.show({
+            query,
+            caretRect: () => {
+                const { left, top, width, height } = this._caretRect(marker);
+                return new DOMRect(left, top, width, height);
+            },
+            editable: this.editor.editing.view.getDomRoot() ?? null,
+            commit: (item) => this._commitHosted(feed.marker, item)
+        });
+    }
+
+    private _hideHosted() {
+        const open = this._openHosted;
+        this._openHosted = null;
+        open?.hostedList.hide();
+    }
+
+    /**
+     * Replaces the trigger text with a mention of `item`. For a promise, the text stays where it is,
+     * followed by a live range, until it settles.
+     */
+    private _commitHosted(markerText: string, item: MentionFeedObjectItem | Promise<MentionFeedObjectItem | undefined>) {
+        const editor = this.editor;
+        const model = editor.model;
+        const marker = model.markers.get(MARKER_NAME);
+        const focus = model.document.selection.focus;
+
+        // A pick arriving after the list closed, such as a click racing a caret move.
+        if (!marker || !focus) {
+            return;
+        }
+
+        const range = ModelLiveRange.fromRange(model.createRange(marker.getStart(), focus));
+        this._hide();
+        this._clearDismissal();
+
+        const insert = (mention: MentionFeedObjectItem | undefined) => {
+            // The text can have been deleted while a promise was pending.
+            if (mention && range.root.rootName !== "$graveyard") {
+                editor.execute("mention", { mention, text: mention.text, marker: markerText, range: range.toRange() });
+                editor.editing.view.focus();
+            }
+            range.detach();
+        };
+
+        if (item instanceof Promise) {
+            void item.then(insert, () => range.detach());
+        } else {
+            insert(item);
+        }
     }
 
     private _createView(): MentionsView {
@@ -580,7 +702,7 @@ export default class TriliumMentionUI extends Plugin {
 
 type TriliumMatchedEvent = {
     name: "matched:data";
-    args: [ MarkerMatch<Pattern> & { text: string } ];
+    args: [ MarkerMatch<Pattern | HostedPattern> & { text: string } ];
 };
 
 function isInExistingMention(position: ModelPosition): boolean {

@@ -8,7 +8,6 @@ import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import { getMermaidConfig } from "../../../services/mermaid.js";
 import { default as mimeTypesService, getHighlightJsNameForMime } from "../../../services/mime_types.js";
-import noteAutocompleteService from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
@@ -19,7 +18,7 @@ import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import diffAiResponse from "./ai_diff.js";
 import { buildFontColorConfig, buildTableColorConfig } from "./color_palette.js";
-import { createMentionListView } from "./mention_list_view.js";
+import { createMentionListView, createNoteMentionList } from "./mention_list_view.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -303,18 +302,18 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
 
     config.typing = { transformations: buildTransformationsConfig(contentLanguage) };
 
-    // Set without the `@` feed too: the `/` and emoji feeds the plugins add are drawn through it.
     config.mention = {
-        feeds: options.get("textNoteCompletionEnabled") === "true" ? [
+        feeds: [],
+        hostedFeeds: options.get("textNoteCompletionEnabled") === "true" ? [
             {
                 marker: "@",
-                feed: (queryText: string) => noteAutocompleteService.autocompleteSourceForCKEditor(queryText),
                 minimumCharacters: 0,
-                dropdownLimit: Number.MAX_SAFE_INTEGER,
                 // Note titles contain spaces, so the query must be allowed to as well.
-                allowSpaces: true
+                allowSpaces: true,
+                list: () => createNoteMentionList({ allowCreatingNotes: true })
             }
         ] : [],
+        // Draws the lists of the `/` and emoji feeds the plugins add.
         listView: createMentionListView
     };
 

@@ -1,8 +1,19 @@
-import type { MentionListState } from "@triliumnext/ckeditor5";
+import type { MentionHostedListState, MentionListState } from "@triliumnext/ckeditor5";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createMentionListView } from "./mention_list_view";
+const { getNoteSuggestions, createNoteFromSuggestion } = vi.hoisted(() => ({
+    getNoteSuggestions: vi.fn(async () => [ { notePath: "root/a", noteTitle: "Alpha", highlightedNotePathTitle: "Alpha" } ]),
+    createNoteFromSuggestion: vi.fn()
+}));
+
+vi.mock("../../../services/note_autocomplete", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../services/note_autocomplete")>()),
+    getNoteSuggestions,
+    createNoteFromSuggestion
+}));
+
+import { createMentionListView, createNoteMentionList } from "./mention_list_view";
 
 describe("createMentionListView", () => {
     const views: ReturnType<typeof createMentionListView>[] = [];
@@ -13,14 +24,15 @@ describe("createMentionListView", () => {
     });
 
     function stateWith(overrides: Partial<MentionListState> = {}): MentionListState {
+        const emoji = document.createElement("span");
+        emoji.textContent = "😄 smile";
         const command = document.createElement("button");
         command.className = "ck ck-button ck-slash-command-button";
         command.textContent = "Heading";
 
         return {
             entries: [
-                // The `@` feed's items carry the note autocomplete's fields beside the mention's own.
-                { item: { id: "@Alpha", highlightedNotePathTitle: "<b>Al</b>pha", icon: "bx bx-file" } as MentionListState["entries"][0]["item"], marker: "@", render: () => undefined },
+                { item: { id: ":smile:" }, marker: ":", render: () => emoji },
                 { item: { id: "/heading" }, marker: "/", render: () => command },
                 { item: { id: "#plain" }, marker: "#", render: () => undefined }
             ],
@@ -52,34 +64,15 @@ describe("createMentionListView", () => {
         expect(menu?.classList.contains("ck-mention-list")).toBe(true);
         expect(rows().map((row) => row.classList.contains("tn-menu-active"))).toEqual([ true, false, false ]);
 
-        // A note as the note autocomplete draws it, the rest as their feeds do, or by their id.
-        const [ note, command, plain ] = rows();
-        expect(note.querySelector(".tn-icon")?.className).toContain("bx-file");
-        expect(note.querySelector(".search-result-title")?.innerHTML).toBe("<b>Al</b>pha");
+        // Each entry as its feed draws it, or by its id.
+        const [ emoji, command, plain ] = rows();
+        expect(emoji.textContent).toBe("😄 smile");
         expect(command.querySelector(".ck-slash-command-button")?.textContent).toBe("Heading");
         expect(plain.textContent).toBe("#plain");
 
         await act(async () => view.hide());
         expect(view.element).toBeNull();
         expect(document.querySelector(".mention-list-menu")).toBeNull();
-    });
-
-    it("separates the notes from the creation rows as the note autocomplete does, and scrolls past the line", async () => {
-        const scroll = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
-        const entry = (id: string, action?: string) => ({
-            item: { id, action, highlightedNotePathTitle: id } as MentionListState["entries"][0]["item"],
-            marker: "@",
-            render: () => undefined
-        });
-        const state = stateWith({ entries: [ entry("@Alpha"), entry("@create", "create-note"), entry("@child", "create-child-note") ] });
-        const view = await show(state);
-
-        const children = [ ...document.querySelectorAll(".mention-list-menu .tn-menu-scroll > *") ];
-        expect(children.map((child) => child.className)).toEqual([ "dropdown-item tn-menu-active", "dropdown-divider", "dropdown-item", "dropdown-item" ]);
-
-        scroll.mockClear();
-        await act(async () => view.show({ ...state, selectedIndex: 2 }));
-        expect(scroll.mock.contexts[0]).toBe(rows()[2]);
     });
 
     it("follows the caret as a container around the editor scrolls", async () => {
@@ -142,5 +135,52 @@ describe("createMentionListView", () => {
         });
         expect(state.select).toHaveBeenCalledWith(1);
         expect(scroll).not.toHaveBeenCalled();
+    });
+});
+
+describe("createNoteMentionList", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    async function open() {
+        const list = createNoteMentionList({ allowCreatingNotes: true });
+        const commit = vi.fn<MentionHostedListState["commit"]>();
+        await act(async () => list.show({ query: "al", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        return { list, commit };
+    }
+
+    it("lists the notes for the query, and mentions the one picked by its path", async () => {
+        const { list, commit } = await open();
+
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true });
+        expect(list.element?.textContent).toContain("Alpha");
+        expect(list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }))).toBe(true);
+        expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "@root/a", notePath: "root/a" });
+
+        await act(async () => list.hide());
+        expect(list.element).toBeNull();
+        expect(list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }))).toBe(false);
+        list.destroy?.();
+    });
+
+    it("mentions a note it creates once it is created, and nothing where the creation is canceled", async () => {
+        getNoteSuggestions.mockResolvedValue([ { action: "create-note", noteTitle: "al", highlightedNotePathTitle: "Create" } ] as never);
+        createNoteFromSuggestion.mockResolvedValueOnce("root/inbox/al").mockResolvedValueOnce(undefined);
+
+        const created = await open();
+        created.list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
+        expect(await created.commit.mock.calls[0]?.[0]).toEqual({ id: "@root/inbox/al", notePath: "root/inbox/al" });
+        created.list.destroy?.();
+
+        const canceled = await open();
+        canceled.list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
+        expect(await canceled.commit.mock.calls[0]?.[0]).toBeUndefined();
+        canceled.list.destroy?.();
     });
 });

@@ -1,7 +1,7 @@
 import "../../attribute_widgets/attribute_name_suggestion.css";
 import "./AttributeEditor.css";
 
-import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, TriliumMentionFeed } from "@triliumnext/ckeditor5";
+import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, MentionHostedFeed, TriliumMentionFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
 import clsx from "clsx";
 import { createPortal } from "preact/compat";
@@ -14,13 +14,10 @@ import contextMenu from "../../../menus/context_menu";
 import attribute_parser, { Attribute } from "../../../services/attribute_parser";
 import attribute_renderer from "../../../services/attribute_renderer";
 import attributes, { isBuiltinAttribute } from "../../../services/attributes";
-import dateNoteService from "../../../services/date_notes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { ATTRIBUTE_HELP_PAGE } from "../../../services/in_app_help";
 import link from "../../../services/link";
-import note_autocomplete from "../../../services/note_autocomplete";
-import note_create from "../../../services/note_create";
 import server from "../../../services/server";
 import { isIMEComposing } from "../../../services/shortcuts";
 import { escapeQuotes, getErrorMessage } from "../../../services/utils";
@@ -29,7 +26,7 @@ import ActionButton from "../../react/ActionButton";
 import CKEditor, { CKEditorApi } from "../../react/CKEditor";
 import HelpDropdown from "../../react/HelpDropdown";
 import { useLegacyImperativeHandlers, useLegacyWidget, useTriliumEvent } from "../../react/hooks";
-import { createMentionListView } from "../../type_widgets/text/mention_list_view";
+import { createMentionListView, createNoteMentionList } from "../../type_widgets/text/mention_list_view";
 import AttributeHelp from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
@@ -43,15 +40,6 @@ const BLINK_DURATION = 300;
 // `preselectFirstItem: false` throughout: in this editor Enter means "save the attributes", so an
 // open panel must not silently swallow it into committing whichever suggestion happens to be first.
 const mentionSetup: TriliumMentionFeed[] = [
-    {
-        marker: "@",
-        feed: (queryText) => note_autocomplete.autocompleteSourceForCKEditor(queryText),
-        minimumCharacters: 0,
-        dropdownLimit: Number.MAX_SAFE_INTEGER,
-        // Relation targets are note titles, which contain spaces.
-        allowSpaces: true,
-        preselectFirstItem: false
-    },
     {
         marker: "#",
         feed: (queryText) => fetchAttributeNames("label", queryText),
@@ -68,12 +56,20 @@ const mentionSetup: TriliumMentionFeed[] = [
     }
 ];
 
+const hostedMentions: MentionHostedFeed[] = [
+    {
+        marker: "@",
+        minimumCharacters: 0,
+        // Relation targets are note titles, which contain spaces.
+        allowSpaces: true,
+        list: () => createNoteMentionList({ allowCreatingNotes: true, preselect: false })
+    }
+];
 
 interface AttributeEditorProps {
     api: MutableRef<AttributeEditorImperativeHandlers | null>;
     note: FNote;
     componentId: string;
-    notePath?: string | null;
     ntxId?: string | null;
     hidden?: boolean;
     /**
@@ -90,7 +86,7 @@ export interface AttributeEditorImperativeHandlers {
     renderOwnedAttributes(ownedAttributes: FAttribute[]): Promise<void>;
 }
 
-export default function AttributeEditor({ api, note, componentId, notePath, ntxId, hidden, hideHelpButton }: AttributeEditorProps) {
+export default function AttributeEditor({ api, note, componentId, ntxId, hidden, hideHelpButton }: AttributeEditorProps) {
     const [ currentValue, setCurrentValue ] = useState("");
     const [ error, setError ] = useState<unknown>();
     const [ needsSaving, setNeedsSaving ] = useState(false);
@@ -244,19 +240,8 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
             const title = note ? note.title : "[missing]";
 
             $el.text(title);
-        },
-        createNoteForReferenceLink: async (title: string, intoInbox: boolean) => {
-            const parentNotePath = intoInbox ? await dateNoteService.getInboxNotePath() : notePath;
-            if (!parentNotePath) return;
-
-            const result = await note_create.createNoteWithTypePrompt(parentNotePath, {
-                activate: false,
-                title
-            });
-
-            return result?.note?.getBestNotePathString();
         }
-    }), [ notePath ]));
+    }), []));
 
     // Keyboard shortcuts
     useTriliumEvent("addNewLabel", ({ ntxId: eventNtxId }) => {
@@ -303,7 +288,7 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                         config={{
                             toolbar: { items: [] },
                             placeholder: t("attribute_editor.placeholder"),
-                            mention: { feeds: mentionSetup, listView: createMentionListView },
+                            mention: { feeds: mentionSetup, hostedFeeds: hostedMentions, listView: createMentionListView },
                             licenseKey: "GPL",
                             language: "en"
                         }}

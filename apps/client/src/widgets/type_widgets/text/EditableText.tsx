@@ -16,7 +16,6 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import appContext from "../../../components/app_context";
 import { consumeBookmark } from "../../../services/bookmark_jump";
 import { getUploadBoxSize } from "../../../services/content_renderer";
-import dateNoteService from "../../../services/date_notes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import link, { parseNavigationStateFromUrl } from "../../../services/link";
@@ -213,19 +212,6 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
         },
         renderLinkMention(container, metadata, editable) {
             linkEmbedService.renderMentionPreview(container, metadata, editable);
-        },
-        // Creating notes in @-completion
-        async createNoteForReferenceLink(title: string, intoInbox: boolean) {
-            const notePath = intoInbox ? await dateNoteService.getInboxNotePath() : noteContext?.notePath;
-            if (!notePath) return;
-
-            const resp = await note_create.createNoteWithTypePrompt(notePath, {
-                activate: false,
-                title
-            });
-
-            if (!resp || !resp.note) return;
-            return resp.note.getBestNotePathString();
         },
         // Keyboard shortcut
         async followLinkUnderCursorCommand() {

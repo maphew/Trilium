@@ -1,4 +1,3 @@
-import type { MentionFeedObjectItem } from "@triliumnext/ckeditor5";
 import type { AutocompleteResult, InboxTargetResponse } from "@triliumnext/commons";
 
 import appContext from "../components/app_context.js";
@@ -40,29 +39,6 @@ export interface Options {
     hideAllButtons?: boolean;
     /** If set, enables command palette mode */
     isCommandPalette?: boolean;
-}
-
-/**
- * Feeds a CKEditor mention. Creation entries are offered only where the editor's host component
- * implements `createNoteForReferenceLink`, which is what `MentionCustomization` calls to act on
- * them.
- *
- * The creation entries come last, so a feed using this source sets `dropdownLimit` to
- * `Number.MAX_SAFE_INTEGER`: the plugin's default limit of 10 cuts them off after the notes.
- */
-async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNotes = true): Promise<MentionFeedObjectItem[]> {
-    const rows = await getNoteSuggestions(queryText, { allowCreatingNotes });
-
-    return rows.map((row) => ({
-        action: row.action,
-        noteTitle: row.noteTitle,
-        id: `@${row.notePathTitle}`,
-        name: row.notePathTitle || "",
-        link: `#${row.notePath}`,
-        notePath: row.notePath,
-        highlightedNotePathTitle: row.highlightedNotePathTitle,
-        icon: row.icon
-    }));
 }
 
 export interface NoteSuggestionOptions {
@@ -286,7 +262,3 @@ function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) 
 
     return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
 }
-
-export default {
-    autocompleteSourceForCKEditor
-};

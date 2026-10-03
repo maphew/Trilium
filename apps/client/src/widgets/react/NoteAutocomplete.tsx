@@ -21,7 +21,7 @@ import FormToggle from "./FormToggle";
 import { useContextualShortcutHints, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
 import OverlayControlGroup from "./OverlayControlGroup";
-import Popup from "./Popup";
+import Popup, { type PopupProps } from "./Popup";
 import RawHtml from "./RawHtml";
 import { renderShortcutKbds } from "./shortcut_kbd";
 
@@ -408,14 +408,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                     )}
                 </>, container.current)
                 : showsList && anchor && (
-                    <Popup
+                    <NoteSuggestionPopup
                         anchor={anchor}
                         // Rendered in the field's modal so the list stacks above it: the note picker
                         // raises its modal (2000) over `.tn-popup` in the body (1200).
                         container={anchor.closest<HTMLElement>(".modal") ?? undefined}
-                        placement="bottom-start"
-                        // The pointer moves the highlighted row, so `:hover` marks no second one.
-                        className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu"
                         // The list spans the whole field, buttons included, and widens past a narrow one.
                         style={{ width: `${Math.max(anchor.getBoundingClientRect().width, DROPDOWN_MIN_WIDTH)}px` }}
                         escapeDismisses={false}
@@ -426,17 +423,96 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                             searchingFor={isSearchingFullText ? value : undefined}
                             className="tn-menu-scroll"
                         />
-                    </Popup>
+                    </NoteSuggestionPopup>
                 )}
         </div>
     );
 }
 
+/** Drives a {@link NoteMentionList} from where its query is typed. */
+export interface NoteMentionListHandle {
+    /** Handles a key pressed where the query is typed, and returns whether the list took it. */
+    handleKeyDown(e: KeyboardEvent): boolean;
+}
+
 /**
- * The list of suggestions as the rows of a menu, so it looks like the app's other dropdowns, whether
- * in the popup or in a host's container. With `searchingFor`, the query of a search in progress, it
- * shows a row saying so in place of the suggestions.
+ * The note autocomplete's list for a query typed somewhere else, such as after an `@` in a text
+ * editor, which keeps the focus and forwards its keys through `handleRef`. It lists what the field
+ * lists for the query, and reports the path of the note picked, creating the note first for a
+ * creation row: `onPick` then receives a promise, settling on `undefined` where the creation is
+ * canceled.
  */
+export function NoteMentionList({ query, anchor, allowCreatingNotes, preselect = true, onPick, handleRef, elementRef }: {
+    query: string;
+    anchor: PopupProps["anchor"];
+    allowCreatingNotes?: boolean;
+    /** Opens the list with an entry highlighted, so that Enter takes it. */
+    preselect?: boolean;
+    onPick(notePath: string | Promise<string | undefined>): void;
+    handleRef: MutableRef<NoteMentionListHandle | null>;
+    elementRef?: PopupProps["elementRef"];
+}) {
+    // The focus stays where the query is typed, so there is no field to return it to.
+    const inputRef = useRef<HTMLInputElement>(null);
+    const source = useCallback((term: string) => getNoteSuggestions(term, { allowCreatingNotes }), [ allowCreatingNotes ]);
+    const schedule = useMemo(() => createSearchScheduler(), []);
+
+    const autocomplete = useAutocomplete({
+        query,
+        source,
+        onPick: (suggestion: Suggestion) => {
+            if (suggestion.action === "create-note" || suggestion.action === "create-child-note") {
+                onPick(createNoteFromSuggestion(suggestion));
+            } else if (suggestion.notePath) {
+                onPick(suggestion.notePath);
+            }
+        },
+        inputRef,
+        autoActivate: preselect,
+        textOf: suggestionText,
+        fallbackIndex: createWhenNoNote,
+        schedule
+    });
+
+    // The host shows the list by mounting it and closes it by unmounting it.
+    useEffect(() => autocomplete.open(), []);
+
+    useLayoutEffect(() => {
+        handleRef.current = {
+            handleKeyDown(e) {
+                if (!autocomplete.isShown) return false;
+                const highlighted = autocomplete.items[autocomplete.activeIndex];
+                // Tab takes the highlighted note, as Enter does, where a field leaves Tab to move the focus.
+                if (e.key === "Tab" && highlighted) {
+                    e.preventDefault();
+                    autocomplete.pick(highlighted);
+                    return true;
+                }
+                autocomplete.handleKeyDown(e);
+                return e.defaultPrevented;
+            }
+        };
+    });
+
+    return autocomplete.isShown && (
+        <NoteSuggestionPopup anchor={anchor} elementRef={elementRef}>
+            <NoteSuggestionMenu autocomplete={autocomplete} className="tn-menu-scroll" />
+        </NoteSuggestionPopup>
+    );
+}
+
+/** The popup the suggestions are listed in, below `anchor` where there is room. */
+function NoteSuggestionPopup({ className, ...props }: PopupProps) {
+    return (
+        <Popup
+            placement="bottom-start"
+            {...props}
+            // The pointer moves the highlighted row, so `:hover` marks no second one.
+            className={clsx("dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu", className)}
+        />
+    );
+}
+
 /**
  * Lists the keys of a list with a search footer in the shortcut hints pane, which the footer's button
  * opens. Only such a list adds hints, as they replace whatever the host registered.
@@ -456,6 +532,11 @@ function SearchFooterShortcutHints({ allowFullSearch }: { allowFullSearch: boole
     return null;
 }
 
+/**
+ * The list of suggestions as the rows of a menu, so it looks like the app's other dropdowns, whether
+ * in the popup or in a host's container. With `searchingFor`, the query of a search in progress, it
+ * shows a row saying so in place of the suggestions.
+ */
 function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
     autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
     searchingFor?: string;
@@ -598,7 +679,7 @@ function noNotesRow(): Suggestion {
 }
 
 /** Whether a line goes above the row at `index`: the first of a group, after the rows of another. */
-export function startsGroup(items: Suggestion[], index: number) {
+function startsGroup(items: Suggestion[], index: number) {
     return index > 0 && rowGroup(items[index]) !== rowGroup(items[index - 1]);
 }
 

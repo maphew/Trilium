@@ -42,7 +42,6 @@ declare global {
          */
         formatDateTime(date: Date, format?: string): string;
         loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string): Promise<void>;
-        createNoteForReferenceLink(title: string, intoInbox: boolean): Promise<string | undefined>;
         loadEmbeddedNote(noteId: string, $el: JQuery<HTMLElement>, boxSize?: string): void;
         loadEmbeddedAttachment(
             attachmentId: string,
