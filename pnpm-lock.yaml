@@ -362,8 +362,8 @@ importers:
         specifier: 2.8.1
         version: 2.8.1
       tabulator-tables:
-        specifier: 6.5.3
-        version: 6.5.3
+        specifier: 6.6.0
+        version: 6.6.0
       temporal-polyfill:
         specifier: 1.0.5
         version: 1.0.5
@@ -994,8 +994,8 @@ importers:
         specifier: 3.0.1
         version: 3.0.1
       tabulator-tables:
-        specifier: 6.5.3
-        version: 6.5.3
+        specifier: 6.6.0
+        version: 6.6.0
       temporal-polyfill:
         specifier: 1.0.5
         version: 1.0.5
@@ -10775,8 +10775,8 @@ packages:
     resolution: {integrity: sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A==}
     engines: {node: '>=10.0.0'}
 
-  tabulator-tables@6.5.3:
-    resolution: {integrity: sha512-nJ2QaqZzQvd9B4rf4LBnRxfb6sSqA/BX2OsXnSJ2d8k21oXDSTtFtOUrDap04a/6BDGivC/MByCxy43ugadJIg==}
+  tabulator-tables@6.6.0:
+    resolution: {integrity: sha512-gEWjL9gLmIOPQCVnmbLKwrnignpzkEFqJzgucCkgzix8gTYeJ3VY0QLVG06ANQtj1nW0+Sarj+3pfVgjS0MshQ==}
 
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
@@ -23175,7 +23175,7 @@ snapshots:
       string-width: 4.2.3
       strip-ansi: 6.0.1
 
-  tabulator-tables@6.5.3: {}
+  tabulator-tables@6.6.0: {}
 
   tapable@2.3.3: {}
 
