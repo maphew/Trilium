@@ -1,15 +1,19 @@
 import "./mention_list_view.css";
 
-import type { MentionHostedList, MentionListEntry, MentionListState, MentionListView } from "@triliumnext/ckeditor5";
+import type { MentionFeedObjectItem, MentionHostedList, MentionListEntry, MentionListState, MentionListView } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
-import { render } from "preact";
+import { type ComponentChildren, render } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { NoteMentionList, type NoteMentionListHandle } from "../../react/NoteAutocomplete";
+import { AutocompleteList, type AutocompleteListHandle } from "../../react/FormAutocomplete";
+import { NoteMentionList } from "../../react/NoteAutocomplete";
 import Popup from "../../react/Popup";
 
+/** The least width of an {@link createAutocompleteMentionList} list, whose caret anchor has none. */
+const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
+
 /**
- * Draws a text editor's suggestion list (`#`/`~` attributes, `/` commands, emoji) as the note
+ * Draws a text editor's suggestion list (`/` commands, emoji) as the note
  * autocomplete's menu, in a {@link Popup} at the caret, for the editor config's `mention.listView`.
  *
  * `TriliumMentionUI` keeps everything but the drawing: when the list opens and closes, the keys, the
@@ -60,7 +64,7 @@ export function createNoteMentionList({ allowCreatingNotes, preselect }: {
     preselect?: boolean;
 } = {}): MentionHostedList {
     const container = document.createElement("div");
-    const handle: { current: NoteMentionListHandle | null } = { current: null };
+    const handle: { current: AutocompleteListHandle | null } = { current: null };
     let element: HTMLDivElement | null = null;
 
     return {
@@ -74,6 +78,49 @@ export function createNoteMentionList({ allowCreatingNotes, preselect }: {
                 onPick={(notePath) => state.commit(typeof notePath === "string"
                     ? toMention(notePath)
                     : notePath.then((path) => path ? toMention(path) : undefined))}
+                handleRef={handle}
+                elementRef={(el) => { element = el; }}
+            />, container);
+        },
+        hide() {
+            render(null, container);
+            element = null;
+        },
+        handleKeyDown: (e) => handle.current?.handleKeyDown(e) ?? false,
+        get element() {
+            return element;
+        },
+        destroy() {
+            render(null, container);
+            element = null;
+        }
+    };
+}
+
+/**
+ * Lists what `source` has for the query typed after a marker as a form field's autocomplete lists
+ * it, for the editor config's `mention.hostedFeeds`, and mentions the entry picked as `toMention`
+ * makes it.
+ */
+export function createAutocompleteMentionList({ source, renderItem, toMention }: {
+    source(query: string): Promise<string[]>;
+    renderItem?(item: string): ComponentChildren;
+    toMention(item: string): MentionFeedObjectItem;
+}): MentionHostedList {
+    const container = document.createElement("div");
+    const handle: { current: AutocompleteListHandle | null } = { current: null };
+    let element: HTMLElement | null = null;
+
+    return {
+        show(state) {
+            render(<AutocompleteList
+                query={state.query}
+                source={source}
+                // A new anchor each time the query changes, so it is placed again at the caret.
+                anchor={{ getBoundingClientRect: state.caretRect }}
+                minWidth={AUTOCOMPLETE_MENTION_MIN_WIDTH}
+                renderItem={renderItem}
+                onPick={(item) => state.commit(toMention(item))}
                 handleRef={handle}
                 elementRef={(el) => { element = el; }}
             />, container);

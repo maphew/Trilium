@@ -2,7 +2,7 @@ import "./FormAutocomplete.css";
 
 import type { ComponentChildren, RefObject } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
 import { useUniqueName } from "./hooks";
@@ -17,6 +17,9 @@ const MIN_DROPDOWN_HEIGHT = 120;
 const VIEWPORT_MARGIN = 8;
 
 type FormTextBoxProps = Parameters<typeof FormTextBox>[0];
+
+/** What the dropdown is placed under: an element, or a rect such as a caret's. */
+type DropdownAnchor = Pick<Element, "getBoundingClientRect">;
 
 interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     currentValue: string;
@@ -106,8 +109,11 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
-    const [ position, setPosition ] = useState<CSSProperties>();
     const isDisabled = !!(restProps.readOnly || restProps.disabled);
+    // The wrapper where there is one, so a field carrying chips is spanned whole.
+    const anchor = useMemo<DropdownAnchor>(() => ({
+        getBoundingClientRect: () => (fieldRef.current ?? inputEl.current)?.getBoundingClientRect() ?? new DOMRect()
+    }), [ inputEl ]);
 
     const autocomplete = useAutocomplete({
         query: currentValue,
@@ -121,31 +127,6 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         autoActivate,
         isHeading
     });
-    const { isOpen, items, activeIndex, itemId, pick } = autocomplete;
-
-    // Keep the dropdown glued to the input.
-    useLayoutEffect(() => {
-        if (!isOpen || !items.length) {
-            return;
-        }
-
-        const reposition = () => {
-            // The wrapper where there is one, so a field carrying chips is spanned whole.
-            const anchor = fieldRef.current ?? inputEl.current;
-            if (anchor) {
-                setPosition(computeDropdownPosition(anchor, dropdownMinWidth));
-            }
-        };
-
-        reposition();
-        window.addEventListener("resize", reposition);
-        // Capture: the input may live inside a scrolling container rather than the document.
-        window.addEventListener("scroll", reposition, true);
-        return () => {
-            window.removeEventListener("resize", reposition);
-            window.removeEventListener("scroll", reposition, true);
-        };
-    }, [ isOpen, items.length, inputEl, dropdownMinWidth ]);
 
     const field = (
         <FormTextBox
@@ -190,36 +171,140 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                 ? <div ref={fieldRef} className="tn-field form-autocomplete-field">{leading}{field}{trailing}</div>
                 : field}
 
-            {isOpen && items.length > 0 && position && createPortal(
-                <ul
-                    className="form-autocomplete-dropdown"
-                    role="listbox"
-                    style={position}
-                    // Keeps the input focused, so the blur handler does not close the dropdown
-                    // before the click lands on an item.
-                    onMouseDown={(e) => e.preventDefault()}
-                >
-                    {items.map((item, index) => (
-                        isHeading?.(item)
-                            ? <li key={item} className="form-autocomplete-heading" role="presentation">
-                                {renderItem ? renderItem(item) : item}
-                            </li>
-                            : <li
-                                key={item}
-                                id={itemId(index)}
-                                className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
-                                role="option"
-                                aria-selected={index === activeIndex}
-                                onMouseMove={(e) => autocomplete.hover(index, e)}
-                                onClick={() => pick(item)}
-                            >
-                                {renderItem ? renderItem(item) : item}
-                            </li>
-                    ))}
-                </ul>,
-                document.body)}
+            <AutocompleteDropdown
+                autocomplete={autocomplete}
+                anchor={anchor}
+                minWidth={dropdownMinWidth}
+                renderItem={renderItem}
+                isHeading={isHeading}
+            />
         </>
     );
+}
+
+/** Drives an {@link AutocompleteList} from where its query is typed. */
+export interface AutocompleteListHandle {
+    /** Handles a key pressed where the query is typed, and returns whether the list took it. */
+    handleKeyDown(e: KeyboardEvent): boolean;
+}
+
+/**
+ * The dropdown of a {@link FormAutocomplete} for a query typed somewhere else, such as after a `#` in
+ * a text editor, which keeps the focus and forwards its keys through `handleRef`. It opens with
+ * nothing highlighted, so Enter stays with the host until an entry is arrowed to.
+ */
+export function AutocompleteList({ query, source, anchor, minWidth, renderItem, onPick, handleRef, elementRef }: {
+    query: string;
+    source(query: string): Promise<string[]>;
+    anchor: DropdownAnchor;
+    /** See {@link FormAutocompleteProps.dropdownMinWidth}. */
+    minWidth?: number;
+    renderItem?(item: string): ComponentChildren;
+    onPick(item: string): void;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
+    elementRef?(element: HTMLElement | null): void;
+}) {
+    // The focus stays where the query is typed, so there is no field to return it to.
+    const inputRef = useRef<HTMLInputElement>(null);
+    const autocomplete = useAutocomplete({ query, source, onPick, inputRef });
+
+    // The host shows the list by mounting it and closes it by unmounting it.
+    useEffect(() => autocomplete.open(), []);
+    useForwardedKeys(autocomplete, handleRef);
+
+    return (
+        <AutocompleteDropdown
+            autocomplete={autocomplete}
+            anchor={anchor}
+            minWidth={minWidth}
+            renderItem={renderItem}
+            elementRef={elementRef}
+        />
+    );
+}
+
+/**
+ * Takes the keys forwarded from where a list's query is typed. Tab takes the highlighted entry, as
+ * Enter does, where a field leaves Tab to move the focus.
+ */
+export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocomplete<T>>, handleRef: MutableRef<AutocompleteListHandle | null>) {
+    useLayoutEffect(() => {
+        handleRef.current = {
+            handleKeyDown(e) {
+                if (!autocomplete.isShown) return false;
+                const highlighted = autocomplete.items[autocomplete.activeIndex];
+                if (e.key === "Tab" && highlighted !== undefined) {
+                    e.preventDefault();
+                    autocomplete.pick(highlighted);
+                    return true;
+                }
+                autocomplete.handleKeyDown(e);
+                return e.defaultPrevented;
+            }
+        };
+    });
+}
+
+/**
+ * The list of a {@link useAutocomplete}, portalled to the body and kept under `anchor` as the page
+ * scrolls or resizes.
+ */
+function AutocompleteDropdown({ autocomplete, anchor, minWidth, renderItem, isHeading, elementRef }: {
+    autocomplete: ReturnType<typeof useAutocomplete<string>>;
+    anchor: DropdownAnchor;
+    minWidth?: number;
+    renderItem?(item: string): ComponentChildren;
+    isHeading?(item: string): boolean;
+    elementRef?(element: HTMLElement | null): void;
+}) {
+    const [ position, setPosition ] = useState<CSSProperties>();
+    const { isShown, items, activeIndex, itemId, pick } = autocomplete;
+
+    useLayoutEffect(() => {
+        if (!isShown) {
+            return;
+        }
+
+        const reposition = () => setPosition(computeDropdownPosition(anchor, minWidth));
+        reposition();
+        window.addEventListener("resize", reposition);
+        // Capture: the anchor can live inside a scrolling container rather than the document.
+        window.addEventListener("scroll", reposition, true);
+        return () => {
+            window.removeEventListener("resize", reposition);
+            window.removeEventListener("scroll", reposition, true);
+        };
+    }, [ isShown, items.length, anchor, minWidth ]);
+
+    return isShown && position ? createPortal(
+        <ul
+            ref={elementRef}
+            className="form-autocomplete-dropdown"
+            role="listbox"
+            style={position}
+            // Keeps the focus where the query is typed, so its blur does not close the dropdown
+            // before the click lands on an item.
+            onMouseDown={(e) => e.preventDefault()}
+        >
+            {items.map((item, index) => (
+                isHeading?.(item)
+                    ? <li key={item} className="form-autocomplete-heading" role="presentation">
+                        {renderItem ? renderItem(item) : item}
+                    </li>
+                    : <li
+                        key={item}
+                        id={itemId(index)}
+                        className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
+                        role="option"
+                        aria-selected={index === activeIndex}
+                        onMouseMove={(e) => autocomplete.hover(index, e)}
+                        onClick={() => pick(item)}
+                    >
+                        {renderItem ? renderItem(item) : item}
+                    </li>
+            ))}
+        </ul>,
+        document.body) : null;
 }
 
 interface UseAutocompleteOptions<T> {
@@ -526,8 +611,8 @@ export function stepOver<T>(items: T[], from: number, delta: number, isHeading?:
  * Exported for its own tests: everything it reads is measured from the layout, which is what a
  * component test in a headless DOM has none of.
  */
-export function computeDropdownPosition(input: HTMLElement, minWidth = 0): CSSProperties {
-    const rect = input.getBoundingClientRect();
+export function computeDropdownPosition(anchor: DropdownAnchor, minWidth = 0): CSSProperties {
+    const rect = anchor.getBoundingClientRect();
     const viewportHeight = document.documentElement.clientHeight;
     const viewportWidth = document.documentElement.clientWidth;
     const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN;

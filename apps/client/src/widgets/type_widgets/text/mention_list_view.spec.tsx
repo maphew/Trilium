@@ -13,7 +13,7 @@ vi.mock("../../../services/note_autocomplete", async (importOriginal) => ({
     createNoteFromSuggestion
 }));
 
-import { createMentionListView, createNoteMentionList } from "./mention_list_view";
+import { createAutocompleteMentionList, createMentionListView, createNoteMentionList } from "./mention_list_view";
 
 describe("createMentionListView", () => {
     const views: ReturnType<typeof createMentionListView>[] = [];
@@ -182,5 +182,46 @@ describe("createNoteMentionList", () => {
         canceled.list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
         expect(await canceled.commit.mock.calls[0]?.[0]).toBeUndefined();
         canceled.list.destroy?.();
+    });
+});
+
+describe("createAutocompleteMentionList", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it("lists the source's entries as a field's dropdown, and takes one only once it is arrowed to", async () => {
+        const source = vi.fn(async (query: string) => [ `${query}One`, `${query}Two` ]);
+        const list = createAutocompleteMentionList({
+            source,
+            renderItem: (item) => <b>{item}</b>,
+            toMention: (item) => ({ id: `#${item}` })
+        });
+        const commit = vi.fn<MentionHostedListState["commit"]>();
+        const key = (k: string) => list.handleKeyDown(new KeyboardEvent("keydown", { key: k, cancelable: true }));
+
+        await act(async () => list.show({ query: "ab", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+        expect(source).toHaveBeenLastCalledWith("ab");
+        expect(list.element?.matches(".form-autocomplete-dropdown")).toBe(true);
+        expect([ ...(list.element?.querySelectorAll(".form-autocomplete-item > b") ?? []) ].map((row) => row.textContent))
+            .toEqual([ "abOne", "abTwo" ]);
+        // Nothing is highlighted, so Enter stays with the editor.
+        expect(key("Enter")).toBe(false);
+        expect(commit).not.toHaveBeenCalled();
+
+        await act(async () => { key("ArrowDown"); });
+        await act(async () => { key("ArrowDown"); });
+        expect(key("Tab")).toBe(true);
+        expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "#abTwo" });
+
+        await act(async () => list.hide());
+        expect(list.element).toBeNull();
+        list.destroy?.();
     });
 });

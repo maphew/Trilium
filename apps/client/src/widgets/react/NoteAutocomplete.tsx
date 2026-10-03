@@ -15,7 +15,7 @@ import { escapeHtml, isMobile } from "../../services/utils";
 import { ShortcutHintOverlayButton } from "../shortcut_hints/shortcut_hint_button";
 import { AttributeSnippetBadges } from "./Badge";
 import Button from "./Button";
-import { useAutocomplete } from "./FormAutocomplete";
+import { type AutocompleteListHandle, useAutocomplete, useForwardedKeys } from "./FormAutocomplete";
 import { FormDropdownDivider, FormListHeader } from "./FormList";
 import FormToggle from "./FormToggle";
 import { useContextualShortcutHints, useSyncedRef } from "./hooks";
@@ -431,12 +431,6 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     );
 }
 
-/** Drives a {@link NoteMentionList} from where its query is typed. */
-export interface NoteMentionListHandle {
-    /** Handles a key pressed where the query is typed, and returns whether the list took it. */
-    handleKeyDown(e: KeyboardEvent): boolean;
-}
-
 /**
  * The note autocomplete's list for a query typed somewhere else, such as after an `@` in a text
  * editor, which keeps the focus and forwards its keys through `handleRef`. It lists what the field
@@ -451,7 +445,7 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, preselect =
     /** Opens the list with an entry highlighted, so that Enter takes it. */
     preselect?: boolean;
     onPick(notePath: string | Promise<string | undefined>): void;
-    handleRef: MutableRef<NoteMentionListHandle | null>;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
@@ -479,23 +473,7 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, preselect =
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-
-    useLayoutEffect(() => {
-        handleRef.current = {
-            handleKeyDown(e) {
-                if (!autocomplete.isShown) return false;
-                const highlighted = autocomplete.items[autocomplete.activeIndex];
-                // Tab takes the highlighted note, as Enter does, where a field leaves Tab to move the focus.
-                if (e.key === "Tab" && highlighted) {
-                    e.preventDefault();
-                    autocomplete.pick(highlighted);
-                    return true;
-                }
-                autocomplete.handleKeyDown(e);
-                return e.defaultPrevented;
-            }
-        };
-    });
+    useForwardedKeys(autocomplete, handleRef);
 
     return autocomplete.isShown && (
         <NoteSuggestionPopup anchor={anchor} elementRef={elementRef}>

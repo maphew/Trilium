@@ -21,7 +21,8 @@ import type { NoteSuggestionOptions, Suggestion } from "../../services/note_auto
 import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
-import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList, type NoteMentionListHandle, renderNoteSuggestion } from "./NoteAutocomplete";
+import type { AutocompleteListHandle } from "./FormAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList, renderNoteSuggestion } from "./NoteAutocomplete";
 import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
@@ -1131,7 +1132,7 @@ describe("NoteMentionList", () => {
     /** Shows the list for `query` where nothing has the focus, as a text editor's caret does. */
     async function show(query: string, props: Partial<Parameters<typeof NoteMentionList>[0]> = {}) {
         const onPick = vi.fn();
-        const handleRef = createRef<NoteMentionListHandle>() as { current: NoteMentionListHandle | null };
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
         const host = document.createElement("div");
         const draw = async (text: string) => {
             await act(async () => {

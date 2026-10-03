@@ -1,7 +1,6 @@
-import "../../attribute_widgets/attribute_name_suggestion.css";
 import "./AttributeEditor.css";
 
-import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, MentionHostedFeed, TriliumMentionFeed } from "@triliumnext/ckeditor5";
+import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
 import clsx from "clsx";
 import { createPortal } from "preact/compat";
@@ -13,7 +12,7 @@ import FNote from "../../../entities/fnote";
 import contextMenu from "../../../menus/context_menu";
 import attribute_parser, { Attribute } from "../../../services/attribute_parser";
 import attribute_renderer from "../../../services/attribute_renderer";
-import attributes, { isBuiltinAttribute } from "../../../services/attributes";
+import attributes from "../../../services/attributes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { ATTRIBUTE_HELP_PAGE } from "../../../services/in_app_help";
@@ -21,12 +20,12 @@ import link from "../../../services/link";
 import server from "../../../services/server";
 import { isIMEComposing } from "../../../services/shortcuts";
 import { escapeQuotes, getErrorMessage } from "../../../services/utils";
-import AttributeDetailWidget from "../../attribute_widgets/attribute_detail";
+import AttributeDetailWidget, { AttributeNameSuggestion, fetchAttributeNames } from "../../attribute_widgets/attribute_detail";
 import ActionButton from "../../react/ActionButton";
 import CKEditor, { CKEditorApi } from "../../react/CKEditor";
 import HelpDropdown from "../../react/HelpDropdown";
 import { useLegacyImperativeHandlers, useLegacyWidget, useTriliumEvent } from "../../react/hooks";
-import { createMentionListView, createNoteMentionList } from "../../type_widgets/text/mention_list_view";
+import { createAutocompleteMentionList, createNoteMentionList } from "../../type_widgets/text/mention_list_view";
 import AttributeHelp from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
@@ -37,26 +36,11 @@ type AttributeCommandNames = FilteredCommandNames<CommandData>;
  */
 const BLINK_DURATION = 300;
 
-// `preselectFirstItem: false` throughout: in this editor Enter means "save the attributes", so an
-// open panel must not silently swallow it into committing whichever suggestion happens to be first.
-const mentionSetup: TriliumMentionFeed[] = [
-    {
-        marker: "#",
-        feed: (queryText) => fetchAttributeNames("label", queryText),
-        itemRenderer: (item) => renderAttributeName("label", (item as AttributeNameItem).name),
-        minimumCharacters: 0,
-        preselectFirstItem: false
-    },
-    {
-        marker: "~",
-        feed: (queryText) => fetchAttributeNames("relation", queryText),
-        itemRenderer: (item) => renderAttributeName("relation", (item as AttributeNameItem).name),
-        minimumCharacters: 0,
-        preselectFirstItem: false
-    }
-];
-
+// Every list opens with nothing highlighted: in this editor Enter means "save the attributes", so an
+// open list must not swallow it into committing whichever suggestion happens to be first.
 const hostedMentions: MentionHostedFeed[] = [
+    attributeNameMention("#", "label"),
+    attributeNameMention("~", "relation"),
     {
         marker: "@",
         minimumCharacters: 0,
@@ -288,7 +272,7 @@ export default function AttributeEditor({ api, note, componentId, ntxId, hidden,
                         config={{
                             toolbar: { items: [] },
                             placeholder: t("attribute_editor.placeholder"),
-                            mention: { feeds: mentionSetup, hostedFeeds: hostedMentions, listView: createMentionListView },
+                            mention: { feeds: [], hostedFeeds: hostedMentions },
                             licenseKey: "GPL",
                             language: "en"
                         }}
@@ -419,61 +403,20 @@ export default function AttributeEditor({ api, note, componentId, ntxId, hidden,
     );
 }
 
-interface AttributeNameItem {
-    /** The marker and the name, which is what committing the suggestion inserts. */
-    id: string;
-    name: string;
-}
-
-export async function fetchAttributeNames(type: "label" | "relation", queryText: string): Promise<AttributeNameItem[]> {
-    const names = await server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(queryText)}`);
-    const marker = type === "label" ? "#" : "~";
-
-    return names.map((name) => ({ id: `${marker}${name}`, name }));
-}
-
 /**
- * One completed attribute name, marking the ones Trilium itself attaches a meaning to — the same
- * distinction the detail popup's name field draws, on the same names, so that the two agree.
- *
- * Built as DOM rather than rendered from the popup's `AttributeNameSuggestion` component: the mention
- * panel drops and rebuilds its rows on every keystroke with no unmount hook to run, so a Preact root
- * per row would leak. The badge markup is mirrored from `Badge` rather than restyled, so that both
- * surfaces still take their look from the one stylesheet.
+ * Completes the name typed after `marker` as the attributes panel's name box completes it, from the
+ * same names drawn the same way, and inserts the name picked behind the marker.
  */
-export function renderAttributeName(type: "label" | "relation", name: string) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.tabIndex = -1;
-    // `ck-button_with-text` is load-bearing, not cosmetic: the base button styles hide
-    // `.ck-button__label` outright without it, leaving the row showing nothing but its badge.
-    button.classList.add("ck", "ck-button", "ck-button_with-text", "attr-name-suggestion-button");
-
-    const row = document.createElement("span");
-    // The balloon hosting the panel resets everything inside it (`.ck-reset_all` zeroes borders,
-    // padding, width, colour and font on every descendant), which would strip the badge back to bare
-    // text. `ck-reset_all-excluded` is CKEditor's opt-out for embedded content and covers the whole
-    // subtree, so the row is styled by the client's stylesheets exactly as the popup's row is.
-    row.classList.add("attr-name-suggestion", "ck-reset_all-excluded");
-    button.append(row);
-
-    const label = document.createElement("span");
-    label.classList.add("ck", "ck-button__label", "attr-name-suggestion-name");
-    label.textContent = name;
-    row.append(label);
-
-    if (isBuiltinAttribute(type, name)) {
-        const badge = document.createElement("span");
-        badge.classList.add("ext-badge", "outline");
-        row.append(badge);
-
-        const badgeText = document.createElement("span");
-        badgeText.classList.add("text");
-        badgeText.textContent = t("attribute_names.system");
-        badge.append(badgeText);
-    }
-
-    return button;
+function attributeNameMention(marker: "#" | "~", type: "label" | "relation"): MentionHostedFeed {
+    return {
+        marker,
+        minimumCharacters: 0,
+        list: () => createAutocompleteMentionList({
+            source: (query) => fetchAttributeNames(type, query),
+            renderItem: (name) => <AttributeNameSuggestion type={type} name={name} />,
+            toMention: (name) => ({ id: `${marker}${name}` })
+        })
+    };
 }
 
 /** The attributes as plain text: reference links back down to their note path, entities resolved. */
