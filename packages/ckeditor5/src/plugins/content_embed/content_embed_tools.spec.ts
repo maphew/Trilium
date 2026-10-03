@@ -265,6 +265,26 @@ describe("ContentEmbedTools", () => {
         expect(getShown()).toEqual([ true, true, true, true ]);
     });
 
+    it("reads the tools again when the editor updates, as they can follow the embed", () => {
+        const tools = createView();
+        const embedProvider = {
+            tools: [ SELECTION ],
+            getTools() {
+                return this.tools;
+            },
+            execute: vi.fn(),
+            subscribe: () => () => {}
+        };
+        getContentEmbedTools.mockReturnValue(embedProvider);
+        selectEmbed();
+        expect(getItems(tools)).toEqual([ "1" ]);
+
+        embedProvider.tools = [ SELECTION, RECTANGLE ];
+        expect(getItems(tools)).toEqual([ "1" ]);
+        editor.ui.update();
+        expect(getItems(tools)).toEqual([ "1", "2" ]);
+    });
+
     it("focuses its first button, and stops following the provider once destroyed", () => {
         const tools = createView();
         selectEmbed();

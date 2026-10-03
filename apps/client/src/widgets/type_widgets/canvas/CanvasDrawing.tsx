@@ -15,7 +15,7 @@ import { getEffectiveThemeStyle } from "../../../services/theme";
 import { isDesktop } from "../../../services/utils";
 import { useColorScheme, useEffectiveReadOnly } from "../../react/hooks";
 import { useAttachmentEditor } from "../text/attachment_saves";
-import { useIsContentEmbedEditable } from "../text/content_embed_tools";
+import { useContentEmbedEvent, useIsContentEmbedEditable } from "../text/content_embed_tools";
 import { CanvasEditor } from "./Canvas";
 import CanvasDrawingMenu from "./CanvasDrawingMenu";
 import CanvasEmbedTools from "./CanvasEmbedTools";
@@ -47,13 +47,18 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
     );
     const isToolbarOverPanel = useIsToolbarOverPanel(rootRef);
     useFocusFromEmbedBox(rootRef);
+    const isRecentering = useRecenteringOnFullscreen(rootRef, apiRef);
     useSidePanels(rootRef, isEditable);
     useTopLayerContextMenu(rootRef, apiRef);
 
     return (
         <div
             ref={rootRef}
-            className={clsx("canvas-drawing-editor", isToolbarOverPanel && "toolbar-over-panel")}
+            className={clsx(
+                "canvas-drawing-editor",
+                isToolbarOverPanel && "toolbar-over-panel",
+                isRecentering && "recentering"
+            )}
         >
             <CanvasEditor
                 apiRef={apiRef}
@@ -131,6 +136,36 @@ export function CanvasDrawingDetail({ attachment, note, noteContext }: CanvasDra
             <CanvasDrawingMenu apiRef={apiRef} isEditable={canEdit} />
         </CanvasEditor>
     );
+}
+
+/**
+ * Centers the drawing once fullscreen changed its size, which moves the view off center. Returns
+ * whether the drawing is hidden for it: from the start of the change until it is drawn centered.
+ */
+function useRecenteringOnFullscreen(
+    rootRef: RefObject<HTMLElement>,
+    apiRef: RefObject<ExcalidrawImperativeAPI>
+) {
+    const [ isRecentering, setIsRecentering ] = useState(false);
+    const frameRef = useRef(0);
+
+    useContentEmbedEvent(rootRef, "fullscreenChangeStart", () => {
+        cancelAnimationFrame(frameRef.current);
+        setIsRecentering(true);
+    });
+
+    const recenter = () => {
+        apiRef.current?.scrollToContent();
+        // Excalidraw draws the centered view on the next frame.
+        frameRef.current = requestAnimationFrame(() => {
+            frameRef.current = requestAnimationFrame(() => setIsRecentering(false));
+        });
+    };
+    useContentEmbedEvent(rootRef, "enterFullscreen", recenter);
+    useContentEmbedEvent(rootRef, "leaveFullscreen", recenter);
+    useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+    return isRecentering;
 }
 
 /**

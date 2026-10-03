@@ -31,11 +31,12 @@ export default class ContentEmbedTools extends Plugin {
 
         editor.ui.componentFactory.add(CONTENT_EMBED_TOOLS, locale => {
             const view = new ContentEmbedToolsView(locale);
-            view.setProvider(contentEmbed.selectedEmbedTools);
 
-            this.listenTo(contentEmbed, "change:selectedEmbedTools", () => {
+            // The tools can follow the embed, which the editor updates. Runs before
+            // `WidgetToolbarRepository` positions the toolbar from its width.
+            this.listenTo(editor.ui, "update", () => {
                 view.setProvider(contentEmbed.selectedEmbedTools);
-            });
+            }, { priority: "high" });
             this.listenTo<ContentEmbedToolsResizeEvent>(view, "resize", () => editor.ui.update());
 
             return view;
@@ -91,17 +92,15 @@ export class ContentEmbedToolsView extends View {
 
     /** Shows the buttons of `provider`, and updates them when it changes. */
     setProvider(provider: ContentEmbedToolProvider | null) {
-        if (provider === this.provider) {
-            return;
+        if (provider !== this.provider) {
+            this.unsubscribe?.();
+            this.provider = provider;
+            this.unsubscribe = provider?.subscribe(() => {
+                if (this.showTools()) {
+                    this.fire<ContentEmbedToolsResizeEvent>("resize");
+                }
+            });
         }
-
-        this.unsubscribe?.();
-        this.provider = provider;
-        this.unsubscribe = provider?.subscribe(() => {
-            if (this.showTools()) {
-                this.fire<ContentEmbedToolsResizeEvent>("resize");
-            }
-        });
         this.showTools();
     }
 

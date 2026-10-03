@@ -8,6 +8,7 @@ import moreToolsIcon from "boxicons/svg/regular/bx-category.svg?raw";
 import ellipseIcon from "boxicons/svg/regular/bx-circle.svg?raw";
 import eraserIcon from "boxicons/svg/regular/bx-eraser.svg?raw";
 import textIcon from "boxicons/svg/regular/bx-font.svg?raw";
+import fullscreenIcon from "boxicons/svg/regular/bx-fullscreen.svg?raw";
 import imageIcon from "boxicons/svg/regular/bx-image.svg?raw";
 import lockIcon from "boxicons/svg/regular/bx-lock-open-alt.svg?raw";
 import lineIcon from "boxicons/svg/regular/bx-minus.svg?raw";
@@ -24,11 +25,13 @@ import handIcon from "boxicons/svg/solid/bxs-hand.svg?raw";
 import type { RefObject } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
+import { t } from "../../../services/i18n";
 import {
     type ContentEmbedTool,
     type ContentEmbedToolbarItem,
     type ContentEmbedToolProvider,
-    registerContentEmbedTools
+    registerContentEmbedTools,
+    showContentEmbedFullscreen
 } from "../text/content_embed_tools";
 
 /** The tools with a button of their own, in the order of their buttons. */
@@ -42,6 +45,8 @@ const TOOLS = [ ...MAIN_TOOLS, ...EXTRA_TOOLS ];
 export const LOCK = "lock";
 /** The button that opens the "More tools" menu, named by Excalidraw's `toolBar.extraTools`. */
 export const MORE_TOOLS = "moreTools";
+/** Shows the embed in fullscreen, as the button of its title row does while the title is hidden. */
+const FULLSCREEN = "fullscreen";
 /** The commands that click Excalidraw's own `button-undo` and `button-redo`. */
 export const HISTORY_ACTIONS = [ "undo", "redo" ] as const;
 
@@ -184,7 +189,10 @@ export class CanvasTools implements ContentEmbedToolProvider {
             return [];
         }
 
-        const zoomTools = this.getZoomTools(appState.zoom.value);
+        const zoomTools = [
+            ...this.getZoomTools(appState.zoom.value),
+            ...this.getFullscreenTools()
+        ];
         return this.isEditable
             ? [ ...this.getEditingTools(appState.activeTool), ...zoomTools ]
             : zoomTools;
@@ -202,7 +210,9 @@ export class CanvasTools implements ContentEmbedToolProvider {
 
         const appState = api.getAppState();
         const getZoom = ZOOMS[id];
-        if (getZoom) {
+        if (id === FULLSCREEN) {
+            showContentEmbedFullscreen(this.rootRef.current);
+        } else if (getZoom) {
             api.updateScene({ appState: getZoomState(appState, getZoom(appState.zoom.value)) });
         } else if (this.isEditable) {
             this.runEditingTool(api, appState, id);
@@ -262,6 +272,22 @@ export class CanvasTools implements ContentEmbedToolProvider {
             },
             this.getHistoryTool("undo", undoIcon),
             this.getHistoryTool("redo", redoIcon)
+        ];
+    }
+
+    /**
+     * Fullscreen, while the title of the embed is hidden at a box size whose title row has a button
+     * for it.
+     */
+    private getFullscreenTools(): ContentEmbedTool[] {
+        const embed = this.rootRef.current?.closest<HTMLElement>(".include-note");
+        const { hideTitle, boxSize } = embed?.dataset ?? {};
+        if (hideTitle !== "true" || (boxSize !== "medium" && boxSize !== "full")) {
+            return [];
+        }
+
+        return [
+            { id: FULLSCREEN, label: t("common.fullscreen"), icon: fullscreenIcon, group: "zoom" }
         ];
     }
 

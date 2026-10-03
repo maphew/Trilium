@@ -1,5 +1,5 @@
 import type { RefObject } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 /** A button that the content of an embed adds to the toolbar of the embed. */
 export interface ContentEmbedTool {
@@ -40,6 +40,13 @@ export interface ContentEmbedToolProvider {
      */
     hasEditableFlag?: boolean;
 }
+
+/**
+ * What an embed tells its content, with an event that bubbles from its content box:
+ * `fullscreenChangeStart` as it enters or leaves fullscreen, then `enterFullscreen` or
+ * `leaveFullscreen` once it has the new size.
+ */
+export type ContentEmbedEvent = "fullscreenChangeStart" | "enterFullscreen" | "leaveFullscreen";
 
 const providers = new Map<HTMLElement, ContentEmbedToolProvider>();
 const watchers = new Set<{ container: HTMLElement; callback: () => void }>();
@@ -85,6 +92,13 @@ export function getContentEmbedTools(embed: HTMLElement) {
     return null;
 }
 
+/** Shows the content box of the embed that contains `element` in fullscreen. */
+export function showContentEmbedFullscreen(element: Element | null) {
+    element?.closest(".include-note-content")?.requestFullscreen().catch((error: unknown) => {
+        console.warn("Could not show the embed in fullscreen:", error);
+    });
+}
+
 /**
  * Whether the Editable toggle of the embed that contains `ref` is on, for content whose provider
  * sets `hasEditableFlag`. Content outside an embed has no toggle, and is editable. `false` until
@@ -108,4 +122,28 @@ export function useIsContentEmbedEditable(ref: RefObject<HTMLElement>) {
     }, [ ref ]);
 
     return isEditable;
+}
+
+/**
+ * Calls `callback` when the embed that contains `ref` dispatches `name`. Listens on the document,
+ * as content can mount before its embed box takes it in.
+ */
+export function useContentEmbedEvent(
+    ref: RefObject<HTMLElement>,
+    name: ContentEmbedEvent,
+    callback: () => void
+) {
+    const callbackRef = useRef(callback);
+    callbackRef.current = callback;
+
+    useEffect(() => {
+        const listener = (event: Event) => {
+            const element = ref.current;
+            if (element && event.target instanceof Node && event.target.contains(element)) {
+                callbackRef.current();
+            }
+        };
+        document.addEventListener(name, listener);
+        return () => document.removeEventListener(name, listener);
+    }, [ ref, name ]);
 }

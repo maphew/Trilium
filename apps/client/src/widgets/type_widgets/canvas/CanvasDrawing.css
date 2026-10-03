@@ -27,6 +27,13 @@
 
         > .canvas-render {
             height: 100%;
+            transition: opacity 150ms ease-out;
+        }
+
+        /* Hidden while `useRecenteringOnFullscreen()` centers the drawing in its new size. */
+        &.recentering > .canvas-render {
+            opacity: 0;
+            transition: none;
         }
     }
 

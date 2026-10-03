@@ -8,6 +8,7 @@ const translate = vi.hoisted(() => (key: string) => `t:${key}`);
 vi.mock("@excalidraw/excalidraw", () => ({
     useI18n: () => ({ t: translate, langCode: "en" })
 }));
+vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 
 const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
 const {
@@ -43,12 +44,18 @@ describe("CanvasEmbedTools", () => {
         const rootRef = useRef<HTMLDivElement>(null);
         const apiRef = useRef<ExcalidrawImperativeAPI>(api.api);
         return (
-            <figure className="include-note">
-                <div ref={rootRef}>
-                    <div className="excalidraw-container" tabIndex={0} />
-                    <button type="button" data-testid="button-undo" onClick={() => undo()} />
-                    <button type="button" data-testid="button-redo" disabled />
-                    <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} isEditable={isEditable} />
+            <figure className="include-note" data-box-size="medium">
+                <div className="include-note-content">
+                    <div ref={rootRef}>
+                        <div className="excalidraw-container" tabIndex={0} />
+                        <button type="button" data-testid="button-undo" onClick={() => undo()} />
+                        <button type="button" data-testid="button-redo" disabled />
+                        <CanvasEmbedTools
+                            rootRef={rootRef}
+                            apiRef={apiRef}
+                            isEditable={isEditable}
+                        />
+                    </div>
                 </div>
             </figure>
         );
@@ -133,7 +140,7 @@ describe("CanvasEmbedTools", () => {
         const stopOutside = watchContentEmbedTools(document.createElement("div"), outside);
 
         const { embed } = await mount();
-        const root = embed.querySelector(":scope > div");
+        const root = embed.querySelector(".include-note-content > div");
         expect(inside).toHaveBeenCalledTimes(1);
         expect(outside).not.toHaveBeenCalled();
         expect(root?.hasAttribute("data-embed-tools")).toBe(true);
@@ -188,6 +195,33 @@ describe("CanvasEmbedTools", () => {
         api.change({ zoom: { value: 0.1 } });
         expect(listener).toHaveBeenCalledTimes(5);
         expect(getEnabled()).toContain("zoomOut:false");
+    });
+
+    it("offers fullscreen after zoom in while the title of the embed is hidden", async () => {
+        const { embed, provider } = await mount();
+        const box = embed.querySelector<HTMLElement>(".include-note-content");
+        if (!box) {
+            throw new Error("Expected the content box of the embed.");
+        }
+        box.requestFullscreen = vi.fn(async () => {});
+        const getLastTool = () => provider.getTools().at(-1);
+        expect(getLastTool()?.id).toBe("zoomIn");
+
+        embed.dataset.hideTitle = "true";
+        expect(getLastTool()).toEqual({
+            id: "fullscreen", label: "common.fullscreen", icon: ICON, group: "zoom"
+        });
+        // The sizes whose title row has a fullscreen button.
+        const offeredBySize = [ "small", "full", "medium" ].map((size) => {
+            embed.dataset.boxSize = size;
+            return `${size}:${getLastTool()?.id === "fullscreen"}`;
+        });
+        expect(offeredBySize).toEqual([ "small:false", "full:true", "medium:true" ]);
+
+        provider.execute("fullscreen");
+        expect(box.requestFullscreen).toHaveBeenCalledOnce();
+        expect(api.updateScene).not.toHaveBeenCalled();
+        expect(api.setActiveTool).not.toHaveBeenCalled();
     });
 
     it("runs a tool with the focus in the drawing", async () => {

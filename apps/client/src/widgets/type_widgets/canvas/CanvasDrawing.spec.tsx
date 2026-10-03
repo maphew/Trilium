@@ -1,6 +1,6 @@
 import { exportToSvg } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { type ComponentChildren, render, toChildArray, type VNode } from "preact";
+import { type ComponentChildren, type RefObject, render, toChildArray, type VNode } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,8 +23,10 @@ vi.mock("../text/attachment_saves", () => ({ useAttachmentEditor: () => detailEd
 
 const canvasEditorProps = vi.fn();
 const persistenceArgs = vi.fn();
+const canvasApi = { scrollToContent: vi.fn() };
 
 interface MockCanvasEditorProps {
+    apiRef?: RefObject<unknown>;
     isDesktopLayout?: boolean;
     isReadOnly?: boolean;
     children?: ComponentChildren;
@@ -553,6 +555,43 @@ describe("CanvasDrawing", () => {
     it("is editable outside an embed, which has no Editable toggle", async () => {
         await mount({ canEdit: () => true, release: vi.fn() } as unknown as AttachmentEditor);
         expect(getEditingState()).toEqual({ isReadOnly: false, menu: true, tools: true });
+    });
+
+    it("centers the drawing after a change of fullscreen, hidden until then", async () => {
+        await mount();
+        const root = box.querySelector(".canvas-drawing-editor");
+        const isHidden = () => !!root?.classList.contains("recentering");
+        const { apiRef } = canvasEditorProps.mock.lastCall?.[0] as MockCanvasEditorProps;
+        if (!apiRef) {
+            throw new Error("Expected the API reference of the editor.");
+        }
+        apiRef.current = canvasApi;
+        canvasApi.scrollToContent.mockClear();
+        const other = document.createElement("div");
+        document.body.append(other);
+
+        for (const name of [ "enterFullscreen", "leaveFullscreen" ]) {
+            await act(async () => {
+                other.dispatchEvent(new Event("fullscreenChangeStart", { bubbles: true }));
+            });
+            expect(isHidden()).toBe(false);
+            await act(async () => {
+                box.dispatchEvent(new Event("fullscreenChangeStart", { bubbles: true }));
+            });
+            expect(isHidden()).toBe(true);
+
+            await act(async () => {
+                box.dispatchEvent(new Event(name, { bubbles: true }));
+                other.dispatchEvent(new Event(name, { bubbles: true }));
+            });
+            // Shown again once Excalidraw drew the centered view, on the next frame.
+            expect(isHidden()).toBe(true);
+            await vi.waitFor(() => expect(isHidden()).toBe(false));
+        }
+        expect(canvasApi.scrollToContent).toHaveBeenCalledTimes(2);
+        expect(canvasApi.scrollToContent).toHaveBeenCalledWith();
+        apiRef.current = null;
+        other.remove();
     });
 
     it("takes the focus that its embed box holds once Excalidraw renders", async () => {

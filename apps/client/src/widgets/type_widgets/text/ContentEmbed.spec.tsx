@@ -288,6 +288,67 @@ describe("ContentEmbed", () => {
         Reflect.deleteProperty(document, "exitFullscreen");
     });
 
+    it("tells its content when its fullscreen changes, and once it took the new size", () => {
+        const observers: { callback: (entries: unknown[]) => void; isObserving: boolean }[] = [];
+        vi.stubGlobal("ResizeObserver", class {
+            private readonly entry;
+
+            constructor(callback: (entries: unknown[]) => void) {
+                this.entry = { callback, isObserving: false };
+                observers.push(this.entry);
+            }
+
+            observe() {
+                this.entry.isObserving = true;
+            }
+
+            disconnect() {
+                this.entry.isObserving = false;
+            }
+        });
+        const resize = () => {
+            for (const observer of observers.filter((entry) => entry.isObserving)) {
+                observer.callback([]);
+            }
+        };
+        const setFullscreenElement = (element: Element | null) => {
+            Object.defineProperty(document, "fullscreenElement", {
+                value: element,
+                configurable: true
+            });
+            document.dispatchEvent(new Event("fullscreenchange"));
+        };
+        renderBox({ boxSize: "medium" });
+        const box = contentBox();
+        const events: string[] = [];
+        const listener = (event: Event) => events.push(`${event.type}:${event.target === box}`);
+        const names = [ "fullscreenChangeStart", "enterFullscreen", "leaveFullscreen" ];
+        for (const name of names) {
+            document.addEventListener(name, listener);
+        }
+
+        setFullscreenElement(box);
+        expect(events).toEqual([ "fullscreenChangeStart:true" ]);
+        resize();
+        resize();
+        expect(events).toEqual([ "fullscreenChangeStart:true", "enterFullscreen:true" ]);
+
+        setFullscreenElement(null);
+        resize();
+        expect(events.slice(2)).toEqual([ "fullscreenChangeStart:true", "leaveFullscreen:true" ]);
+
+        // Another element in fullscreen leaves the box as it is.
+        setFullscreenElement(document.body);
+        resize();
+        expect(events).toHaveLength(4);
+
+        for (const name of names) {
+            document.removeEventListener(name, listener);
+        }
+        Reflect.deleteProperty(document, "fullscreenElement");
+        vi.unstubAllGlobals();
+    });
+
     it("opens its menu on a right click on the title row, leaving the title link its own", () => {
         renderBox({ notePath: "owner", viewScope: ATTACHMENT_SCOPE });
         const row = container.querySelector(".include-note-title-row");
