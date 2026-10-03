@@ -113,7 +113,7 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
             }
 
             // Jump to the first search match when navigated from search results.
-            consumeSearchTerms(noteContext, ntxId);
+            consumeSearchTerms(noteContext, ntxId, initialized.current);
 
             // Scroll to bookmark anchor if navigated with ?bookmark=...
             const viewScope = noteContext?.viewScope;
