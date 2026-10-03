@@ -12,6 +12,7 @@ import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { escapeHtml, isMobile } from "../../services/utils";
+import { AttributeSnippetBadges } from "./Badge";
 import { useAutocomplete } from "./FormAutocomplete";
 import { FormDropdownDivider } from "./FormList";
 import { useSyncedRef } from "./hooks";
@@ -412,14 +413,20 @@ function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
 function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion }) {
     const isCommand = suggestion.action === "command";
     const icon = isCommand ? (suggestion.icon || "bx bx-terminal") : suggestionIcon(suggestion);
-    const description = isCommand ? suggestion.commandDescription : suggestion.highlightedAttributeSnippet;
 
     return <>
         <Icon icon={icon} />
         <span className="tn-menu-gap" />
         <div className="note-suggestion-text">
             <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
-            {description && <RawHtml className="search-result-attributes" html={description} />}
+            {isCommand
+                ? suggestion.commandDescription && (
+                    <span className="note-suggestion-description">{suggestion.commandDescription}</span>
+                )
+                : <AttributeSnippetBadges
+                    snippet={suggestion.highlightedAttributeSnippet}
+                    className="note-suggestion-attributes"
+                />}
         </div>
         <SuggestionShortcut suggestion={suggestion} />
     </>;

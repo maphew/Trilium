@@ -123,7 +123,7 @@ describe("NoteAutocomplete's suggestion list", () => {
     const notes: Suggestion[] = [
         { notePath: "root/a", noteTitle: "Alpha", notePathTitle: "Alpha", highlightedNotePathTitle: "<b>Al</b>pha", icon: "bx bx-file" },
         { notePath: "root/x/b", noteTitle: "Beta", notePathTitle: "X / Beta", highlightedNotePathTitle: "X / Beta",
-            highlightedAttributeSnippet: "#tag" }
+            highlightedAttributeSnippet: "#tag<br>#status=\"<b>al</b>\"" }
     ];
     const commands: Suggestion[] = [
         { action: "command", commandId: "cmd1", noteTitle: "Cmd One", highlightedNotePathTitle: "Cmd One",
@@ -203,7 +203,10 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(alpha.querySelector(".tn-icon")?.className).toBe("bx bx-file tn-icon");
         expect(alpha.querySelector(".search-result-title")?.innerHTML).toBe("<b>Al</b>pha");
         expect(beta.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
-        expect(beta.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
+        // One outline badge per attribute, its highlight kept.
+        const badges = beta.querySelectorAll(".note-suggestion-attributes > .ext-badge.outline");
+        expect([ ...badges ].map((badge) => badge.textContent)).toEqual([ "#tag", "#status=\"al\"" ]);
+        expect(badges[1].querySelector("b")?.textContent).toBe("al");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
     });
@@ -445,7 +448,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         const beta = menu?.querySelectorAll<HTMLElement>(".dropdown-item")[1];
         expect(beta?.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
         expect(beta?.querySelector(".search-result-title")?.innerHTML).toBe("X / Beta");
-        expect(beta?.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
+        expect(beta?.querySelectorAll(".note-suggestion-attributes > .ext-badge")).toHaveLength(2);
 
         await act(async () => {
             input.focus();
@@ -480,11 +483,11 @@ describe("NoteAutocomplete's suggestion list", () => {
         const [ described, bare ] = host.querySelectorAll<HTMLElement>(".note-suggestion-list > .dropdown-item");
         expect(described.querySelector(".tn-icon")?.className).toBe("bx bx-cog tn-icon");
         expect(described.querySelector(".search-result-title")?.textContent).toBe("Cmd One");
-        expect(described.querySelector(".search-result-attributes")?.textContent).toBe("Does a thing");
+        expect(described.querySelector(".note-suggestion-description")?.textContent).toBe("Does a thing");
         // One key each, drawn as a search row's are.
         expect(described.querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
         expect(bare.querySelector(".tn-icon")?.className).toBe("bx bx-terminal tn-icon");
-        expect(bare.querySelector(".search-result-attributes, kbd")).toBeNull();
+        expect(bare.querySelector(".note-suggestion-description, kbd")).toBeNull();
         host.remove();
 
         // Elsewhere a `>` is only text to search for.

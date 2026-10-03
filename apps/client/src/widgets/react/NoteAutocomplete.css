@@ -46,10 +46,26 @@
     white-space: normal;
     overflow-wrap: anywhere;
 
-    .search-result-attributes {
+    /* Lets a badge too long for the row shrink to its width and end in an ellipsis. */
+    .note-suggestion-text {
+        min-width: 0;
+    }
+
+    .note-suggestion-description {
         display: block;
         font-size: small;
         color: var(--muted-text-color);
+    }
+
+    .note-suggestion-attributes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-block: 2px;
+
+        .ext-badge {
+            --color: var(--muted-text-color);
+        }
     }
 }
 

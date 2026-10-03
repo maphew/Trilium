@@ -7,6 +7,7 @@ import { useRef } from "preact/hooks";
 import Dropdown, { DropdownProps } from "./Dropdown";
 import { useStaticTooltip } from "./hooks";
 import Icon from "./Icon";
+import RawHtml from "./RawHtml";
 
 interface SimpleBadgeProps {
     className?: string;
@@ -50,6 +51,23 @@ export function Badge({ icon, className, text, tooltip, href, outline, ...contai
             {...containerProps}
         >
             {href ? <a href={href}>{content}</a> : <span>{content}</span>}
+        </div>
+    );
+}
+
+/**
+ * A search result's `highlightedAttributeSnippet`, which the server joins with `<br>`, as one outline
+ * badge per attribute, its search highlights kept.
+ */
+export function AttributeSnippetBadges({ snippet, className }: { snippet: string | undefined; className: string }) {
+    const lines = snippet?.split(/<br\s*\/?>/i).map((line) => line.trim()).filter(Boolean);
+    if (!lines?.length) return null;
+
+    return (
+        <div className={className}>
+            {lines.map((line, index) => (
+                <Badge key={index} outline text={<RawHtml html={line} />} />
+            ))}
         </div>
     );
 }
