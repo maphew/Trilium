@@ -38,6 +38,10 @@ const VSCODE_LANGUAGE_MIMES: Record<string, string> = {
  * exact and the theme colors are dropped. A language that the editor does not offer falls back to
  * the code block's default language.
  *
+ * Firefox cannot read {@link VSCODE_EDITOR_DATA}, which VS Code writes in Chromium's own clipboard
+ * format. There the plugin recognizes VS Code's HTML instead (see {@link isVsCodeHtml}) and leaves
+ * the language to the default.
+ *
  * Pasting into an existing code block is left to `CodeBlockEditing`, whose normal-priority
  * listener inserts the plain text.
  */
@@ -68,7 +72,8 @@ export default class PasteFromVsCode extends Plugin {
  * from VS Code.
  */
 export function vsCodePasteHtml(dataTransfer: { getData(type: string): string }): string | null {
-    const mode = readVsCodeMode(dataTransfer.getData(VSCODE_EDITOR_DATA));
+    const mode = readVsCodeMode(dataTransfer.getData(VSCODE_EDITOR_DATA))
+        ?? (isVsCodeHtml(dataTransfer.getData("text/html")) ? "" : null);
     if (mode === null) {
         return null;
     }
@@ -94,6 +99,25 @@ export function vsCodePasteHtml(dataTransfer: { getData(type: string): string })
 export function codeBlockLanguage(mode: string): string | null {
     const mime = VSCODE_LANGUAGE_MIMES[mode] ?? getMimeTypeFromMarkdownName(mode)?.mime;
     return mime ? normalizeMimeTypeForCKEditor(mime) : null;
+}
+
+/**
+ * Whether the clipboard HTML has the shape VS Code writes: a single `div` with `white-space: pre`
+ * and a monospace font, holding a `div` per line.
+ */
+export function isVsCodeHtml(html: string): boolean {
+    if (!html) {
+        return false;
+    }
+
+    // A leading `<meta charset>` is parsed into the head, so it does not count as an element here.
+    const body = new DOMParser().parseFromString(html, "text/html").body;
+    const root = body.firstElementChild;
+    if (!(root instanceof HTMLDivElement) || root !== body.lastElementChild) {
+        return false;
+    }
+
+    return root.style.whiteSpace === "pre" && root.style.fontFamily.includes("monospace");
 }
 
 /**

@@ -17,7 +17,7 @@ Note that this feature is meant for generally small snippets of code. For larger
     *   If that language is not in the list of languages, the code block uses _Auto-detected_.
     *   The colors of the Visual Studio Code theme are removed.
     *   A single line becomes inline code instead of a code block.
-    *   This works in the desktop application and in Chromium-based browsers (Chrome, Edge), but not in Firefox.
+    *   In Firefox, the code block always uses _Auto-detected_. Firefox can't read the language from Visual Studio Code.
 
 ## Exiting out of the code block
 

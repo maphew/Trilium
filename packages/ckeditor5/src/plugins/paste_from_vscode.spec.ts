@@ -2,7 +2,7 @@ import { ClassicEditor, Code, CodeBlock, Essentials, Paragraph, _getModelData, _
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
-import PasteFromVsCode, { codeBlockLanguage, VSCODE_EDITOR_DATA, vsCodePasteHtml } from "./paste_from_vscode.js";
+import PasteFromVsCode, { codeBlockLanguage, isVsCodeHtml, VSCODE_EDITOR_DATA, vsCodePasteHtml } from "./paste_from_vscode.js";
 
 /** A CSS rule copied out of VS Code under a dark theme: the clipboard's HTML, verbatim. */
 const VSCODE_HTML = `<meta charset='utf-8'><div style="color: #bbbebf;background-color: #121314;font-family: Menlo, Monaco, 'Courier New', monospace;font-weight: normal;font-size: 12px;line-height: 18px;white-space: pre;"><div><span style="color: #d7ba7d;">#trilium-error-overlay</span><span style="color: #bbbebf;"> </span><span style="color: #d7ba7d;">.tn-eo-title</span><span style="color: #bbbebf;"> {</span></div><div><span style="color: #bbbebf;">    </span><span style="color: #9cdcfe;">margin</span><span style="color: #bbbebf;">: </span><span style="color: #b5cea8;">0</span><span style="color: #bbbebf;">;</span></div><div><span style="color: #bbbebf;">    </span><span style="color: #9cdcfe;">font-size</span><span style="color: #bbbebf;">: </span><span style="color: #b5cea8;">1.4em</span><span style="color: #bbbebf;">;</span></div><div><span style="color: #bbbebf;">    </span><span style="color: #9cdcfe;">font-weight</span><span style="color: #bbbebf;">: </span><span style="color: #b5cea8;">600</span><span style="color: #bbbebf;">;</span></div><div><span style="color: #bbbebf;">}</span></div></div>`;
@@ -45,6 +45,23 @@ describe("PasteFromVsCode", () => {
         });
     });
 
+    describe("isVsCodeHtml", () => {
+        it("recognizes the HTML VS Code writes", () => {
+            expect(isVsCodeHtml(VSCODE_HTML)).toBe(true);
+            expect(isVsCodeHtml(`<div style="font-family: Consolas, monospace; white-space: pre;"><div>x</div></div>`)).toBe(true);
+        });
+
+        it("rejects HTML of any other shape", () => {
+            expect(isVsCodeHtml("")).toBe(false);
+            // Not preformatted, or not monospace.
+            expect(isVsCodeHtml(`<div style="font-family: monospace;"><div>x</div></div>`)).toBe(false);
+            expect(isVsCodeHtml(`<div style="font-family: Arial; white-space: pre;"><div>x</div></div>`)).toBe(false);
+            // More than the one block, or a block that is not a div.
+            expect(isVsCodeHtml(`${VSCODE_HTML}<p>after</p>`)).toBe(false);
+            expect(isVsCodeHtml(`<pre style="font-family: monospace; white-space: pre;">x</pre>`)).toBe(false);
+        });
+    });
+
     describe("vsCodePasteHtml", () => {
         it("builds a code block from the plain text of a multi-line copy", () => {
             expect(vsCodePasteHtml(clipboard(VSCODE_TEXT, VSCODE_CSS_DATA, VSCODE_HTML)))
@@ -66,8 +83,13 @@ describe("PasteFromVsCode", () => {
             expect(vsCodePasteHtml(clipboard("a\nb", `{"mode":"makefile"}`))).toBe("<pre><code>a\nb</code></pre>");
         });
 
+        it("falls back to the shape of the HTML when the editor data is missing, as in Firefox", () => {
+            expect(vsCodePasteHtml(clipboard(VSCODE_TEXT, undefined, VSCODE_HTML))).toBe(`<pre><code>${VSCODE_TEXT}</code></pre>`);
+            expect(vsCodePasteHtml(clipboard("margin: 0;", undefined, VSCODE_HTML))).toBe("<code>margin: 0;</code>");
+        });
+
         it("declines a clipboard that does not come from VS Code or holds no code", () => {
-            expect(vsCodePasteHtml(clipboard(VSCODE_TEXT, undefined, VSCODE_HTML))).toBeNull();
+            expect(vsCodePasteHtml(clipboard(VSCODE_TEXT, undefined, "<p>text</p>"))).toBeNull();
             expect(vsCodePasteHtml(clipboard(VSCODE_TEXT, "not json"))).toBeNull();
             expect(vsCodePasteHtml(clipboard(VSCODE_TEXT, "null"))).toBeNull();
             expect(vsCodePasteHtml(clipboard(" \n ", VSCODE_CSS_DATA))).toBeNull();
@@ -121,6 +143,16 @@ describe("PasteFromVsCode", () => {
 
             expect(paste(clipboard("a\nb", `{"mode":"python"}`))).toBe(
                 "<codeBlock language=\"text-x-trilium-auto\">a<softBreak></softBreak>b</codeBlock>"
+            );
+        });
+
+        it("pastes VS Code's HTML as a code block in the default language when the editor data is missing", () => {
+            _setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+            expect(paste(clipboard(VSCODE_TEXT, undefined, VSCODE_HTML))).toBe(
+                "<codeBlock language=\"text-x-trilium-auto\">#trilium-error-overlay .tn-eo-title {<softBreak></softBreak>"
+                + "    margin: 0;<softBreak></softBreak>    font-size: 1.4em;<softBreak></softBreak>"
+                + "    font-weight: 600;<softBreak></softBreak>}</codeBlock>"
             );
         });
 
