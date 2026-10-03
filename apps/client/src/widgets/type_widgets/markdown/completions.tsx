@@ -130,8 +130,8 @@ export function markdownCompletionAt(before: string, _explicit: boolean, state: 
 }
 
 const COMMAND_TYPED = new RegExp(`${SLASH_COMMAND_REGEX.source}$`);
-/** An `@`, and the start of a note's title typed after it, up to a space. */
-const NOTE_TYPED = /(?:^|(?<=\s))@[^\s@]*$/;
+/** An `@`, and the note title typed after it, spaces included, as the text editor's `@` allows. */
+const NOTE_TYPED = /(?:^|(?<=\s))@[^@]*$/;
 
 /**
  * The commands the `/` list offers, titled, described, found by the same words and drawn with the same

@@ -184,9 +184,11 @@ describe("markdownCompletionAt", () => {
     it("finds a note at the start of a line or after whitespace, from its @, by what follows it", () => {
         expect(at("@")).toEqual({ kind: "note", from: 0, query: "" });
         expect(at("see @Alp")).toEqual({ kind: "note", from: 4, query: "Alp" });
-        // An address is no mention, and a space ends one.
+        // A title holds spaces, as the text editor's `@` allows, from the last `@` on.
+        expect(at("see @My meeting notes")).toEqual({ kind: "note", from: 4, query: "My meeting notes" });
+        expect(at("@a and @b c")).toEqual({ kind: "note", from: 7, query: "b c" });
+        // An address is no mention.
         expect(at("mail me@example.com")).toBeNull();
-        expect(at("see @Alpha ")).toBeNull();
         expect(at("text `a @` b", 9)).toBeNull();
     });
 
