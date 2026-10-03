@@ -1,3 +1,4 @@
+import "../attribute_widgets/attribute_kind.css";
 import "./AttributeList.css";
 
 import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
