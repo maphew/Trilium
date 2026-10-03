@@ -813,24 +813,6 @@ li.dropdown-item a.dropdown-item-button:focus-visible {
 }
 
 /*
- * NOTE SEARCH SUGGESTIONS
- */
-
-/* List body */
-.jump-to-note-dialog .jump-to-note-results .aa-suggestions,
-.note-detail-empty .aa-suggestions {
-    padding: 0;
-}
-
-/* List item */
-.jump-to-note-dialog .aa-suggestion,
-.note-detail-empty .aa-suggestion {
-    border-radius: 6px;
-    color: var(--menu-text-color);
-    cursor: default;
-}
-
-/*
  * Alert bars
  */
 

@@ -156,7 +156,7 @@ div.tn-tool-dialog {
     padding: 0 !important;
 }
 
-.jump-to-note-dialog .jump-to-note-results .aa-dropdown-menu {
+.jump-to-note-dialog .jump-to-note-results .note-suggestion-list {
     /* Auto, as a fixed width would shift with the negative margin rather than grow by it. */
     width: auto;
     margin-inline-end: calc(0px - var(--jump-to-note-padding));
@@ -166,6 +166,22 @@ div.tn-tool-dialog {
     padding-bottom: var(--jump-to-note-padding);
     scroll-padding-bottom: var(--jump-to-note-padding);
     scroll-padding-top: var(--jump-to-note-fade);
+}
+
+/* Above the footer, the results fade out as they do under the search field. */
+.jump-to-note-dialog .jump-to-note-results .note-suggestion-list:has(+ .note-suggestion-footer) {
+    --scroll-fade-bottom: var(--jump-to-note-fade);
+    padding-bottom: var(--jump-to-note-fade);
+    scroll-padding-bottom: var(--jump-to-note-fade);
+}
+
+/*
+ * Within the dialog's padding, so its ends line up with the search box and the close button. Its
+ * top padding leaves a clear gap between the fade above and the controls.
+ */
+.jump-to-note-dialog .jump-to-note-results .note-suggestion-footer {
+    padding: 12px 0 var(--jump-to-note-padding);
+    border-top: 0;
 }
 
 /* Search box wrapper */
@@ -186,6 +202,31 @@ div.tn-tool-dialog {
 
 .jump-to-note-dialog .input-clearer-button {
     background: transparent !important;
+}
+
+/*
+ * On the desktop the field is the dialog's heading, framed by the dialog itself: it holds the focus
+ * for as long as the dialog is open, so a box and a focus ring around it say nothing. On mobile the
+ * box stays, as the cue to tap.
+ */
+body.desktop .jump-to-note-dialog .input-group {
+    &,
+    &:hover,
+    &:focus-within {
+        background: transparent;
+        border-color: transparent;
+        outline: none;
+    }
+
+    .note-autocomplete-input {
+        padding-inline-start: 0;
+        font-size: 1.1rem;
+    }
+
+    /* Only while there is text to clear; hidden in place, so the field keeps its width. */
+    .note-autocomplete-input:placeholder-shown ~ .input-clearer-button {
+        visibility: hidden;
+    }
 }
 
 /*

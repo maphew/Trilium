@@ -1432,6 +1432,21 @@ export function useLegacyComponentElement(elRef: RefObject<HTMLElement>) {
 
 type ComponentElement = HTMLElement & { component?: Component };
 
+/** Whether the CSS media `query` matches, following it as the window changes. */
+export function useMediaQuery(query: string) {
+    const [ matches, setMatches ] = useState(() => window.matchMedia(query).matches);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia(query);
+        const update = () => setMatches(mediaQuery.matches);
+        update();
+        mediaQuery.addEventListener("change", update);
+        return () => mediaQuery.removeEventListener("change", update);
+    }, [ query ]);
+
+    return matches;
+}
+
 /**
  * Registers this widget's contextual shortcut hints on its host component. When the user requests
  * contextual shortcut help (Alt+F1 by default), the dispatcher walks up from the focused element

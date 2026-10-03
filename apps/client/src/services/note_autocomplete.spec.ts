@@ -54,7 +54,7 @@ vi.mock("./ws.js", () => ({
 }));
 
 import type { CommandDefinition } from "./command_registry.js";
-import noteAutocomplete, { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, type Suggestion } from "./note_autocomplete.js";
+import noteAutocomplete, { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, recentNoteGroup, type Suggestion } from "./note_autocomplete.js";
 import server from "./server.js";
 
 beforeEach(() => {
@@ -356,5 +356,24 @@ describe("createNoteFromSuggestion", () => {
         getActiveContext.mockReturnValue(undefined);
 
         expect(await createNoteFromSuggestion({ action: "create-note", noteTitle: "X" })).toBeUndefined();
+    });
+});
+
+describe("recentNoteGroup", () => {
+    // In the local time zone, as the groups are local days.
+    const now = new Date(2026, 9, 15, 10, 30);
+    const visited = (year: number, month: number, day: number, hours = 12) =>
+        new Date(year, month, day, hours).toISOString().replace("T", " ");
+
+    it("groups a visit by the local day it falls on, as far back as a month", () => {
+        expect(recentNoteGroup(visited(2026, 9, 15, 0), now)).toBe("today");
+        expect(recentNoteGroup(visited(2026, 9, 14, 23), now)).toBe("yesterday");
+        expect(recentNoteGroup(visited(2026, 9, 14, 0), now)).toBe("yesterday");
+        expect(recentNoteGroup(visited(2026, 9, 13), now)).toBe("past-week");
+        expect(recentNoteGroup(visited(2026, 9, 9), now)).toBe("past-week");
+        expect(recentNoteGroup(visited(2026, 9, 8), now)).toBe("past-month");
+        expect(recentNoteGroup(visited(2026, 8, 16), now)).toBe("past-month");
+        expect(recentNoteGroup(visited(2026, 8, 15), now)).toBe("older");
+        expect(recentNoteGroup(visited(2025, 0, 1), now)).toBe("older");
     });
 });

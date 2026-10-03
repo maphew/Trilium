@@ -104,6 +104,47 @@ describe("computeDropdownPosition", () => {
     });
 });
 
+describe("Enter pressed before the newer query's suggestions", () => {
+    it("reaches the host where the newer list will open with nothing highlighted", async () => {
+        vi.useFakeTimers();
+        const onPick = vi.fn();
+        const reachedDocument = vi.fn();
+        function Field() {
+            const [ value, setValue ] = useState("");
+            return <FormAutocomplete currentValue={value} onChange={setValue} onPick={onPick}
+                source={async (query) => [ `${query}!` ]} />;
+        }
+        const found = renderInto(<Field />).querySelector("input");
+        if (!found) throw new Error("no input rendered");
+        const input: HTMLInputElement = found;
+
+        await act(async () => {
+            input.value = "a";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        await act(async () => {
+            input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+        });
+        expect(document.querySelector(".form-autocomplete-item.active")?.textContent).toBe("a!");
+
+        await act(async () => {
+            input.value = "ab";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+        document.addEventListener("keydown", reachedDocument);
+        await act(async () => { input.dispatchEvent(enter); });
+        document.removeEventListener("keydown", reachedDocument);
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+        expect(enter.defaultPrevented).toBe(false);
+        expect(reachedDocument).toHaveBeenCalledWith(enter);
+        expect(onPick).not.toHaveBeenCalled();
+        vi.useRealTimers();
+    });
+});
+
 describe("an input method composing in the field", () => {
     it("looks up what the input method commits, not what it is composing, and passes the events on", async () => {
         vi.useFakeTimers();

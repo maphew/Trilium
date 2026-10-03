@@ -63,7 +63,7 @@
             opacity: 0.7;
         }
 
-        /* Matches the second line of a note row, `.search-result-attributes`. */
+        /* Matches the second line of a command row, `.note-suggestion-description`. */
         .cm-completionDetail {
             flex-basis: 100%;
             margin-left: 0;

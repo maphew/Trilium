@@ -1,6 +1,6 @@
-import { LOCALES as WEBSITE_LOCALES } from "../../apps/website/src/locales";
-import { LOCALES as APP_LOCALES } from "../../packages/commons/src/lib/i18n";
-import { getLanguageStats, type WeblateProject } from "./utils";
+import { LOCALES as WEBSITE_LOCALES } from "../../apps/website/src/locales.ts";
+import { LOCALES as APP_LOCALES } from "../../packages/commons/src/lib/i18n.ts";
+import { getLanguageStats, type WeblateProject } from "./utils.mts";
 
 /**
  * Coverage above which a language must be offered, rather than sitting

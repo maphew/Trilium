@@ -16,10 +16,13 @@ vi.mock("../../services/note_autocomplete", async (importOriginal) => ({
 }));
 
 import appContext from "../../components/app_context";
+import Component from "../../components/component";
 import type { NoteSuggestionOptions, Suggestion } from "../../services/note_autocomplete";
+import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, renderNoteSuggestion } from "./NoteAutocomplete";
+import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
     let container = document.createElement("div");
@@ -123,7 +126,7 @@ describe("NoteAutocomplete's suggestion list", () => {
     const notes: Suggestion[] = [
         { notePath: "root/a", noteTitle: "Alpha", notePathTitle: "Alpha", highlightedNotePathTitle: "<b>Al</b>pha", icon: "bx bx-file" },
         { notePath: "root/x/b", noteTitle: "Beta", notePathTitle: "X / Beta", highlightedNotePathTitle: "X / Beta",
-            highlightedAttributeSnippet: "#tag" }
+            highlightedAttributeSnippet: "#tag<br>#status=&quot;<b>al</b>&quot;" }
     ];
     const commands: Suggestion[] = [
         { action: "command", commandId: "cmd1", noteTitle: "Cmd One", highlightedNotePathTitle: "Cmd One",
@@ -190,6 +193,66 @@ describe("NoteAutocomplete's suggestion list", () => {
         return allRows().find((row) => row.querySelector(".bx-search"));
     }
 
+    it("groups the recent notes under headings by when they were visited, which the keys step over", async () => {
+        const today = new Date();
+        const daysAgo = (days: number) =>
+            new Date(today.getFullYear(), today.getMonth(), today.getDate() - days, 0, 1).toISOString().replace("T", " ");
+        getNoteSuggestions.mockResolvedValue([
+            { ...notes[0], utcDateVisited: daysAgo(0) },
+            { ...notes[1], utcDateVisited: daysAgo(0) },
+            { notePath: "root/c", noteTitle: "Gamma", highlightedNotePathTitle: "Gamma", utcDateVisited: daysAgo(40) }
+        ]);
+        const input = await mount();
+        await act(async () => { input.focus(); });
+        await settle();
+
+        const menu = document.querySelector(".note-autocomplete-menu .tn-menu-scroll");
+        const layout = [ ...(menu?.children ?? []) ].map((child) =>
+            child.querySelector(".dropdown-header") ? "heading" : child.className.split(" ")[0]);
+        expect(layout).toEqual([ "heading", "dropdown-item", "dropdown-item", "heading", "dropdown-item" ]);
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+        await press(input, "ArrowUp");
+        expect(rows()[2].classList.contains("tn-menu-active")).toBe(true);
+
+        // A search's results carry no visit times, and no headings.
+        getNoteSuggestions.mockResolvedValue(notes);
+        await type(input, "al");
+        expect(document.querySelector(".note-autocomplete-menu .dropdown-header")).toBeNull();
+    });
+
+    it("reports the highlighted suggestion as the keys move, and none once the list closes", async () => {
+        const onHighlight = vi.fn();
+        const input = await mount({ onHighlight });
+        await type(input, "al");
+        expect(onHighlight).toHaveBeenLastCalledWith(notes[0]);
+
+        await press(input, "ArrowDown");
+        expect(onHighlight).toHaveBeenLastCalledWith(notes[1]);
+
+        await press(input, "Escape");
+        expect(onHighlight).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it("shows a note's title first and the path to it after, while other rows keep their one title", async () => {
+        getNoteSuggestions.mockResolvedValue([
+            { ...notes[1], highlightedNoteTitle: "<b>Be</b>ta", highlightedParentPathTitle: "X" },
+            { ...notes[0], highlightedNoteTitle: "Alpha", highlightedParentPathTitle: "" },
+            { action: "create-note", noteTitle: "be", highlightedNotePathTitle: "Create be" }
+        ]);
+        const input = await mount();
+        await type(input, "be");
+
+        const [ beta, alpha ] = rows();
+        expect(beta.querySelector(".search-result-title")?.innerHTML).toBe("<b>Be</b>ta");
+        // Wrapped, so a path too long for the row can be cut at its start, keeping the nearest parents.
+        expect(beta.querySelector(".note-suggestion-path > span")?.innerHTML).toBe("X");
+        // A top-level note has no path to show.
+        expect(alpha.querySelector(".note-suggestion-path")).toBeNull();
+        const create = allRows().find((row) => row.querySelector(".bx-plus"));
+        expect(create?.querySelector(".search-result-title")?.textContent).toBe("Create be");
+        expect(create?.querySelector(".note-suggestion-path")).toBeNull();
+    });
+
     it("lists the notes as the rows of a menu, the first one highlighted", async () => {
         const input = await mount();
         await type(input, "al");
@@ -203,7 +266,11 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(alpha.querySelector(".tn-icon")?.className).toBe("bx bx-file tn-icon");
         expect(alpha.querySelector(".search-result-title")?.innerHTML).toBe("<b>Al</b>pha");
         expect(beta.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
-        expect(beta.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
+        // One outline badge per attribute, its highlight kept.
+        const badges = beta.querySelectorAll(".note-suggestion-attributes > .ext-badge.outline");
+        const names = [ ...badges ].map((badge) => badge.querySelector(".attribute-badge-name")?.textContent);
+        expect(names).toEqual([ "tag", "status" ]);
+        expect(badges[1].querySelector(".attribute-badge-value b")?.textContent).toBe("al");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
     });
@@ -347,6 +414,24 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(onChange).toHaveBeenCalledWith(notes[1]);
     });
 
+    it("drops a held Enter once the text changes again", async () => {
+        const onChange = vi.fn();
+        const input = await mount({ onChange });
+        await type(input, "al");
+
+        let resolve: (suggestions: Suggestion[]) => void = () => {};
+        getNoteSuggestions.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+        await type(input, "be");
+        await press(input, "Enter");
+        await type(input, "bet");
+
+        await act(async () => { resolve([ notes[1] ]); });
+        await settle();
+        expect(onChange).not.toHaveBeenCalled();
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("bet", expect.anything());
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+    });
+
     it("searches on the first keystroke, and paces the rest of a burst", async () => {
         const input = await mount();
 
@@ -418,17 +503,22 @@ describe("NoteAutocomplete's suggestion list", () => {
         const input = await mount({ container: { current: host } });
         await type(input, "a");
 
-        const menu = host.querySelector<HTMLElement>(":scope > span.aa-dropdown-menu");
-        expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(3);
+        const menu = host.querySelector<HTMLElement>(":scope > menu.note-suggestion-list");
+        expect(menu?.querySelectorAll(":scope > .dropdown-item")).toHaveLength(3);
         // In the host's flow, with no position of its own.
         expect(menu?.hasAttribute("style")).toBe(false);
-        expect(document.querySelector(".note-autocomplete-menu")).toBeNull();
+        expect(document.querySelector(".dropdown-menu.note-autocomplete-menu")).toBeNull();
+        // Drawn as the popup draws its rows.
+        const beta = menu?.querySelectorAll<HTMLElement>(".dropdown-item")[1];
+        expect(beta?.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
+        expect(beta?.querySelector(".search-result-title")?.innerHTML).toBe("X / Beta");
+        expect(beta?.querySelectorAll(".note-suggestion-attributes > .ext-badge")).toHaveLength(2);
 
         await act(async () => {
             input.focus();
             input.blur();
         });
-        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(3);
+        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(3);
 
         // Both are left to the host, as a dialog closes on Escape.
         const reachedHost: string[] = [];
@@ -437,15 +527,15 @@ describe("NoteAutocomplete's suggestion list", () => {
         await press(input, "Escape");
         await press(input, "Tab");
         document.body.removeEventListener("keydown", listen);
-        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(3);
+        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(3);
         expect(reachedHost).toEqual([ "Escape", "Tab" ]);
 
         await press(input, "Enter");
-        expect(host.querySelector(".aa-dropdown-menu")).toBeNull();
+        expect(host.querySelector(".note-suggestion-list")).toBeNull();
         host.remove();
     });
 
-    it("lists the commands for a `>` in a command palette, in the plugin's markup", async () => {
+    it("lists the commands for a `>` in a command palette, as menu rows", async () => {
         // In a host's container, as Jump to Note lists them.
         const host = document.createElement("div");
         document.body.append(host);
@@ -454,13 +544,14 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         expect(getCommandSuggestions).toHaveBeenLastCalledWith("> cmd");
         expect(getNoteSuggestions).not.toHaveBeenCalled();
-        const [ described, bare ] = host.querySelectorAll<HTMLElement>(".aa-suggestion");
-        expect(described.querySelector(".command-suggestion > .command-icon")?.className).toBe("command-icon bx bx-cog");
-        expect(described.querySelector(".command-content > .command-name")?.textContent).toBe("Cmd One");
-        expect(described.querySelector(".command-content > .command-description")?.textContent).toBe("Does a thing");
-        expect(described.querySelector(".command-suggestion > kbd.command-shortcut")?.textContent).toBe("Ctrl+1");
-        expect(bare.querySelector(".command-icon")?.className).toBe("command-icon bx bx-terminal");
-        expect(bare.querySelector(".command-description, .command-shortcut")).toBeNull();
+        const [ described, bare ] = host.querySelectorAll<HTMLElement>(".note-suggestion-list > .dropdown-item");
+        expect(described.querySelector(".tn-icon")?.className).toBe("bx bx-cog tn-icon");
+        expect(described.querySelector(".search-result-title")?.textContent).toBe("Cmd One");
+        expect(described.querySelector(".note-suggestion-description")?.textContent).toBe("Does a thing");
+        // One key each, drawn as a search row's are.
+        expect(described.querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
+        expect(bare.querySelector(".tn-icon")?.className).toBe("bx bx-terminal tn-icon");
+        expect(bare.querySelector(".note-suggestion-description, kbd")).toBeNull();
         host.remove();
 
         // Elsewhere a `>` is only text to search for.
@@ -710,9 +801,9 @@ describe("NoteAutocomplete's suggestion list", () => {
             document.body.append(host);
             const contained = await mount({ container: { current: host } });
             await type(contained, "New");
-            const firstContained = host.querySelector(".aa-suggestions")?.firstElementChild;
+            const firstContained = host.querySelector(".note-suggestion-list")?.firstElementChild;
             expect(firstContained?.classList.contains("disabled")).toBe(true);
-            expect(firstContained?.nextElementSibling?.className).toBe("note-suggestion-separator");
+            expect(firstContained?.nextElementSibling?.className).toBe("dropdown-divider");
             host.remove();
 
             // A list with notes needs no such row.
@@ -741,19 +832,91 @@ describe("NoteAutocomplete's suggestion list", () => {
             expect(dividers[0].nextElementSibling).toBe(fullTextRow());
         });
 
-        it("sets them apart with one line in a host's container too", async () => {
-            getNoteSuggestions.mockResolvedValue([ ...notes, searchRow ]);
+        it("offers the searches beside a host's list rather than in it", async () => {
+            const onChange = vi.fn();
             const host = document.createElement("div");
             document.body.append(host);
-            const input = await mount({ container: { current: host } });
+            const input = await mount({ onChange, container: { current: host }, opts: { allowJumpToSearchNotes: true }, searchFooter: true });
             await type(input, "al");
 
-            const separators = [ ...host.querySelectorAll(".note-suggestion-separator") ];
-            const suggestions = [ ...host.querySelectorAll(".aa-suggestion") ];
-            expect(separators).toHaveLength(1);
-            expect(separators[0].previousElementSibling).toBe(suggestions[1]);
-            expect(separators[0].nextElementSibling?.querySelector(".bx-search")).not.toBeNull();
+            // The list holds the notes alone.
+            expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ allowJumpToSearchNotes: false }));
+            expect(host.querySelectorAll(".note-suggestion-list > .dropdown-item")).toHaveLength(2);
+            expect(host.querySelector(".note-suggestion-list > .dropdown-divider")).toBeNull();
+
+            // A switch under the list searches the contents, and stays on as the query changes.
+            const contentsSwitch = () => host.querySelector<HTMLInputElement>(".note-suggestion-footer input.switch-toggle");
+            expect(contentsSwitch()?.checked).toBe(false);
+            await act(async () => { contentsSwitch()?.dispatchEvent(new Event("input", { bubbles: true })); });
+            await settle();
+            expect(contentsSwitch()?.checked).toBe(true);
+            expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ fastSearch: false }));
+            await type(input, "alp");
+            expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp", expect.objectContaining({ fastSearch: false }));
+            await press(input, "Enter", { shiftKey: true });
+            expect(contentsSwitch()?.checked).toBe(false);
+            expect(getNoteSuggestions.mock.lastCall?.[1]?.fastSearch).toBeUndefined();
+            expect(document.activeElement).toBe(input);
+
+            // The switch leaves its key to the shortcut hints, which the footer opens as quick search's does.
+            expect(host.querySelector(".note-suggestion-footer .switch-widget kbd")).toBeNull();
+            expect(host.querySelector(".note-suggestion-footer .shortcut-hint-button")).not.toBeNull();
+
+            // The footer under the list opens the full search, reported for the host to close on.
+            const footer = host.querySelector<HTMLButtonElement>(".note-suggestion-footer button.show-in-full-search");
+            // A plain button, as quick search's: its key is in the shortcut hints.
+            expect(footer).not.toBeNull();
+            expect(footer?.querySelector("kbd, .tn-icon")).toBeNull();
+            await act(async () => { footer?.click(); });
+            expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "alp" });
+            expect(onChange).toHaveBeenLastCalledWith({ action: "search-notes", noteTitle: "alp" });
+
+            // The recent notes keep the footer, so the list does not move, and its key hints; the
+            // searches are hidden, with nothing to search for.
+            await type(input, " ");
+            const footerBar = host.querySelector(".note-suggestion-footer");
+            expect(footerBar?.classList.contains("nothing-to-search")).toBe(true);
+            expect(footerBar?.querySelector(".shortcut-hint-button")).not.toBeNull();
+            await press(input, "Enter", { shiftKey: true });
+            expect(contentsSwitch()?.checked).toBe(false);
+            await type(input, "al");
+            expect(footerBar?.classList.contains("nothing-to-search")).toBe(false);
             host.remove();
+
+            // A host that does not ask for the footer, the Empty tab, lists the searches as rows.
+            const plainHost = document.createElement("div");
+            document.body.append(plainHost);
+            const plainInput = await mount({ container: { current: plainHost }, opts: { allowJumpToSearchNotes: true } });
+            await type(plainInput, "al");
+            expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ allowJumpToSearchNotes: true }));
+            expect(plainHost.querySelector(".note-suggestion-footer")).toBeNull();
+            expect(plainHost.querySelector(".note-suggestion-list > .dropdown-item .bx-search")).not.toBeNull();
+            plainHost.remove();
+
+            // A dropdown keeps its content search row and has no footer.
+            const popupInput = await mount();
+            await type(popupInput, "al");
+            expect(fullTextRow()).toBeDefined();
+            expect(document.querySelector(".note-suggestion-footer")).toBeNull();
+        });
+
+        it("lists the keys of a host's list in the shortcut hints, and leaves a dropdown's host alone", async () => {
+            const keysFor = async (props: NoteAutocompleteProps) => {
+                const parent = new Component();
+                await act(async () => {
+                    renderInto(<ParentComponent.Provider value={parent}><NoteAutocomplete {...props} /></ParentComponent.Provider>);
+                });
+                return collectShortcutHints(parent).flatMap((section) => section.hints)
+                    .map((hint) => ("keys" in hint ? hint.keys.join(" ") : hint.action));
+            };
+
+            const host = document.createElement("div");
+            expect(await keysFor({ container: { current: host }, opts: { allowJumpToSearchNotes: true }, searchFooter: true }))
+                .toEqual([ "Up Down", "Enter", "Shift+Enter", "Ctrl+Enter" ]);
+            expect(await keysFor({ container: { current: host }, searchFooter: true }))
+                .toEqual([ "Up Down", "Enter", "Shift+Enter" ]);
+            expect(await keysFor({ container: { current: host } })).toEqual([]);
+            expect(await keysFor({})).toEqual([]);
         });
 
         it("runs a search from its row, with its shortcut shown, reporting it for the host to close on", async () => {

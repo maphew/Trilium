@@ -220,6 +220,7 @@ function AddBulkActionButton({ note }: { note: FNote }) {
     return (
         <Dropdown
             buttonClassName="action-add-toggle btn btn-sm"
+            dropdownContainerClassName="action-add-menu"
             text={<><Icon icon="bx bxs-zap" />{" "}{t("search_definition.action")}</>}
             noSelectButtonStyle
             mobileBottomSheet

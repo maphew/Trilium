@@ -10,12 +10,17 @@ import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useR
 import appContext from "../../components/app_context";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
-import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
+import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, recentNoteGroup, type RecentNoteGroup, type Suggestion } from "../../services/note_autocomplete";
 import { escapeHtml, isMobile } from "../../services/utils";
+import { ShortcutHintOverlayButton } from "../shortcut_hints/shortcut_hint_button";
+import { AttributeSnippetBadges } from "./Badge";
+import Button from "./Button";
 import { useAutocomplete } from "./FormAutocomplete";
-import { FormDropdownDivider } from "./FormList";
-import { useSyncedRef } from "./hooks";
+import { FormDropdownDivider, FormListHeader } from "./FormList";
+import FormToggle from "./FormToggle";
+import { useContextualShortcutHints, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
+import OverlayControlGroup from "./OverlayControlGroup";
 import Popup from "./Popup";
 import RawHtml from "./RawHtml";
 import { renderShortcutKbds } from "./shortcut_kbd";
@@ -47,6 +52,14 @@ export interface NoteAutocompleteProps {
     handleRef?: MutableRef<NoteAutocompleteHandle | null>;
     /** The element the list hangs from and spans, in place of the field, for a host that frames it. */
     anchorRef?: RefObject<HTMLElement>;
+    /**
+     * Offers the searches in a footer under a list in the host's container, with the shortcut hints
+     * button, rather than as rows: for a host that scrolls the list in a box of its own, as Jump to
+     * Note does.
+     */
+    searchFooter?: boolean;
+    /** Called with the suggestion the list highlights, or `undefined` while it highlights none. */
+    onHighlight?: (suggestion: Suggestion | undefined) => void;
 }
 
 /** Drives a note autocomplete from outside it, for a caller that decides when. */
@@ -64,7 +77,7 @@ export interface NoteAutocompleteHandle {
     clear(): void;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef, searchFooter, onHighlight }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
@@ -74,6 +87,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     // one changes `source` and so searches again.
     const [ fullTextSearchCount, setFullTextSearchCount ] = useState(0);
     const [ isSearchingFullText, setSearchingFullText ] = useState(false);
+    // A footer under a list in a host's container offers its searches: a switch for the content
+    // search, which stays on as the query changes, and a button for the full search.
+    const hasSearchFooter = !!container && !!searchFooter;
+    const [ includeContents, setIncludeContents ] = useState(false);
 
     const { isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks } = opts ?? {};
     const source = useCallback(async (query: string) => {
@@ -81,7 +98,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             return getCommandSuggestions(query);
         }
 
-        const options = { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks };
+        const options = {
+            allowCreatingNotes,
+            allowJumpToSearchNotes: allowJumpToSearchNotes && !hasSearchFooter,
+            allowExternalLinks
+        };
+        if (hasSearchFooter) {
+            return getNoteSuggestions(query, includeContents ? { ...options, fastSearch: false } : options);
+        }
         if (!fullTextSearchCount) {
             return withFullTextSearchRow(await getNoteSuggestions(query, options), query);
         }
@@ -92,7 +116,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         } finally {
             setSearchingFullText(false);
         }
-    }, [ isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fullTextSearchCount ]);
+    }, [
+        isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fullTextSearchCount,
+        hasSearchFooter, includeContents
+    ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
     const selectNote = useCallback((suggestion: Suggestion) => {
@@ -147,6 +174,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         schedule
     });
 
+    const highlighted = autocomplete.isShown ? autocomplete.items[autocomplete.activeIndex] : undefined;
+    const onHighlightRef = useRef(onHighlight);
+    onHighlightRef.current = onHighlight;
+    useEffect(() => onHighlightRef.current?.(highlighted), [ highlighted ]);
+
     /** Drops the selected note, and reports that to the host. */
     function clearSelection() {
         setNotePath("");
@@ -163,6 +195,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         clearSelection();
     }
 
+    /** Whether `query` is one to open the full search on: a non-blank query naming notes, not commands. */
+    function canSearchFor(query: string) {
+        return !!query.trim() && !(isCommandPalette && query.startsWith(">"));
+    }
+
     /**
      * Opens the search screen on `searchString`, and reports it as a picked `search-notes` row so that
      * a host can close, as Jump to Note does.
@@ -172,8 +209,19 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         onChange?.({ action: "search-notes", noteTitle: searchString });
     }
 
-    /** Searches the content of the notes as well as their titles, for the text in the field. */
+    /**
+     * Searches the content of the notes as well as their titles, for the text in the field. A list with
+     * a search footer switches its content search on or off instead.
+     */
     function fullTextSearch() {
+        if (hasSearchFooter) {
+            // As the footer's switch, which is hidden for a query naming no notes.
+            if (!canSearchFor(value)) return;
+            setIncludeContents((include) => !include);
+            autocomplete.open();
+            inputRef.current?.focus();
+            return;
+        }
         if (!value.trim()) return;
         setNotePath("");
         setFullTextSearchCount((count) => count + 1);
@@ -226,6 +274,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     }, [ text, noteId ]);
 
     const anchor = anchorRef?.current ?? groupRef.current;
+    const showsList = autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText);
     const showButtons = !opts?.hideAllButtons;
     const showGoToButton = showButtons && !opts?.hideGoToSelectedNoteButton;
 
@@ -263,8 +312,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         // own.
                         e.preventDefault();
                         e.stopImmediatePropagation();
-                        // Only where the list offers the row: a query that names notes, not commands.
-                        if (value.trim() && !(isCommandPalette && value.startsWith(">"))) {
+                        // Only where the list offers it: a query that names notes, not commands.
+                        if (canSearchFor(value)) {
                             showInFullSearch(value.trim());
                         }
                         return;
@@ -310,6 +359,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             )}
 
+            {hasSearchFooter && <SearchFooterShortcutHints allowFullSearch={!!allowJumpToSearchNotes} />}
+
             {showButtons && <>
                 <a
                     className="input-group-text input-clearer-button bx bxs-tag-x"
@@ -318,11 +369,45 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             </>}
 
-            {(autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText)) && (container
-                ? container.current && createPortal(
-                    <NoteSuggestionList autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />,
-                    container.current)
-                : anchor && (
+            {container
+                ? autocomplete.isOpen && container.current && createPortal(<>
+                    {showsList && <NoteSuggestionMenu
+                        autocomplete={autocomplete}
+                        searchingFor={isSearchingFullText ? value : undefined}
+                        // The popup's rows, in the host's panel. Faded at an edge only where the host
+                        // sets `--scroll-fade-top` or `--scroll-fade-bottom`.
+                        className="note-autocomplete-menu note-suggestion-list tn-menu-keyboard scroll-edge-fade"
+                    />}
+                    {/* Kept for any query, so the list does not move as the searches come and go. */}
+                    {hasSearchFooter && (
+                        <div
+                            className={clsx("note-suggestion-footer",
+                                !canSearchFor(value) && "nothing-to-search")}
+                            // Keeps the focus in the field, as the rows do.
+                            onMouseDown={(e) => e.preventDefault()}
+                        >
+                            {!cachedIsMobile && (
+                                <OverlayControlGroup>
+                                    <ShortcutHintOverlayButton />
+                                </OverlayControlGroup>
+                            )}
+                            <FormToggle
+                                switchOnName={t("note_autocomplete.include-contents")}
+                                switchOffName={t("note_autocomplete.include-contents")}
+                                currentValue={includeContents}
+                                onChange={fullTextSearch}
+                            />
+                            {allowJumpToSearchNotes && <Button
+                                className="show-in-full-search"
+                                kind="lowProfile"
+                                size="small"
+                                text={t("quick-search.show-in-full-search")}
+                                onClick={() => showInFullSearch(value.trim())}
+                            />}
+                        </div>
+                    )}
+                </>, container.current)
+                : showsList && anchor && (
                     <Popup
                         anchor={anchor}
                         // Rendered in the field's modal so the list stacks above it: the note picker
@@ -336,75 +421,54 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         escapeDismisses={false}
                         onDismiss={autocomplete.close}
                     >
-                        <NoteSuggestionMenu autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />
+                        <NoteSuggestionMenu
+                            autocomplete={autocomplete}
+                            searchingFor={isSearchingFullText ? value : undefined}
+                            className="tn-menu-scroll"
+                        />
                     </Popup>
-                ))}
+                )}
         </div>
     );
 }
 
 /**
- * The list of suggestions, in the `aa-*` markup that the Empty tab and Jump to Note style. With
- * `searchingFor`, the query of a search in progress, it shows a row saying so in place of the
- * suggestions.
+ * The list of suggestions as the rows of a menu, so it looks like the app's other dropdowns, whether
+ * in the popup or in a host's container. With `searchingFor`, the query of a search in progress, it
+ * shows a row saying so in place of the suggestions.
  */
-function NoteSuggestionList({ autocomplete, searchingFor }: {
-    autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
-    searchingFor?: string;
-}) {
-    return (
-        <span
-            // Faded at an edge only where a host sets `--scroll-fade-top` or `--scroll-fade-bottom`.
-            className="aa-dropdown-menu scroll-edge-fade"
-            role="listbox"
-            // Keeps the input focused, so its blur does not close the list before the click lands
-            // on a suggestion.
-            onMouseDown={(e) => e.preventDefault()}
-        >
-            <div className="aa-dataset-0">
-                <span className="aa-suggestions">
-                    {searchingFor !== undefined && (
-                        <div className="aa-suggestion">
-                            <NoteSuggestion suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
-                        </div>
-                    )}
-                    {searchingFor === undefined && listsNoNote(autocomplete.items) && <>
-                        <div className="aa-suggestion disabled">
-                            <NoteSuggestion suggestion={noNotesRow()} />
-                        </div>
-                        <div className="note-suggestion-separator" role="separator" />
-                    </>}
-                    {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
-                        startsGroup(autocomplete.items, index) && <div key={`separator-${index}`} className="note-suggestion-separator" role="separator" />,
-                        <div
-                            key={suggestionKey(suggestion, index)}
-                            id={autocomplete.itemId(index)}
-                            className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
-                            role="option"
-                            aria-selected={index === autocomplete.activeIndex}
-                            onMouseMove={(e) => autocomplete.hover(index, e)}
-                            onClick={() => autocomplete.pick(suggestion)}
-                        >
-                            <NoteSuggestion suggestion={suggestion} />
-                        </div>
-                    ])}
-                </span>
-            </div>
-        </span>
-    );
+/**
+ * Lists the keys of a list with a search footer in the shortcut hints pane, which the footer's button
+ * opens. Only such a list adds hints, as they replace whatever the host registered.
+ */
+function SearchFooterShortcutHints({ allowFullSearch }: { allowFullSearch: boolean }) {
+    useContextualShortcutHints(() => [ {
+        titleKey: "note_autocomplete.hints.title",
+        hints: [
+            { keys: [ "Up", "Down" ], labelKey: "note_autocomplete.hints.move" },
+            { keys: [ "Enter" ], labelKey: "note_autocomplete.hints.open" },
+            { keys: [ "Shift+Enter" ], labelKey: "note_autocomplete.include-contents" },
+            ...(allowFullSearch
+                ? [ { keys: [ "Ctrl+Enter" ], labelKey: "quick-search.show-in-full-search" } ]
+                : [])
+        ]
+    } ]);
+    return null;
 }
 
-/**
- * The list of suggestions as the rows of a menu, for the popup, so it looks like the app's other
- * dropdowns. With `searchingFor`, it shows a row saying a search is in progress instead.
- */
-function NoteSuggestionMenu({ autocomplete, searchingFor }: {
+function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
     autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
     searchingFor?: string;
+    className: string;
 }) {
+    // Only the recent notes listed on an empty query carry a visit time, and take a heading per group.
+    const now = new Date();
+    const recentGroups = autocomplete.items.map((suggestion) =>
+        suggestion.utcDateVisited ? recentNoteGroup(suggestion.utcDateVisited, now) : undefined);
+
     return (
         <menu
-            className="tn-menu-scroll"
+            className={className}
             role="listbox"
             // Keeps the input focused, so its blur does not close the list before the click lands
             // on a suggestion.
@@ -423,6 +487,9 @@ function NoteSuggestionMenu({ autocomplete, searchingFor }: {
             </>}
             {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
                 startsGroup(autocomplete.items, index) && <FormDropdownDivider key={`divider-${index}`} />,
+                recentGroups[index] && recentGroups[index] !== recentGroups[index - 1] && (
+                    <FormListHeader key={`heading-${index}`} text={recentGroupTitle(recentGroups[index])} />
+                ),
                 <li
                     key={suggestionKey(suggestion, index)}
                     id={autocomplete.itemId(index)}
@@ -451,14 +518,29 @@ function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
 function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion }) {
     const isCommand = suggestion.action === "command";
     const icon = isCommand ? (suggestion.icon || "bx bx-terminal") : suggestionIcon(suggestion);
-    const description = isCommand ? suggestion.commandDescription : suggestion.highlightedAttributeSnippet;
+    // A note leads with its own title, the path to it after, as the search results do; the rows the
+    // client builds itself have only the one title.
+    const title = suggestion.highlightedNoteTitle ?? suggestion.highlightedNotePathTitle ?? "";
+    const parentPath = suggestion.highlightedNoteTitle !== undefined
+        ? suggestion.highlightedParentPathTitle
+        : undefined;
 
     return <>
         <Icon icon={icon} />
         <span className="tn-menu-gap" />
         <div className="note-suggestion-text">
-            <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
-            {description && <RawHtml className="search-result-attributes" html={description} />}
+            <div className="note-suggestion-header">
+                <RawHtml className="search-result-title" html={title} />
+                {parentPath && <span className="note-suggestion-path"><RawHtml html={parentPath} /></span>}
+            </div>
+            {isCommand
+                ? suggestion.commandDescription && (
+                    <span className="note-suggestion-description">{suggestion.commandDescription}</span>
+                )
+                : <AttributeSnippetBadges
+                    snippet={suggestion.highlightedAttributeSnippet}
+                    className="note-suggestion-attributes"
+                />}
         </div>
         <SuggestionShortcut suggestion={suggestion} />
     </>;
@@ -473,37 +555,6 @@ export function renderNoteSuggestion(suggestion: Suggestion): HTMLElement {
     render(<NoteSuggestionMenuItemContent suggestion={suggestion} />, element);
 
     return element;
-}
-
-/** One row of the list. */
-function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
-    if (suggestion.action === "command") {
-        return (
-            <div className="command-suggestion">
-                <span className={clsx("command-icon", suggestion.icon || "bx bx-terminal")} />
-                <div className="command-content">
-                    <div className="command-name">{suggestion.highlightedNotePathTitle}</div>
-                    {suggestion.commandDescription && (
-                        <div className="command-description">{suggestion.commandDescription}</div>
-                    )}
-                </div>
-                {suggestion.commandShortcut && <kbd className="command-shortcut">{suggestion.commandShortcut}</kbd>}
-            </div>
-        );
-    }
-
-    return (
-        <div className="note-suggestion">
-            <span className={clsx("icon", suggestionIcon(suggestion))} />
-            <span className="text">
-                <SuggestionShortcut suggestion={suggestion} />
-                <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
-                {suggestion.highlightedAttributeSnippet && (
-                    <RawHtml className="search-result-attributes" html={suggestion.highlightedAttributeSnippet} />
-                )}
-            </span>
-        </div>
-    );
 }
 
 /**
@@ -555,6 +606,16 @@ function suggestionKey(suggestion: Suggestion, index: number) {
     return `${suggestion.action ?? ""}:${suggestion.notePath ?? suggestion.commandId ?? index}`;
 }
 
+function recentGroupTitle(group: RecentNoteGroup) {
+    switch (group) {
+        case "today": return t("note_autocomplete.recent.today");
+        case "yesterday": return t("note_autocomplete.recent.yesterday");
+        case "past-week": return t("note_autocomplete.recent.past_week");
+        case "past-month": return t("note_autocomplete.recent.past_month");
+        case "older": return t("note_autocomplete.recent.older");
+    }
+}
+
 function suggestionIcon(suggestion: Suggestion) {
     switch (suggestion.action) {
         // The icon of the saved search note it opens.
@@ -568,15 +629,11 @@ function suggestionIcon(suggestion: Suggestion) {
 }
 
 /**
- * The keys that act on a row from the field without picking it from the list, drawn as a button's
- * shortcut is. A command keeps its own, already formatted.
+ * The keys of a row, drawn as a button's shortcut is: a command's own, or the keys that act on a
+ * search row from the field without picking it from the list.
  */
 function SuggestionShortcut({ suggestion }: { suggestion: Suggestion }) {
-    if (suggestion.action === "command") {
-        return suggestion.commandShortcut ? <kbd>{suggestion.commandShortcut}</kbd> : null;
-    }
-
-    const shortcut = searchRowShortcut(suggestion);
+    const shortcut = suggestion.action === "command" ? suggestion.commandShortcut : searchRowShortcut(suggestion);
     if (!shortcut || cachedIsMobile) return null;
     return <span className="note-suggestion-shortcut">{renderShortcutKbds(shortcut)}</span>;
 }

@@ -989,11 +989,6 @@ table.promoted-attributes-in-tooltip th {
     opacity: 1;
 }
 
-.algolia-autocomplete-container .aa-dropdown-menu {
-    position: inherit !important;
-    overflow: auto;
-}
-
 .help-button,
 .custom-title-bar-button {
     float: inline-end;

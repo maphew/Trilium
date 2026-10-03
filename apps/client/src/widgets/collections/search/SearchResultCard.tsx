@@ -2,10 +2,10 @@ import type { HighlightedTokenInfo, SearchResultDetails } from "@triliumnext/com
 
 import { t } from "../../../services/i18n";
 import { calculateHash, type ViewScope } from "../../../services/link";
-import { Badge } from "../../react/Badge";
+import { AttributeSnippetBadges } from "../../react/Badge";
 import { useNote, useNoteTitle } from "../../react/hooks";
 import Icon from "../../react/Icon";
-import RawHtml, { HighlightedText, RawHtmlBlock } from "../../react/RawHtml";
+import { HighlightedText, RawHtmlBlock } from "../../react/RawHtml";
 
 interface SearchResultCardProps {
     noteId: string;
@@ -44,7 +44,10 @@ export default function SearchResultCard({ noteId, details, loading, highlighted
                 {breadcrumb && <span className="search-result-card-path">{breadcrumb}</span>}
             </div>
             <SearchResultSnippet details={details} loading={loading} />
-            <SearchResultBadges snippet={details?.highlightedAttributeSnippet} />
+            <AttributeSnippetBadges
+                snippet={details?.highlightedAttributeSnippet}
+                className="search-result-card-badges"
+            />
         </a>
     );
 }
@@ -62,21 +65,6 @@ function SearchResultSnippet({ details, loading }: { details: SearchResultDetail
 
     // Server snippet is pre-escaped with only <b>/<br> injected (same trust level as quick search).
     return <RawHtmlBlock className="search-result-card-snippet" html={details.highlightedContentSnippet ?? ""} />;
-}
-
-function SearchResultBadges({ snippet }: { snippet: string | undefined }) {
-    if (!snippet) return null;
-
-    const lines = snippet.split(/<br\s*\/?>/i).map((line) => line.trim()).filter(Boolean);
-    if (lines.length === 0) return null;
-
-    return (
-        <div className="search-result-card-badges">
-            {lines.map((line, index) => (
-                <Badge key={index} outline text={<RawHtml html={line} />} />
-            ))}
-        </div>
-    );
 }
 
 /** The breadcrumb shows the ancestor path only, i.e. the note-path title minus the note's own title. */

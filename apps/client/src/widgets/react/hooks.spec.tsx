@@ -11,6 +11,7 @@ import {
     useDelayedVisibility,
     useFocusWithin,
     useImperativeSearchHighlighlighting,
+    useMediaQuery,
     useNoteLabelBoolean,
     useStaticTooltip,
     useTooltip
@@ -636,5 +637,30 @@ describe("useNoteLabelBoolean", () => {
         });
 
         expect(draws).toEqual([ true ]);
+    });
+});
+
+describe("useMediaQuery", () => {
+    it("follows whether the query matches, and stops listening once unmounted", async () => {
+        const listeners = new Set<() => void>();
+        const query = { matches: false, addEventListener: (_: string, cb: () => void) => listeners.add(cb),
+            removeEventListener: (_: string, cb: () => void) => listeners.delete(cb) };
+        vi.spyOn(window, "matchMedia").mockReturnValue(query as unknown as MediaQueryList);
+
+        function Consumer() {
+            return <span>{String(useMediaQuery("(min-width: 1100px)"))}</span>;
+        }
+        const host = document.body.appendChild(document.createElement("div"));
+        await act(async () => { render(<Consumer />, host); });
+        expect(host.textContent).toBe("false");
+
+        query.matches = true;
+        await act(async () => { for (const listener of listeners) listener(); });
+        expect(host.textContent).toBe("true");
+
+        await act(async () => { render(null, host); });
+        expect(listeners.size).toBe(0);
+        host.remove();
+        vi.restoreAllMocks();
     });
 });

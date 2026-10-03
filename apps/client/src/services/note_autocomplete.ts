@@ -25,6 +25,7 @@ export interface Suggestion extends Partial<AutocompleteResult> {
     parentNoteId?: string;
     commandId?: string;
     commandDescription?: string;
+    /** The command's keyboard shortcut as stored, which `renderShortcutKbds()` formats. */
     commandShortcut?: string;
 }
 
@@ -151,6 +152,24 @@ export async function createNoteFromSuggestion(suggestion: Suggestion) {
 
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
     return note?.getBestNotePathString(hoistedNoteId);
+}
+
+/** When a recent note was last visited, as the lists group the recent notes under headings. */
+export type RecentNoteGroup = "today" | "yesterday" | "past-week" | "past-month" | "older";
+
+/**
+ * The group of a note visited at `utcDateVisited` (`YYYY-MM-DD HH:mm:ss.SSSZ`), counted in local
+ * days back from `now`: today, yesterday, the 7 days that end today, the 30 days, and before them.
+ */
+export function recentNoteGroup(utcDateVisited: string, now: Date): RecentNoteGroup {
+    const visited = new Date(utcDateVisited.replace(" ", "T"));
+    const daysBack = (days: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+
+    if (visited >= daysBack(0)) return "today";
+    if (visited >= daysBack(1)) return "yesterday";
+    if (visited >= daysBack(6)) return "past-week";
+    if (visited >= daysBack(29)) return "past-month";
+    return "older";
 }
 
 /**

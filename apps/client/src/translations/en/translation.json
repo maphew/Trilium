@@ -3087,7 +3087,20 @@
     "create-child-note": "Create child note \"{{term}}\"",
     "insert-external-link": "Insert external link to \"{{term}}\"",
     "clear-text-field": "Clear text field",
-    "include-note-contents": "Include note contents in the results for \"{{term}}\""
+    "include-note-contents": "Include note contents in the results for \"{{term}}\"",
+    "include-contents": "Include note contents",
+    "hints": {
+      "title": "Note search results",
+      "move": "Move through the results",
+      "open": "Open the highlighted result"
+    },
+    "recent": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "past_week": "Past 7 days",
+      "past_month": "Past 30 days",
+      "older": "Older"
+    }
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",

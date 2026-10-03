@@ -1100,7 +1100,10 @@ describe("Search", () => {
 
         // ...which the quick-search route (extractContentSnippet -> highlightSearchResults)
         // turns into <br> tags in the HTML the dropdown renders.
-        const result: any = { notePathTitle: "Collapsible note", contentSnippet: snippet, attributeSnippet: "" };
+        const result: any = {
+            notePathTitle: "Collapsible note", noteTitleSegment: "Collapsible note", parentPathTitle: "",
+            contentSnippet: snippet, attributeSnippet: ""
+        };
         searchService.highlightSearchResults([ result ], [ "body" ]);
         expect(result.highlightedContentSnippet).toBe("Summary Title<br><b>Body</b> text here<br>After the block");
     });
@@ -1109,13 +1112,21 @@ describe("Search", () => {
         // The title is interpolated into the autocomplete dropdown as raw HTML, so a title
         // containing markup-like text must come back escaped. Stripping only "<" would render
         // "Issues caused by <div>" as "Issues caused by div>".
-        const result: any = { notePathTitle: "Issues caused by <div>", contentSnippet: "", attributeSnippet: "" };
+        const result: any = {
+            notePathTitle: "Bugs › Issues caused by <div>", noteTitleSegment: "Issues caused by <div>",
+            parentPathTitle: "Bugs", contentSnippet: "", attributeSnippet: ""
+        };
         searchService.highlightSearchResults([ result ], [ "caused" ]);
-        expect(result.highlightedNotePathTitle).toBe("Issues <b>caused</b> by &lt;div&gt;");
+        expect(result.highlightedNotePathTitle).toBe("Bugs › Issues <b>caused</b> by &lt;div&gt;");
+        expect(result.highlightedNoteTitle).toBe("Issues <b>caused</b> by &lt;div&gt;");
+        expect(result.highlightedParentPathTitle).toBe("Bugs");
 
         // Escaping happens after highlighting, so a token that looks like part of an entity
         // ("lt" in "&lt;") cannot cut the entity in half and produce "&<b>lt</b>;".
-        const entityResult: any = { notePathTitle: "a < b", contentSnippet: "x < y", attributeSnippet: "#lt=1 < 2" };
+        const entityResult: any = {
+            notePathTitle: "a < b", noteTitleSegment: "a < b", parentPathTitle: "",
+            contentSnippet: "x < y", attributeSnippet: "#lt=1 < 2"
+        };
         searchService.highlightSearchResults([ entityResult ], [ "lt" ]);
         expect(entityResult.highlightedNotePathTitle).toBe("a &lt; b");
         expect(entityResult.highlightedContentSnippet).toBe("x &lt; y");
