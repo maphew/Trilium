@@ -1308,3 +1308,21 @@ describe("filterCommandEntries", () => {
         expect(filterCommandEntries(entries, "")).toEqual(entries);
     });
 });
+
+describe("filterCommandEntries with aliases", () => {
+    it("ranks title prefixes, then alias prefixes, then titles and aliases holding the query", () => {
+        const entries = [
+            { id: "toc", title: "Table of contents", aliases: [ "outline" ] },
+            { id: "rule", title: "Horizontal line", aliases: [ "divider", "rule" ] },
+            { id: "table", title: "Table", aliases: [ "grid" ] },
+            { id: "code", title: "Code block", aliases: [ "snippet", "pre" ] },
+            { id: "quote", title: "Block quote", aliases: [ "citation" ] }
+        ];
+        const ids = (query: string) => filterCommandEntries(entries, query).map((entry) => entry.id);
+
+        expect(ids("ta")).toEqual([ "toc", "table", "rule", "quote" ]);
+        expect(ids("r")).toEqual([ "rule", "table", "code" ]);
+        expect(ids("GRID")).toEqual([ "table" ]);
+        expect(ids("tline")).toEqual([ "toc" ]);
+    });
+});

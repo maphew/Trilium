@@ -1,10 +1,23 @@
+import { IconImage, IconPageBreak, IconTable } from "@ckeditor/ckeditor5-icons";
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import type { EditorState } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
+import collapsibleIcon from "@triliumnext/ckeditor5/src/icons/collapsible.svg?raw";
+import dateTimeIcon from "@triliumnext/ckeditor5/src/icons/date-time.svg?raw";
+import insertFootnoteIcon from "@triliumnext/ckeditor5/src/icons/insert-footnote.svg?raw";
+import mathIcon from "@triliumnext/ckeditor5/src/icons/math.svg?raw";
+import noteIcon from "@triliumnext/ckeditor5/src/icons/note.svg?raw";
+import internalLinkIcon from "@triliumnext/ckeditor5/src/icons/trilium.svg?raw";
 import type VanillaCodeMirror from "@triliumnext/codemirror";
 import { hostedCompletion, type HostedCompletionApply, type HostedCompletionState } from "@triliumnext/codemirror/src/extensions/hosted_completion";
-import { isAnchorState, NOTE_TYPE_ICONS, type TaskStateDef } from "@triliumnext/commons";
+import { isAnchorState, type TaskStateDef } from "@triliumnext/commons";
+import bxBulb from "boxicons/svg/regular/bx-bulb.svg?raw";
+import bxCommentError from "boxicons/svg/regular/bx-comment-error.svg?raw";
+import bxError from "boxicons/svg/regular/bx-error.svg?raw";
+import bxErrorCircle from "boxicons/svg/regular/bx-error-circle.svg?raw";
+import bxInfoCircle from "boxicons/svg/regular/bx-info-circle.svg?raw";
+import bxNetworkChart from "boxicons/svg/regular/bx-network-chart.svg?raw";
 import { useEffect, useRef } from "preact/hooks";
 
 import type FNote from "../../../entities/fnote";
@@ -23,9 +36,10 @@ export interface SlashCommand extends CommandEntry {
     apply: HostedCompletionApply;
 }
 
-/** The `/command` typed before the caret, which the list filters its commands by. */
+/** The `/command` typed before the caret, from its `/`. */
 export interface SlashCommandMatch {
     from: number;
+    /** What follows the `/`, which the list filters its commands by, as the text editor's does. */
     query: string;
 }
 
@@ -102,10 +116,15 @@ export function slashCommandAt(before: string, _explicit: boolean, state: Editor
         if (node.name.includes("Code")) return null;
     }
 
-    return { from: typed.index, query: typed[0] };
+    return { from: typed.index, query: typed[0].slice(1) };
 }
 
-/** The commands the `/` list offers, in groups: the inserts, the diagrams, the blocks, the callouts, the tasks and the snippets. */
+/**
+ * The commands the `/` list offers, titled, described, found by the same words and drawn with the same
+ * icons as the text editor's, where it has the command too. Each is found by the word typed after the
+ * `/` as well, such as `todo:done`. In groups: the inserts, the diagrams, the blocks, the callouts, the
+ * tasks and the snippets.
+ */
 export function buildSlashCommands({ parentComponent, note, editorView, taskStates, snippets }: SlashCommandContext): SlashCommand[] {
     /** Removes the typed command, then runs one of the text editor's commands in its place. */
     const runCommand = (name: Parameters<NonNullable<typeof parentComponent>["triggerCommand"]>[0]): HostedCompletionApply =>
@@ -115,9 +134,23 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
         };
 
     return [
-        command("/date", t("markdown_slash_commands.date"), "bx bx-calendar", runCommand("insertDateTimeToText")),
-        command("/include", t("markdown_slash_commands.include"), "bx bx-file", runCommand("addIncludeNoteToText")),
-        command("/image", t("markdown_slash_commands.image"), "bx bx-image", (view, from, to) => {
+        command("date", {
+            title: t("markdown_slash_commands.titles.date"),
+            description: t("markdown_slash_commands.date"),
+            aliases: [ "time", "now", "today", "timestamp" ],
+            iconSvg: dateTimeIcon
+        }, runCommand("insertDateTimeToText")),
+        command("include", {
+            title: t("markdown_slash_commands.titles.include"),
+            description: t("markdown_slash_commands.include"),
+            iconSvg: noteIcon
+        }, runCommand("addIncludeNoteToText")),
+        command("image", {
+            title: t("markdown_slash_commands.titles.image"),
+            description: t("markdown_slash_commands.image"),
+            aliases: [ "upload", "picture" ],
+            iconSvg: IconImage
+        }, (view, from, to) => {
             view.dispatch({ changes: { from, to } });
             const input = document.createElement("input");
             input.type = "file";
@@ -128,8 +161,18 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
             });
             input.click();
         }),
-        command("/link", t("markdown_slash_commands.link"), "bx bx-link", runCommand("addLinkToText")),
-        command("/math", t("markdown_slash_commands.math"), "bx bx-math", (view, from, to) => {
+        command("link", {
+            title: t("markdown_slash_commands.titles.link"),
+            description: t("markdown_slash_commands.link"),
+            aliases: [ "internal link", "trilium link", "reference link" ],
+            iconSvg: internalLinkIcon
+        }, runCommand("addLinkToText")),
+        command("math", {
+            title: t("markdown_slash_commands.titles.math"),
+            description: t("markdown_slash_commands.math"),
+            aliases: [ "latex", "equation" ],
+            iconSvg: mathIcon
+        }, (view, from, to) => {
             const placeholder = `\\text{${t("markdown_slash_commands.placeholders.math")}}`;
             const template = `$$\n${placeholder}\n$$`;
             view.dispatch({
@@ -137,7 +180,11 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 selection: { anchor: from + 3, head: from + 3 + placeholder.length }
             });
         }),
-        command("/footnote", t("markdown_slash_commands.footnote"), "bx bx-comment-detail", (view, from, to) => {
+        command("footnote", {
+            title: t("markdown_slash_commands.titles.footnote"),
+            description: t("markdown_slash_commands.footnote"),
+            iconSvg: insertFootnoteIcon
+        }, (view, from, to) => {
             let maxFootnote = 0;
             for (const m of view.state.doc.toString().matchAll(/\[\^(\d+)\]/g)) {
                 maxFootnote = Math.max(maxFootnote, parseInt(m[1], 10));
@@ -155,7 +202,12 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 selection: { anchor: newDocEnd }
             });
         }),
-        command("/mermaid", t("markdown_slash_commands.mermaid"), NOTE_TYPE_ICONS.mermaid, (view, from, to) => {
+        command("mermaid", {
+            title: t("markdown_slash_commands.titles.mermaid"),
+            description: t("markdown_slash_commands.mermaid"),
+            aliases: [ "diagram", "flowchart" ],
+            iconSvg: bxNetworkChart
+        }, (view, from, to) => {
             const placeholder = "graph TD\n    A --> B";
             const template = `\`\`\`mermaid\n${placeholder}\n\`\`\``;
             view.dispatch({
@@ -165,20 +217,25 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
         }),
         // One `/mermaid:<type>` per sample diagram (e.g. `/mermaid:flowchart`), pre-filling the
         // fenced block with that template's source.
-        ...grouped(SAMPLE_DIAGRAMS.map((sample) => command(
-            `/mermaid:${sample.name.toLowerCase().replace(/\s+/g, "-")}`,
-            t("markdown_slash_commands.mermaid_template", { name: sample.name }),
-            NOTE_TYPE_ICONS.mermaid,
-            (view, from, to) => {
-                const template = `\`\`\`mermaid\n${sample.content.trimEnd()}\n\`\`\``;
-                view.dispatch({
-                    changes: { from, to, insert: template },
-                    selection: { anchor: from + 11 }
-                });
-            }
-        ))),
+        ...grouped(SAMPLE_DIAGRAMS.map((sample) => command(`mermaid:${sample.name.toLowerCase().replace(/\s+/g, "-")}`, {
+            title: t("markdown_slash_commands.titles.mermaid_template", { name: sample.name }),
+            description: t("markdown_slash_commands.mermaid_template", { name: sample.name }),
+            aliases: [ "mermaid", "diagram", sample.name ],
+            iconSvg: bxNetworkChart
+        }, (view, from, to) => {
+            const template = `\`\`\`mermaid\n${sample.content.trimEnd()}\n\`\`\``;
+            view.dispatch({
+                changes: { from, to, insert: template },
+                selection: { anchor: from + 11 }
+            });
+        }))),
         ...grouped([
-            command("/collapsible", t("markdown_slash_commands.collapsible"), "bx bx-collapse-vertical", (view, from, to) => {
+            command("collapsible", {
+                title: t("markdown_slash_commands.titles.collapsible"),
+                description: t("markdown_slash_commands.collapsible"),
+                aliases: [ "details", "fold", "toggle", "collapse", "expand", "accordion", "spoiler", "summary", "disclosure", "hide" ],
+                iconSvg: collapsibleIcon
+            }, (view, from, to) => {
                 // No native markdown syntax — round-trips through the importer as raw
                 // <details>/<summary> HTML (see markdown.ts).
                 const placeholder = t("markdown_slash_commands.placeholders.collapsible_summary");
@@ -190,7 +247,11 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                     selection: { anchor, head: anchor + placeholder.length }
                 });
             }),
-            command("/page-break", t("markdown_slash_commands.page_break"), "bx bx-cut", (view, from, to) => {
+            command("page-break", {
+                title: t("markdown_slash_commands.titles.page_break"),
+                description: t("markdown_slash_commands.page_break"),
+                iconSvg: IconPageBreak
+            }, (view, from, to) => {
                 // No native markdown syntax — round-trips through the importer as raw HTML and
                 // drives the print/PDF page break (see print.css). The trailing blank line ends the
                 // raw-HTML block; without it the text on the next line is swallowed into the <div>.
@@ -200,7 +261,12 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                     selection: { anchor: from + insert.length }
                 });
             }),
-            command("/table", t("markdown_slash_commands.table"), "bx bx-table", (view, from, to) => {
+            command("table", {
+                title: t("markdown_slash_commands.titles.table"),
+                description: t("markdown_slash_commands.table"),
+                aliases: [ "grid" ],
+                iconSvg: IconTable
+            }, (view, from, to) => {
                 // GFM table skeleton. The trailing blank line ends the table block so following text
                 // isn't absorbed into it.
                 const header = t("markdown_slash_commands.placeholders.table_column", { number: 1 });
@@ -217,18 +283,18 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 });
             })
         ]),
-        ...grouped(Object.entries(ADMONITION_ICONS).map(([ admonitionType, icon ]) => command(
-            `/${admonitionType}`,
-            t("markdown_slash_commands.admonition", { type: admonitionType }),
-            icon,
-            (view, from, to) => {
-                const template = `> [!${admonitionType.toUpperCase()}]\n> `;
-                view.dispatch({
-                    changes: { from, to, insert: template },
-                    selection: { anchor: from + template.length }
-                });
-            }
-        ))),
+        ...grouped(admonitions().map(({ type, title, icon }) => command(type, {
+            title,
+            description: t("markdown_slash_commands.admonition", { type }),
+            aliases: [ "admonition", "box" ],
+            iconSvg: icon
+        }, (view, from, to) => {
+            const template = `> [!${type.toUpperCase()}]\n> `;
+            view.dispatch({
+                changes: { from, to, insert: template },
+                selection: { anchor: from + template.length }
+            });
+        }))),
         // One `/todo:<state>` per configured task state that has a markdown marker — the ` `
         // (unchecked) and `x` (checked) anchors are markers too, so both are covered.
         ...grouped(taskStates
@@ -239,37 +305,48 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 const detailKey = isAnchorState(state.name)
                     ? "markdown_slash_commands.todo"
                     : "markdown_slash_commands.todo_nonstandard";
-                return command(`/todo:${state.name}`, t(detailKey, { title: state.title }), state.icon, (view, from, to) => {
+                return command(`todo:${state.name}`, {
+                    title: t("markdown_slash_commands.titles.todo", { title: state.title }),
+                    description: t(detailKey, { title: state.title }),
+                    aliases: [ "todo", "task", "checkbox", state.title ],
+                    icon: state.icon
+                }, (view, from, to) => {
                     const precededByBullet = from >= 2 && view.state.doc.sliceString(from - 2, from) === "- ";
                     const insert = buildTaskItemInsert(state.markdownSymbol, precededByBullet);
                     view.dispatch({ changes: { from, to, insert } });
                 });
             })),
-        ...grouped(snippets.map((snippet) => command(
-            `/snippet:${snippet.title}`,
-            snippet.description,
-            "bx bx-code-curly",
-            (view, from, to) => {
-                view.dispatch({
-                    changes: { from, to, insert: snippet.content },
-                    selection: { anchor: from + snippet.content.length }
-                });
-            }
-        )))
+        ...grouped(snippets.map((snippet) => command(`snippet:${snippet.title}`, {
+            title: snippet.title,
+            description: snippet.description,
+            aliases: [ "snippet", "template" ],
+            icon: "bx bx-code-curly"
+        }, (view, from, to) => {
+            view.dispatch({
+                changes: { from, to, insert: snippet.content },
+                selection: { anchor: from + snippet.content.length }
+            });
+        })))
     ];
 }
 
-/** The callouts GitHub's Markdown knows, each with the icon of what it marks. */
-const ADMONITION_ICONS: Record<string, string> = {
-    note: "bx bx-info-circle",
-    tip: "bx bx-bulb",
-    important: "bx bx-message-square-error",
-    caution: "bx bx-error-alt",
-    warning: "bx bx-error"
-};
+/**
+ * GitHub's callouts, titled and drawn as the text editor's admonitions are. Built on each call,
+ * as the catalogue loads after this module.
+ */
+function admonitions() {
+    return [
+        { type: "note", title: t("markdown_slash_commands.titles.note"), icon: bxInfoCircle },
+        { type: "tip", title: t("markdown_slash_commands.titles.tip"), icon: bxBulb },
+        { type: "important", title: t("markdown_slash_commands.titles.important"), icon: bxCommentError },
+        { type: "caution", title: t("markdown_slash_commands.titles.caution"), icon: bxErrorCircle },
+        { type: "warning", title: t("markdown_slash_commands.titles.warning"), icon: bxError }
+    ];
+}
 
-function command(title: string, description: string | undefined, icon: string, apply: HostedCompletionApply): SlashCommand {
-    return { id: title, title, description, icon, apply };
+/** A command typed as `/name`, which `name` finds as well as its title and aliases. */
+function command(name: string, entry: Omit<SlashCommand, "id" | "apply">, apply: HostedCompletionApply): SlashCommand {
+    return { ...entry, id: name, aliases: [ name, ...(entry.aliases ?? []) ], apply };
 }
 
 /** Sets `commands` apart from those before them with a divider. */
@@ -277,7 +354,7 @@ function grouped(commands: SlashCommand[]) {
     return commands.map((entry, index) => (index === 0 ? { ...entry, startsGroup: true } : entry));
 }
 
-/** The `/` list, which runs the command picked on the typed `/command`. */
+/** The `/` list, drawn as the text editor's, which runs the command picked on the typed `/command`. */
 function createSlashCommandList(commands: () => SlashCommand[]) {
     return createHostedList<HostedCompletionState<SlashCommandMatch>>((state, list) => (
         <CommandMentionList<SlashCommand>

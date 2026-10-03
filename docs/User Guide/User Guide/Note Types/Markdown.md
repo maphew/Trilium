@@ -171,6 +171,8 @@ Just like <a class="reference-link" href="Text.md">Text</a> notes, Markdown no
 *   Inserting task items (`/todo:<state>`, e.g. `/todo:done`), one per configured task state.
 *   Inserting code snippets (`/snippet:<name>`) from your Markdown/plain-text snippet notes.
 
+The list shows each command by its title, as in Text notes. Typing a command's title, its keyword (as listed above) or a related word such as `latex` or `grid` finds it.
+
 Note that slash commands only work outside of code blocks and inline code.
 
 #### Code block language auto-completion

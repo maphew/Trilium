@@ -500,6 +500,8 @@ export interface CommandEntry {
     iconText?: string;
     /** Draws a divider above the entry, setting it and those after it apart from the ones before. */
     startsGroup?: boolean;
+    /** Further words the entry is found by, ranked below its title, as the text editor's `/` palette does. */
+    aliases?: string[];
 }
 
 /**
@@ -556,15 +558,29 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
 }
 
 /**
- * The entries of a {@link CommandMentionList} whose title holds `query`, ignoring case: those it
- * starts first, then the rest, each in the order they are offered in.
+ * The entries of a {@link CommandMentionList} whose title or aliases hold `query`, ignoring case,
+ * ranked as the text editor's `/` palette ranks its commands: a title starting with it, then an
+ * alias starting with it, then a title holding it, then an alias holding it. Each rank keeps the
+ * order the entries are offered in.
  */
 export function filterCommandEntries<T extends CommandEntry>(entries: T[], query: string) {
     const typed = query.toLowerCase();
-    const starting = entries.filter(({ title }) => title.toLowerCase().startsWith(typed));
-    const containing = entries.filter(({ title }) => !title.toLowerCase().startsWith(typed) && title.toLowerCase().includes(typed));
+    const rankOf = ({ title, aliases = [] }: T) => {
+        const words = aliases.map((alias) => alias.toLowerCase());
+        const name = title.toLowerCase();
+        if (name.startsWith(typed)) return 0;
+        if (words.some((word) => word.startsWith(typed))) return 1;
+        if (name.includes(typed)) return 2;
+        if (words.some((word) => word.includes(typed))) return 3;
+        return null;
+    };
 
-    return [ ...starting, ...containing ];
+    const ranked: T[][] = [ [], [], [], [] ];
+    for (const entry of entries) {
+        const rank = rankOf(entry);
+        if (rank !== null) ranked[rank].push(entry);
+    }
+    return ranked.flat();
 }
 
 /** What a list drawn by {@link createHostedList} is given to draw itself with. */

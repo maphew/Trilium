@@ -20,7 +20,10 @@ vi.mock("../code/snippets", async (importOriginal) => ({
 }));
 vi.mock("../../../services/task_states", () => ({ getTaskStateDefinitions: () => Promise.resolve([]) }));
 // The catalogue is not loaded in specs, and the sample diagrams translate their names as they load.
-vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
+vi.mock("../../../services/i18n", async (importOriginal) => ({
+    ...await importOriginal<typeof import("../../../services/i18n")>(),
+    t: (key: string) => key
+}));
 
 describe("buildTaskItemInsert", () => {
     it("prepends a bullet when not already in a list item", () => {
@@ -161,10 +164,10 @@ describe("slashCommandAt", () => {
         return slashCommandAt(line.text.slice(0, pos - line.from), false, state);
     }
 
-    it("finds a command at the start of a line or after whitespace, from its slash", () => {
-        expect(at("/")).toEqual({ from: 0, query: "/" });
-        expect(at("some text /todo:in-progress")).toEqual({ from: 10, query: "/todo:in-progress" });
-        expect(at("first\n  /ta")).toEqual({ from: 2, query: "/ta" });
+    it("finds a command at the start of a line or after whitespace, from its slash, by what follows it", () => {
+        expect(at("/")).toEqual({ from: 0, query: "" });
+        expect(at("some text /todo:in-progress")).toEqual({ from: 10, query: "todo:in-progress" });
+        expect(at("first\n  /ta")).toEqual({ from: 2, query: "ta" });
     });
 
     it("finds none inside a word, past a space, or in code", () => {
@@ -200,45 +203,47 @@ describe("buildSlashCommands", () => {
         });
     }
 
-    /** Puts `doc` in the editor and runs `title` on the command typed at its end. */
-    function run(title: string, doc: string, taskStates: TaskStateDef[] = []) {
+    /** Puts `doc` in the editor and runs the command `id` on the command typed at its end. */
+    function run(id: string, doc: string, taskStates: TaskStateDef[] = []) {
         editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: doc }, selection: { anchor: doc.length } });
-        const entry = commands(taskStates).find((candidate) => candidate.title === title);
-        if (!entry) throw new Error(`no command ${title}`);
+        const entry = commands(taskStates).find((candidate) => candidate.id === id);
+        if (!entry) throw new Error(`no command ${id}`);
         entry.apply(editor, doc.lastIndexOf("/"), doc.length);
         return editor.state.doc.toString();
     }
 
-    it("lists each command with its icon, setting each group apart", () => {
+    it("titles and draws each command as the text editor does, found by what is typed after the slash too", () => {
         const entries = commands([ todo("done", "x") ]);
-        const byTitle = (title: string) => entries.find((entry) => entry.title === title);
+        const byId = (id: string) => entries.find((entry) => entry.id === id);
 
-        expect(byTitle("/table")?.icon).toBe("bx bx-table");
-        expect(byTitle("/todo:done")).toMatchObject({ icon: "bx bx-done", startsGroup: true });
-        expect(byTitle("/snippet:Greeting")).toMatchObject({ description: "Says hello", icon: "bx bx-code-curly", startsGroup: true });
-        expect(byTitle("/date")?.startsGroup).toBeUndefined();
-        expect(byTitle("/tip")?.startsGroup).toBeUndefined();
-        expect(byTitle("/note")?.startsGroup).toBe(true);
+        expect(byId("table")).toMatchObject({ title: "markdown_slash_commands.titles.table", aliases: [ "table", "grid" ] });
+        expect(byId("table")?.iconSvg).toContain("<svg");
+        expect(byId("tip")?.iconSvg).toContain("<svg");
+        expect(byId("todo:done")).toMatchObject({ aliases: expect.arrayContaining([ "todo:done", "done" ]), icon: "bx bx-done", startsGroup: true });
+        expect(byId("snippet:Greeting")).toMatchObject({ title: "Greeting", description: "Says hello", icon: "bx bx-code-curly", startsGroup: true });
+        expect(byId("date")?.startsGroup).toBeUndefined();
+        expect(byId("tip")?.startsGroup).toBeUndefined();
+        expect(byId("note")?.startsGroup).toBe(true);
     });
 
     it("replaces the typed command with what it inserts", () => {
-        expect(run("/snippet:Greeting", "Hi /snip")).toBe("Hi Hello!");
-        expect(run("/todo:done", "- /todo", [ todo("done", "x") ])).toBe("- [x] ");
-        expect(run("/todo:done", "/todo", [ todo("done", "x") ])).toBe("- [x] ");
-        expect(run("/tip", "/tip")).toBe("> [!TIP]\n> ");
+        expect(run("snippet:Greeting", "Hi /snip")).toBe("Hi Hello!");
+        expect(run("todo:done", "- /todo", [ todo("done", "x") ])).toBe("- [x] ");
+        expect(run("todo:done", "/todo", [ todo("done", "x") ])).toBe("- [x] ");
+        expect(run("tip", "/tip")).toBe("> [!TIP]\n> ");
     });
 
     it("numbers a footnote past the highest one, and selects what to type over", () => {
-        expect(run("/footnote", "a[^2] b /foot")).toBe("a[^2] b [^3]\n\n[^3]: ");
+        expect(run("footnote", "a[^2] b /foot")).toBe("a[^2] b [^3]\n\n[^3]: ");
         expect(editor.state.selection.main.head).toBe(editor.state.doc.length);
 
-        run("/table", "/table");
+        run("table", "/table");
         const { from, to } = editor.state.selection.main;
         expect(editor.state.sliceDoc(from, to)).toBe("markdown_slash_commands.placeholders.table_column");
     });
 
     it("removes the typed command before running one of the text editor's commands", () => {
-        expect(run("/date", "On /date")).toBe("On ");
+        expect(run("date", "On /date")).toBe("On ");
         expect(triggerCommand).toHaveBeenCalledExactlyOnceWith("insertDateTimeToText");
     });
 });
@@ -286,14 +291,15 @@ describe("useSlashCommands", () => {
         mount(editor);
         editor.focus();
 
-        editor.dispatch({ changes: { from: 0, insert: "/tab" }, selection: { anchor: 4 } });
+        editor.dispatch({ changes: { from: 0, insert: "/tip" }, selection: { anchor: 4 } });
         const rows = () => [ ...document.querySelectorAll(".note-autocomplete-menu [role=option]") ];
-        await vi.waitFor(() => expect(rows().map((row) => row.textContent)).toEqual([ expect.stringContaining("/table") ]));
-        expect(rows()[0]?.querySelector("b")?.textContent).toBe("/tab");
+        // Found by its title, without the slash.
+        await vi.waitFor(() => expect(rows().map((row) => row.textContent)).toEqual([ expect.stringContaining("titles.tip") ]));
+        expect(rows()[0]?.querySelector("b")?.textContent).toBe("tip");
 
         // Opened on the best match, so Enter runs it.
         editor.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-        await vi.waitFor(() => expect(editor.state.doc.toString()).toMatch(/^\| /));
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("> [!TIP]\n> "));
         await vi.waitFor(() => expect(rows()).toEqual([]));
 
         act(() => render(null, container));
