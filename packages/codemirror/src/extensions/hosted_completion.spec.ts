@@ -1,4 +1,5 @@
 import { EditorSelection, type EditorState } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createFieldEditor, type FieldEditor, type FieldEditorConfig } from "../field_editor.js";
@@ -148,6 +149,31 @@ describe("hostedCompletion", () => {
         expect(editor?.state.doc.toString()).toBe("I see [[new]] @x @z");
         editor?.dispatch({ changes: { from: 16, to: 19 }, selection: EditorSelection.cursor(16) });
 
+        // A promise can settle on a function, which runs on the typed range then.
+        type(" @fn");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("fn"));
+        shown()?.commit(Promise.resolve((view: EditorView, from: number, to: number) => {
+            view.dispatch({ changes: { from, to, insert: "<fn>" } });
+        }));
+        await vi.waitFor(() => expect(editor?.state.doc.toString()).toBe("I see [[new]] @x <fn>"));
+
+        // Text replaced or edited where the commit waits gives it up, rather than landing elsewhere.
+        type(" @a");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("a"));
+        shown()?.commit(new Promise<string | undefined>((resolve) => { resolveLink = resolve; }));
+        editor?.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: "Another note" } });
+        resolveLink("[[late]]");
+        await settle();
+        expect(editor?.state.doc.toString()).toBe("Another note");
+        type(" @b");
+        await vi.waitFor(() => expect(shown()?.match.query).toBe("b"));
+        shown()?.commit(new Promise<string | undefined>((resolve) => { resolveLink = resolve; }));
+        editor?.dispatch({ changes: { from: 15, insert: "c" } });
+        resolveLink("[[late]]");
+        await settle();
+        expect(editor?.state.doc.toString()).toBe("Another note @bc");
+        editor?.dispatch({ changes: { from: 12, to: 16 }, selection: EditorSelection.cursor(12) });
+
         // Settling past the editor's end does nothing.
         type(" @y");
         await vi.waitFor(() => expect(shown()?.match.query).toBe("y"));
@@ -157,7 +183,7 @@ describe("hostedCompletion", () => {
         view?.destroy();
         resolveLink("[[late]]");
         await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(view?.state.doc.toString()).toBe("I see [[new]] @x @y");
+        expect(view?.state.doc.toString()).toBe("Another note @y");
     });
 
     it("forwards the keys to the open list, which takes them from the field", async () => {

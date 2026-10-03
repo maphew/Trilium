@@ -13,6 +13,9 @@ export interface HostedCompletionMatch {
  */
 export type HostedCompletionApply = (view: EditorView, from: number, to: number) => void;
 
+/** What a pick puts in place of the match: text, or what an {@link HostedCompletionApply} does. */
+export type HostedCompletionInsert = string | HostedCompletionApply;
+
 /** What a {@link HostedCompletionList} is shown for, each time the text before the caret changes. */
 export interface HostedCompletionState<M extends HostedCompletionMatch> {
     match: M;
@@ -23,9 +26,11 @@ export interface HostedCompletionState<M extends HostedCompletionMatch> {
     /**
      * Replaces what stands between the match's `from` and the caret with `insert`, as a pick does,
      * or runs `insert` on that range. For a promise, the list closes and the text stays until it
-     * settles, past the editor losing the focus, and stays for good where it settles on `undefined`.
+     * settles on either, past the editor losing the focus, and stays for good where it settles on
+     * `undefined`. An edit that reaches the text meanwhile, such as the editor taking another note's
+     * content, gives the commit up.
      */
-    commit(insert: string | HostedCompletionApply | Promise<string | undefined>): void;
+    commit(insert: HostedCompletionInsert | Promise<HostedCompletionInsert | undefined>): void;
     /**
      * Points the editor at the list's highlighted entry through `aria-activedescendant`, by the id
      * of the entry's element, or at none for `null`. Once the list closes, it points at none.
@@ -94,10 +99,13 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
                 this.dismissedAt = update.changes.mapPos(this.dismissedAt, 1);
             }
             if (update.docChanged) {
-                // Text typed right before or after a waiting commit's range stays outside it.
                 for (const range of this.pending) {
-                    range.from = update.changes.mapPos(range.from, 1);
-                    range.to = update.changes.mapPos(range.to, -1);
+                    if (update.changes.touchesRange(range.from, range.to)) {
+                        this.pending.delete(range);
+                    } else {
+                        range.from = update.changes.mapPos(range.from);
+                        range.to = update.changes.mapPos(range.to);
+                    }
                 }
             }
 
@@ -189,7 +197,7 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
             });
         }
 
-        private commit(from: number, insert: string | HostedCompletionApply | Promise<string | undefined>) {
+        private commit(from: number, insert: HostedCompletionInsert | Promise<HostedCompletionInsert | undefined>) {
             if (this.from !== from) {
                 return;
             }
@@ -213,17 +221,23 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
         }
 
         /** Closes the list, which stays closed on the match, and replaces the match once `insert` settles. */
-        private async commitWhenSettled(from: number, insert: Promise<string | undefined>) {
+        private async commitWhenSettled(from: number, insert: Promise<HostedCompletionInsert | undefined>) {
             const range = { from, to: this.view.state.selection.main.head };
             this.pending.add(range);
             this.close();
 
-            const text = await insert.catch(() => undefined);
-            this.pending.delete(range);
-            if (text === undefined || this.destroyed) {
+            const settled = await insert.catch(() => undefined);
+            // `update()` drops the range of a commit an edit gave up meanwhile.
+            const stillWaiting = this.pending.delete(range);
+            if (settled === undefined || !stillWaiting || this.destroyed) {
+                return;
+            }
+            if (typeof settled === "function") {
+                settled(this.view, range.from, range.to);
                 return;
             }
 
+            const text = settled;
             this.view.dispatch({
                 changes: { from: range.from, to: range.to, insert: text },
                 selection: { anchor: range.from + text.length },
