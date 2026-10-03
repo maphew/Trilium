@@ -89,6 +89,19 @@
     }
 }
 
+/* Excalidraw's context menu in the top layer, placed by `useTopLayerContextMenu()`. */
+.canvas-drawing-editor .excalidraw .popover[popover] {
+    position: fixed;
+}
+
+/* Resets the user agent style of a popover below the themes, which style the menu. */
+:where(.canvas-drawing-editor .popover[popover]) {
+    inset: auto;
+    margin: 0;
+    overflow: visible;
+    color: inherit;
+}
+
 /* Excalidraw narrows its controls for a docked library, which is beside the drawing instead. */
 .canvas-drawing-editor:has(.default-sidebar[data-side-panel]) .layer-ui__wrapper {
     width: 100% !important;

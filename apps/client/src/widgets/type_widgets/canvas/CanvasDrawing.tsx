@@ -1,7 +1,7 @@
 import "./CanvasDrawing.css";
 
 import { exportToSvg } from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import clsx from "clsx";
 import type { RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -48,6 +48,7 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
     const isToolbarOverPanel = useIsToolbarOverPanel(rootRef);
     useFocusFromEmbedBox(rootRef);
     useSidePanels(rootRef, isEditable);
+    useTopLayerContextMenu(rootRef, apiRef);
 
     return (
         <div
@@ -195,8 +196,11 @@ export function useIsToolbarOverPanel(rootRef: RefObject<HTMLElement>) {
     return isOver;
 }
 
-/** The space between the drawing, the panels beside it and the edges of the window, in rem. */
-const SIDE_PANEL_GAP_REM = 0.5;
+/**
+ * The space between the drawing, the panels beside it and the edges of the window, which the
+ * context menu keeps too, in rem.
+ */
+const WINDOW_GAP_REM = 0.5;
 /** The least height of a panel as tall as the drawing, in rem. */
 const SIDE_PANEL_MIN_HEIGHT_REM = 20;
 
@@ -309,7 +313,7 @@ function getSideLayout(root: HTMLElement, viewport: HTMLElement): SideLayout | n
     return {
         drawing,
         area: getWindowArea(),
-        gap: SIDE_PANEL_GAP_REM * rem,
+        gap: WINDOW_GAP_REM * rem,
         minHeight: SIDE_PANEL_MIN_HEIGHT_REM * rem
     };
 }
@@ -358,17 +362,17 @@ function placePanel(panel: HTMLElement, position: SidePanelPosition | null) {
 }
 
 /**
- * Moves `panel` into the top layer, or back into the drawing. The `popover` attribute is present
- * exactly while the panel is in the top layer; removing it hides the popover.
+ * Moves `element` into the top layer, or back into the drawing. The `popover` attribute is present
+ * exactly while the element is in the top layer; removing it hides the popover.
  */
-function setTopLayer(panel: HTMLElement, isMoved: boolean) {
-    if (isMoved === panel.hasAttribute("popover")) return;
+function setTopLayer(element: HTMLElement, isMoved: boolean) {
+    if (isMoved === element.hasAttribute("popover")) return;
 
     if (isMoved) {
-        panel.setAttribute("popover", "manual");
-        panel.showPopover();
+        element.setAttribute("popover", "manual");
+        element.showPopover();
     } else {
-        panel.removeAttribute("popover");
+        element.removeAttribute("popover");
     }
 }
 
@@ -420,4 +424,109 @@ function getSidePanelLeft(
         return { side: "left", left: leftOfDrawing };
     }
     return null;
+}
+
+/** The inline styles with which Excalidraw fits its context menu in the drawing. */
+export const FITTED_MENU_STYLES = [
+    "left", "top", "width", "height", "overflowX", "overflowY"
+] as const;
+
+/**
+ * Shows Excalidraw's context menu in the top layer, so that no clip of the note cuts it, fitted
+ * in the window instead of the drawing. Closes it when the note scrolls.
+ */
+export function useTopLayerContextMenu(
+    rootRef: RefObject<HTMLElement>,
+    apiRef: RefObject<ExcalidrawImperativeAPI>
+) {
+    useEffect(() => {
+        const root = rootRef.current;
+        if (!root) return;
+
+        let menu: HTMLElement | null = null;
+        // Excalidraw sets a new `contextMenu` each time the menu opens.
+        let placedState: AppState["contextMenu"] = null;
+
+        const watchMenu = () => {
+            menu = root.querySelector(".context-menu")?.closest<HTMLElement>(".popover") ?? null;
+            const state = apiRef.current?.getAppState().contextMenu ?? null;
+            const container = root.querySelector(".excalidraw-container");
+            if (!menu || !state || !container || state === placedState) return;
+
+            placedState = state;
+            placeContextMenu(menu, state, container.getBoundingClientRect());
+        };
+
+        const closeOnScroll = (event: Event) => {
+            const api = apiRef.current;
+            const isDrawingMoved = event.target instanceof Node && event.target.contains(root);
+            if (!isDrawingMoved || !api?.getAppState().contextMenu) return;
+
+            // Excalidraw also focuses its container when the menu closes.
+            if (menu?.contains(document.activeElement)) {
+                root.querySelector<HTMLElement>(".excalidraw-container")
+                    ?.focus({ preventScroll: true });
+            }
+            api.updateScene({ appState: { contextMenu: null } });
+        };
+
+        const observer = new MutationObserver(watchMenu);
+        observer.observe(root, { childList: true, subtree: true });
+        // Scroll events do not bubble, so the capture phase sees those of every ancestor.
+        document.addEventListener("scroll", closeOnScroll, { capture: true, passive: true });
+
+        return () => {
+            observer.disconnect();
+            document.removeEventListener("scroll", closeOnScroll, { capture: true });
+            if (menu) setTopLayer(menu, false);
+        };
+    }, [ rootRef, apiRef ]);
+}
+
+/**
+ * Moves Excalidraw's context `menu` into the top layer, at the point where Excalidraw opened it in
+ * the `drawing`. A menu that reaches past the window moves back into it, and one larger than the
+ * window shrinks to it and scrolls.
+ */
+function placeContextMenu(
+    menu: HTMLElement,
+    point: { left: number; top: number },
+    drawing: DOMRect
+) {
+    for (const property of FITTED_MENU_STYLES) {
+        menu.style[property] = "";
+    }
+    setTopLayer(menu, true);
+    // Measured at the corner of the window, where nothing narrows the menu.
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    const { width, height } = menu.getBoundingClientRect();
+
+    const area = getWindowArea();
+    const gap = WINDOW_GAP_REM * parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const x = fitSpan(drawing.left + point.left, width, area.left + gap, area.right - gap);
+    const y = fitSpan(drawing.top + point.top, height, area.top + gap, area.bottom - gap);
+    menu.style.left = `${x.start}px`;
+    menu.style.top = `${y.start}px`;
+    if (x.size !== null) {
+        menu.style.width = `${x.size}px`;
+        menu.style.overflowX = "auto";
+    }
+    if (y.size !== null) {
+        menu.style.height = `${y.size}px`;
+        menu.style.overflowY = "auto";
+    }
+}
+
+/**
+ * Where a span `size` long from `start` fits between `min` and `max`: moved back from `max` when it
+ * reaches past it, and shrunk to the space between them when longer. `size` is `null` while the
+ * span keeps its own.
+ */
+function fitSpan(start: number, size: number, min: number, max: number) {
+    const fittedSize = Math.min(size, max - min);
+    return {
+        start: Math.max(min, Math.min(start, max - fittedSize)),
+        size: fittedSize < size ? fittedSize : null
+    };
 }

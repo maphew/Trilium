@@ -10,6 +10,7 @@ const {
     EXTRA_TOOLS, HISTORY_ACTIONS, LOCK, MAIN_TOOLS, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP, ZOOMS
 } = await import("./CanvasEmbedTools");
 const { LIBRARY_SIDEBAR } = await import("./CanvasDrawingMenu");
+const { FITTED_MENU_STYLES } = await import("./CanvasDrawing");
 
 /** The classes of Trilium that `CanvasDrawing.css` selects. Every other class is Excalidraw's. */
 const TRILIUM_CLASSES = new Set([
@@ -20,7 +21,8 @@ const TRILIUM_CLASSES = new Set([
 
 /** The classes of Excalidraw that `CanvasDrawing.tsx` and `CanvasEmbedTools.tsx` look up. */
 const CODE_CLASSES = [
-    "excalidraw", "excalidraw-container", "App-menu__left", "App-toolbar-container"
+    "excalidraw", "excalidraw-container", "App-menu__left", "App-toolbar-container",
+    "context-menu", "popover"
 ];
 
 /**
@@ -88,6 +90,22 @@ describe("Excalidraw contract of the canvas drawing", () => {
         const source = readBundle(developmentDir, [ ".js" ]).replace(/\s+/g, "");
 
         expect(source).toContain(`varDEFAULT_SIDEBAR={name:"${LIBRARY_SIDEBAR}"`);
+    });
+
+    it("fits the context menu in its container with the styles that the top layer replaces", () => {
+        const source = readBundle(developmentDir, [ ".js" ]);
+        const popover = source.split("// components/Popover.tsx")[1]
+            ?.split("// components/ContextMenu.tsx")[0] ?? "";
+        const styles = [ ...popover.matchAll(/container\.style\.(\w+) =/g) ]
+            .map((match) => match[1]);
+        expect(new Set(styles)).toEqual(new Set(FITTED_MENU_STYLES));
+
+        // `useTopLayerContextMenu()` adds the position of the container to the point of the menu.
+        expect(source.replace(/\s+/g, "")).toContain([
+            "constcontainer=this.excalidrawContainerRef.current;",
+            "const{top:offsetTop,left:offsetLeft}=container.getBoundingClientRect();",
+            "constleft=event.clientX-offsetLeft;consttop=event.clientY-offsetTop;"
+        ].join(""));
     });
 
     it("takes the layout from `UIOptions.getFormFactor`, which the Trilium patch adds", () => {

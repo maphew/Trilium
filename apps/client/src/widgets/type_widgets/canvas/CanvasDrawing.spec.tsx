@@ -1,4 +1,5 @@
 import { exportToSvg } from "@excalidraw/excalidraw";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { type ComponentChildren, render, toChildArray, type VNode } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
@@ -50,7 +51,7 @@ globalThis.ResizeObserver = class {
 
 const {
     default: CanvasDrawing, CanvasDrawingDetail, renderCanvasDrawingPicture, useIsToolbarOverPanel,
-    useSidePanels
+    useSidePanels, useTopLayerContextMenu
 } = await import("./CanvasDrawing");
 const { default: CanvasDrawingMenu } = await import("./CanvasDrawingMenu");
 const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
@@ -307,6 +308,167 @@ describe("useSidePanels", () => {
         });
         document.dispatchEvent(new Event("fullscreenchange"));
         expect(getPlacement(panel)).toBe(false);
+    });
+});
+
+describe("useTopLayerContextMenu", () => {
+    type ContextMenuState = { top: number; left: number } | null;
+
+    let container: HTMLElement;
+    let showPopover: ReturnType<typeof vi.fn>;
+    let contextMenu: ContextMenuState;
+    let drawing: { left: number; top: number };
+    let menuSize: { width: number; height: number };
+    const api = {
+        getAppState: () => ({ contextMenu }),
+        updateScene: vi.fn(({ appState }: { appState: { contextMenu: ContextMenuState } }) => {
+            contextMenu = appState.contextMenu;
+        })
+    };
+
+    function ContextMenuProbe() {
+        const rootRef = useRef<HTMLDivElement>(null);
+        const apiRef = useRef(api as unknown as ExcalidrawImperativeAPI);
+        useTopLayerContextMenu(rootRef, apiRef);
+        return (
+            <div className="scrolling-container">
+                <div ref={rootRef}>
+                    <div className="excalidraw excalidraw-container" tabIndex={0} />
+                </div>
+            </div>
+        );
+    }
+
+    beforeEach(async () => {
+        // A window of 1280 × 900 and a 1rem of 16px.
+        Object.defineProperties(document.documentElement, {
+            clientWidth: { value: 1280, configurable: true },
+            clientHeight: { value: 900, configurable: true }
+        });
+        contextMenu = null;
+        drawing = { left: 340, top: 200 };
+        menuSize = { width: 200, height: 500 };
+        vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+            .mockImplementation(function (this: HTMLElement) {
+                const box = this.classList.contains("popover")
+                    ? { left: 0, top: 0, ...menuSize }
+                    : { ...drawing, width: 500, height: 320 };
+                const edges = { right: box.left + box.width, bottom: box.top + box.height };
+                return { ...box, ...edges } as DOMRect;
+            });
+        vi.spyOn(window, "getComputedStyle")
+            .mockReturnValue({ fontSize: "16px" } as CSSStyleDeclaration);
+        // happy-dom has no Popover API.
+        showPopover = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, "showPopover", {
+            value: showPopover,
+            configurable: true
+        });
+        api.updateScene.mockClear();
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        await act(async () => {
+            render(<ContextMenuProbe />, container);
+        });
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+        vi.restoreAllMocks();
+        Reflect.deleteProperty(HTMLElement.prototype, "showPopover");
+        Reflect.deleteProperty(document.documentElement, "clientWidth");
+        Reflect.deleteProperty(document.documentElement, "clientHeight");
+    });
+
+    /** Opens the menu at `left` and `top` in the drawing, as fitted in it by Excalidraw. */
+    async function openMenu(left: number, top: number) {
+        container.querySelector(".popover")?.remove();
+        contextMenu = { left, top };
+        const menu = document.createElement("div");
+        menu.className = "popover";
+        menu.tabIndex = -1;
+        menu.style.cssText = `left: ${left}px; top: 10px; height: 300px; overflow-y: scroll;`;
+        menu.innerHTML = `<ul class="context-menu"><li></li></ul>`;
+        await act(async () => {
+            container.querySelector(".excalidraw-container")?.append(menu);
+            await Promise.resolve();
+        });
+        return menu;
+    }
+
+    /** The place and the size of `menu`, empty where Excalidraw's own style is gone. */
+    function getStyle(menu: HTMLElement) {
+        expect(menu.getAttribute("popover")).toBe("manual");
+        const { left, top, width, height, overflowX, overflowY } = menu.style;
+        return { left, top, width, height, overflowX, overflowY };
+    }
+
+    const FREE = { width: "", height: "", overflowX: "", overflowY: "" };
+
+    it("shows the menu at its point in the window, moved up or left into the window", async () => {
+        const menu = await openMenu(100, 50);
+        expect(getStyle(menu)).toEqual({ left: "440px", top: "250px", ...FREE });
+        expect(showPopover).toHaveBeenCalledTimes(1);
+
+        // 450 + 500 reaches past the bottom edge of 892.
+        expect(getStyle(await openMenu(450, 250)))
+            .toEqual({ left: "790px", top: "392px", ...FREE });
+
+        drawing = { left: 1000, top: 200 };
+        expect(getStyle(await openMenu(250, 50)))
+            .toEqual({ left: "1072px", top: "250px", ...FREE });
+        expect(showPopover).toHaveBeenCalledTimes(3);
+    });
+
+    it("places the menu once for each opening, which Excalidraw can render in place", async () => {
+        const menu = await openMenu(100, 50);
+        menu.style.left = "0px";
+        await act(async () => {
+            menu.querySelector("ul")?.append(document.createElement("li"));
+            await Promise.resolve();
+        });
+        expect(menu.style.left).toBe("0px");
+
+        contextMenu = { left: 200, top: 50 };
+        await act(async () => {
+            menu.querySelector("ul")?.append(document.createElement("li"));
+            await Promise.resolve();
+        });
+        expect(getStyle(menu)).toEqual({ left: "540px", top: "250px", ...FREE });
+    });
+
+    it("shrinks a menu larger than the window, and scrolls it", async () => {
+        menuSize = { width: 1300, height: 1000 };
+        expect(getStyle(await openMenu(100, 50))).toEqual({
+            left: "8px",
+            top: "8px",
+            width: "1264px",
+            height: "884px",
+            overflowX: "auto",
+            overflowY: "auto"
+        });
+    });
+
+    it("closes the menu when the note scrolls, keeping the focus in the drawing", async () => {
+        const menu = await openMenu(100, 50);
+        menu.focus();
+        const elsewhere = document.createElement("div");
+        document.body.append(elsewhere);
+
+        menu.dispatchEvent(new Event("scroll"));
+        elsewhere.dispatchEvent(new Event("scroll"));
+        expect(api.updateScene).not.toHaveBeenCalled();
+
+        container.querySelector(".scrolling-container")?.dispatchEvent(new Event("scroll"));
+        expect(api.updateScene)
+            .toHaveBeenCalledExactlyOnceWith({ appState: { contextMenu: null } });
+        expect(document.activeElement).toBe(container.querySelector(".excalidraw-container"));
+
+        // Nothing is left to close.
+        document.dispatchEvent(new Event("scroll"));
+        expect(api.updateScene).toHaveBeenCalledTimes(1);
+        elsewhere.remove();
     });
 });
 
