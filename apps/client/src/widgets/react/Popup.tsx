@@ -120,7 +120,9 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
         // A placement settles after the fact, by which time it can have closed.
         let closed = false;
         // Places it now, and again whenever its anchor moves or the viewport or it changes size.
-        const options = { placement, offset: gap, capHeight, shiftAcross: !(anchor instanceof HTMLElement) };
+        // Only a menu at a point moves over it. A rect, such as a caret, marks text the popup must not
+        // cover, so the popup keeps to one side and its height is capped to the room there.
+        const options = { placement, offset: gap, capHeight, shiftAcross: "x" in anchor };
         const stopUpdating = autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
             if (!closed) reportPlaced();
             // Resolved after the stylesheet took over, so what it wrote goes again.
