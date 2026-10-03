@@ -28,7 +28,7 @@ export interface ResizeGestureOptions {
     onPreview: (size: ResizeSize) => void;
     /** Saves the size at which the pointer is released. */
     onCommit: (size: ResizeSize) => void;
-    /** Ends the gesture without a change, on Escape or a `pointercancel`. */
+    /** Ends the gesture without a change, on Escape, a `pointercancel` or a lost capture. */
     onCancel: () => void;
     /** Ends the gesture when the pointer is released without moving. */
     onTap: () => void;
@@ -46,7 +46,7 @@ const AUTO_SCROLL_STEP = 16;
 /**
  * Resizes until the pointer pressed in `event` is released. The width grows towards the inline
  * end, or on both sides when centered, the height towards the bottom, and the scroll container
- * scrolls near its edges.
+ * scrolls near its edges. Returns a function that ends the gesture without calling back.
  */
 export function startResizeGesture(event: PointerEvent, options: ResizeGestureOptions) {
     const { axes, widthTarget, heightTarget } = options;
@@ -136,16 +136,21 @@ export function startResizeGesture(event: PointerEvent, options: ResizeGestureOp
         window.removeEventListener("pointermove", onPointerMove, true);
         window.removeEventListener("pointerup", onPointerUp, true);
         window.removeEventListener("pointercancel", onPointerCancel, true);
+        window.removeEventListener("lostpointercapture", onPointerCancel, true);
         window.removeEventListener("keydown", onKeyDown, true);
     };
 
     window.addEventListener("pointermove", onPointerMove, true);
     window.addEventListener("pointerup", onPointerUp, true);
     window.addEventListener("pointercancel", onPointerCancel, true);
+    // The handle loses the pointer when it leaves the page, as when its editor closes.
+    window.addEventListener("lostpointercapture", onPointerCancel, true);
     window.addEventListener("keydown", onKeyDown, true);
     if (axes.height) {
         frame = requestAnimationFrame(scrollStep);
     }
+
+    return stop;
 }
 
 /** The width inside the padding of the parent of `element`. */

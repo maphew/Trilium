@@ -271,7 +271,7 @@ describe("ResizableWidgets", () => {
         expect(getSize()).toBe("<testBox customWidth=\"30em\"></testBox>");
     });
 
-    it("cancels on Escape or a pointercancel, and ignores other pointers", async () => {
+    it("cancels on Escape, pointercancel or lost capture, and ignores other pointers", async () => {
         await createEditor();
         editor.setData(RESIZED);
         const box = getBox();
@@ -297,6 +297,36 @@ describe("ResizableWidgets", () => {
         release();
         expect(box.style.getPropertyValue("--test-width")).toBe("30em");
         expect(editor.getData()).toBe(RESIZED);
+
+        // The handle loses the pointer when it leaves the page, as when the editor closes.
+        const handle = getHandle("width");
+        const loseCapture = (pointerId: number) => handle.dispatchEvent(
+            new PointerEvent("lostpointercapture", { bubbles: true, pointerId })
+        );
+        press(handle);
+        move(150, 300);
+        loseCapture(2);
+        expect(box.style.getPropertyValue("--test-width")).toBe("35em");
+        loseCapture(1);
+        expect(box.style.getPropertyValue("--test-width")).toBe("30em");
+        release();
+        expect(editor.getData()).toBe(RESIZED);
+    });
+
+    it("stops resizing once the editor is destroyed", async () => {
+        await createEditor();
+        editor.setData("<div class=\"test-box\"></div>");
+        press(getHandle("corner"));
+        move(150, 350);
+        await nextFrame();
+
+        const { editing, model } = editor;
+        await editor.destroy();
+        const changes = [ vi.spyOn(editing.view, "change"), vi.spyOn(model, "change") ];
+        move(200, 400);
+        await nextFrame();
+        release();
+        expect(changes.map((change) => change.mock.calls.length)).toEqual([ 0, 0 ]);
     });
 
     it("resets the size of a handle on a double tap", async () => {

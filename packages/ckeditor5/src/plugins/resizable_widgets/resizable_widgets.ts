@@ -61,6 +61,8 @@ const EM_PATTERN = /^\d+(\.\d+)?em$/;
 export default class ResizableWidgets extends Plugin {
 
     private lastTap: { handle: Element; time: number } | null = null;
+    /** Ends the resize under way, if any, without a change. */
+    private stopResize: (() => void) | null = null;
 
     static get pluginName() {
         return "ResizableWidgets" as const;
@@ -122,6 +124,11 @@ export default class ResizableWidgets extends Plugin {
         });
     }
 
+    override destroy() {
+        this.stopResize?.();
+        super.destroy();
+    }
+
     private createHandles(writer: ViewDowncastWriter, subject: ResizeSubject, axes: Axis[]) {
         const names = axes.length === 2 ? Object.keys(HANDLES) : axes;
         const startResize = (event: PointerEvent, handle: HTMLElement, name: string) => {
@@ -180,7 +187,7 @@ export default class ResizableWidgets extends Plugin {
             this.showSize(viewElement, getSavedSize(element, config), config, false);
         };
 
-        startResizeGesture(event, {
+        this.stopResize = startResizeGesture(event, {
             handle,
             axes,
             widthTarget: targets.width,
