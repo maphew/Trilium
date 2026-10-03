@@ -13,8 +13,10 @@ import { t } from "../../services/i18n";
 import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { escapeHtml, isMobile } from "../../services/utils";
 import { AttributeSnippetBadges } from "./Badge";
+import Button from "./Button";
 import { useAutocomplete } from "./FormAutocomplete";
 import { FormDropdownDivider } from "./FormList";
+import FormToggle from "./FormToggle";
 import { useSyncedRef } from "./hooks";
 import Icon from "./Icon";
 import Popup from "./Popup";
@@ -75,6 +77,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     // one changes `source` and so searches again.
     const [ fullTextSearchCount, setFullTextSearchCount ] = useState(0);
     const [ isSearchingFullText, setSearchingFullText ] = useState(false);
+    // A list in a host's container offers its searches in a footer under it: a switch for the content
+    // search, which stays on as the query changes, and a button for the full search.
+    const isContained = !!container;
+    const [ includeContents, setIncludeContents ] = useState(false);
 
     const { isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks } = opts ?? {};
     const source = useCallback(async (query: string) => {
@@ -82,7 +88,14 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             return getCommandSuggestions(query);
         }
 
-        const options = { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks };
+        const options = {
+            allowCreatingNotes,
+            allowJumpToSearchNotes: allowJumpToSearchNotes && !isContained,
+            allowExternalLinks
+        };
+        if (isContained) {
+            return getNoteSuggestions(query, includeContents ? { ...options, fastSearch: false } : options);
+        }
         if (!fullTextSearchCount) {
             return withFullTextSearchRow(await getNoteSuggestions(query, options), query);
         }
@@ -93,7 +106,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         } finally {
             setSearchingFullText(false);
         }
-    }, [ isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fullTextSearchCount ]);
+    }, [
+        isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fullTextSearchCount,
+        isContained, includeContents
+    ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
     const selectNote = useCallback((suggestion: Suggestion) => {
@@ -164,6 +180,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         clearSelection();
     }
 
+    /** Whether `query` is one to open the full search on: a non-blank query naming notes, not commands. */
+    function canSearchFor(query: string) {
+        return !!query.trim() && !(isCommandPalette && query.startsWith(">"));
+    }
+
     /**
      * Opens the search screen on `searchString`, and reports it as a picked `search-notes` row so that
      * a host can close, as Jump to Note does.
@@ -173,8 +194,17 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         onChange?.({ action: "search-notes", noteTitle: searchString });
     }
 
-    /** Searches the content of the notes as well as their titles, for the text in the field. */
+    /**
+     * Searches the content of the notes as well as their titles, for the text in the field. A list in a
+     * host's container switches its content search on or off instead.
+     */
     function fullTextSearch() {
+        if (isContained) {
+            setIncludeContents((include) => !include);
+            autocomplete.open();
+            inputRef.current?.focus();
+            return;
+        }
         if (!value.trim()) return;
         setNotePath("");
         setFullTextSearchCount((count) => count + 1);
@@ -264,8 +294,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         // own.
                         e.preventDefault();
                         e.stopImmediatePropagation();
-                        // Only where the list offers the row: a query that names notes, not commands.
-                        if (value.trim() && !(isCommandPalette && value.startsWith(">"))) {
+                        // Only where the list offers it: a query that names notes, not commands.
+                        if (canSearchFor(value)) {
                             showInFullSearch(value.trim());
                         }
                         return;
@@ -320,15 +350,40 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
             </>}
 
             {(autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText)) && (container
-                ? container.current && createPortal(
+                ? container.current && createPortal(<>
                     <NoteSuggestionMenu
                         autocomplete={autocomplete}
                         searchingFor={isSearchingFullText ? value : undefined}
                         // The popup's rows, in the host's panel. Faded at an edge only where the host
                         // sets `--scroll-fade-top` or `--scroll-fade-bottom`.
                         className="note-autocomplete-menu note-suggestion-list tn-menu-keyboard scroll-edge-fade"
-                    />,
-                    container.current)
+                    />
+                    {canSearchFor(value) && (
+                        <div
+                            className="note-suggestion-footer"
+                            // Keeps the focus in the field, as the rows do.
+                            onMouseDown={(e) => e.preventDefault()}
+                        >
+                            <FormToggle
+                                switchOnName={t("note_autocomplete.include-contents")}
+                                switchOffName={t("note_autocomplete.include-contents")}
+                                currentValue={includeContents}
+                                onChange={fullTextSearch}
+                                afterName={!cachedIsMobile && (
+                                    <span className="note-suggestion-shortcut">{renderShortcutKbds("Shift+Enter")}</span>
+                                )}
+                            />
+                            {allowJumpToSearchNotes && <Button
+                                kind="lowProfile"
+                                size="small"
+                                icon="bx-file-find"
+                                text={t("quick-search.show-in-full-search")}
+                                keyboardShortcut="Ctrl+Enter"
+                                onClick={() => showInFullSearch(value.trim())}
+                            />}
+                        </div>
+                    )}
+                </>, container.current)
                 : anchor && (
                     <Popup
                         anchor={anchor}

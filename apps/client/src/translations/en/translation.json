@@ -3087,7 +3087,8 @@
     "create-child-note": "Create child note \"{{term}}\"",
     "insert-external-link": "Insert external link to \"{{term}}\"",
     "clear-text-field": "Clear text field",
-    "include-note-contents": "Include note contents in the results for \"{{term}}\""
+    "include-note-contents": "Include note contents in the results for \"{{term}}\"",
+    "include-contents": "Include note contents"
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",

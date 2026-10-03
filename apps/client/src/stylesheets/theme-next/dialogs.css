@@ -168,6 +168,20 @@ div.tn-tool-dialog {
     scroll-padding-top: var(--jump-to-note-fade);
 }
 
+/* Above the footer, the results fade out as they do under the search field. */
+.jump-to-note-dialog .jump-to-note-results .note-suggestion-list:has(+ .note-suggestion-footer) {
+    --scroll-fade-bottom: var(--jump-to-note-fade);
+    padding-bottom: var(--jump-to-note-fade);
+    scroll-padding-bottom: var(--jump-to-note-fade);
+}
+
+/* Spans the dialog's padding on both sides; its content lines up with the rows'. */
+.jump-to-note-dialog .jump-to-note-results .note-suggestion-footer {
+    margin-inline: calc(0px - var(--jump-to-note-padding));
+    padding: 4px calc(var(--jump-to-note-padding) + 16px) 12px;
+    border-top: 0;
+}
+
 /* Search box wrapper */
 .jump-to-note-dialog .input-group {
     margin-inline-end: 16px;
