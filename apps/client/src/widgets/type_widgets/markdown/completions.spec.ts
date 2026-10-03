@@ -25,6 +25,12 @@ vi.mock("../../../services/note_autocomplete", async (importOriginal) => ({
     createNoteFromSuggestion
 }));
 
+const { uploadImageAndInsert } = vi.hoisted(() => ({ uploadImageAndInsert: vi.fn() }));
+vi.mock("./editor_utils", async (importOriginal) => ({
+    ...await importOriginal<typeof import("./editor_utils")>(),
+    uploadImageAndInsert
+}));
+
 vi.mock("../code/snippets", async (importOriginal) => ({
     ...await importOriginal<typeof import("../code/snippets")>(),
     useCodeSnippets: () => ({ current: [] })
@@ -201,6 +207,9 @@ describe("markdownCompletionAt", () => {
         expect(at("[[My @Al")).toEqual({ kind: "note", from: 5, query: "Al" });
         expect(at("@My [[Al")).toEqual({ kind: "note", from: 4, query: "Al" });
         expect(at("`[[Al` b", 5)).toBeNull();
+        // A `/` inside an open link is part of the title; after an `@` it opens the commands, as in a text note.
+        expect(at("[[my /link")).toEqual({ kind: "note", from: 0, query: "my /link" });
+        expect(at("@one /table")).toEqual({ kind: "command", from: 5, query: "table" });
         expect(at("text `a @` b", 9)).toBeNull();
     });
 
@@ -225,12 +234,14 @@ describe("buildSlashCommands", () => {
 
     afterEach(() => editor.destroy());
 
+    let currentNote = { noteId: "first" } as FNote;
+
     const todo = (name: string, markdownSymbol: string): TaskStateDef => ({ name, title: name, markdownSymbol, isCompleted: false, icon: `bx bx-${name}` });
 
     function commands(taskStates: TaskStateDef[] = []) {
         return buildSlashCommands({
             parentComponent: { triggerCommand } as unknown as TypeWidgetProps["parentComponent"],
-            note: {} as FNote,
+            getNote: () => currentNote,
             editorView: editor,
             taskStates,
             snippets: [ { noteId: "s1", title: "Greeting", description: "Says hello", content: "Hello!" } ]
@@ -273,6 +284,23 @@ describe("buildSlashCommands", () => {
         run("table", "/table");
         const { from, to } = editor.state.selection.main;
         expect(editor.state.sliceDoc(from, to)).toBe("markdown_slash_commands.placeholders.table_column");
+    });
+
+    it("uploads an image picked to the note shown once the file arrives", () => {
+        let picker: HTMLInputElement | undefined;
+        const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (this: HTMLInputElement) { picker = this; });
+        currentNote = { noteId: "first" } as FNote;
+
+        expect(run("image", "/image")).toBe("");
+        expect(picker?.accept).toBe("image/*");
+
+        currentNote = { noteId: "second" } as FNote;
+        const file = new File([ "x" ], "a.png", { type: "image/png" });
+        if (!picker) throw new Error("no file picker opened");
+        Object.defineProperty(picker, "files", { value: [ file ] });
+        picker.dispatchEvent(new Event("change"));
+        expect(uploadImageAndInsert).toHaveBeenCalledExactlyOnceWith(editor, currentNote, file);
+        click.mockRestore();
     });
 
     it("removes the typed command before running one of the text editor's commands", () => {
@@ -387,6 +415,15 @@ describe("useMarkdownCompletions", () => {
         press("Enter");
         await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[abc123]] x"));
         expect(editor.state.selection.main.head).toBe(14);
+
+        // So does a note created there, once it exists.
+        createNoteFromSuggestion.mockResolvedValueOnce("root/parent/new2");
+        editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: "see [[Al]] x" }, selection: { anchor: 8 } });
+        await vi.waitFor(() => expect(rows()).toHaveLength(2));
+        press("ArrowDown");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        press("Enter");
+        await vi.waitFor(() => expect(editor.state.doc.toString()).toBe("see [[new2]] x"));
 
         act(() => render(null, container));
         editor.destroy();

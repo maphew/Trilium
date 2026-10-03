@@ -47,7 +47,8 @@ export interface MarkdownCompletionMatch {
 /** What the commands are built from, read again each time the list looks them up. */
 export interface SlashCommandContext {
     parentComponent: TypeWidgetProps["parentComponent"];
-    note: FNote;
+    /** The note being edited, read when a command needs it, as switching notes reuses the editor. */
+    getNote(): FNote;
     editorView: VanillaCodeMirror;
     /** The user's task states, one `/todo:<state>` each where it has a Markdown marker. */
     taskStates: TaskStateDef[];
@@ -90,7 +91,7 @@ export function useMarkdownCompletions(
 
         const commands = () => buildSlashCommands({
             parentComponent: parentRef.current,
-            note: noteRef.current,
+            getNote: () => noteRef.current,
             editorView,
             taskStates: taskStatesRef.current,
             snippets: snippetsRef.current.filter((snippet) => snippet.noteId !== noteRef.current.noteId)
@@ -120,9 +121,10 @@ export function useMarkdownCompletions(
  * block or a code span, where any of them is part of the code.
  */
 export function markdownCompletionAt(before: string, _explicit: boolean, state: EditorState): MarkdownCompletionMatch | null {
-    const command = COMMAND_TYPED.exec(before);
     const mention = NOTE_TYPED.exec(before);
     const wikilink = WIKILINK_TYPED.exec(before);
+    // A `/` inside an open link is part of the title being typed.
+    const command = wikilink ? null : COMMAND_TYPED.exec(before);
     const note = mention && wikilink
         ? (mention.index > wikilink.index ? mention : wikilink)
         : mention ?? wikilink;
@@ -148,7 +150,7 @@ const WIKILINK_TYPED = /\[\[[^[\]]*$/;
  * icons as the text editor's, where it has the command too. Each is found by the word typed after the
  * `/` as well, such as `todo:done`.
  */
-export function buildSlashCommands({ parentComponent, note, editorView, taskStates, snippets }: SlashCommandContext): SlashCommand[] {
+export function buildSlashCommands({ parentComponent, getNote, editorView, taskStates, snippets }: SlashCommandContext): SlashCommand[] {
     /** Removes the typed command, then runs one of the text editor's commands in its place. */
     const runCommand = (name: Parameters<NonNullable<typeof parentComponent>["triggerCommand"]>[0]): HostedCompletionApply =>
         (view, from, to) => {
@@ -180,7 +182,7 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
             input.accept = "image/*";
             input.addEventListener("change", () => {
                 const file = input.files?.[0];
-                if (file) uploadImageAndInsert(editorView, note, file);
+                if (file) uploadImageAndInsert(editorView, getNote(), file);
             });
             input.click();
         }),
@@ -387,7 +389,7 @@ function createMarkdownCompletionList(commands: () => SlashCommand[], getParentN
                     parentNotePath={getParentNotePath()}
                     onPick={(notePath) => state.commit(typeof notePath === "string"
                         ? linkTo(notePath)
-                        : notePath.then((path) => path ? noteLink(path) : undefined))}
+                        : notePath.then((path) => path ? linkTo(path) : undefined))}
                 />
             );
         }
