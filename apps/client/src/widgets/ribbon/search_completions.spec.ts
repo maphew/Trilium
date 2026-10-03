@@ -99,6 +99,11 @@ describe("searchCompletionAt", () => {
         expect(await titlesOf(root)).toContain("title");
         expect(await titlesOf(root)).toContain("parents");
         expect(await titlesOf(root)).toContain("content");
+        // Each with the icon of what it holds, the attribute ones with their marker's.
+        expect((await entryFor(root, "title"))?.icon).toBe("bx bx-heading");
+        expect((await entryFor(root, "utcDateModified"))?.icon).toBe("bx bx-calendar");
+        expect((await entryFor(root, "labelCount"))?.icon).toBe("bx bx-hash");
+        expect((await entryFor(root, "relations"))?.icon).toBe("bx bx-transfer");
 
         const partial = complete("#book AND note.date");
 

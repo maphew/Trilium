@@ -1,4 +1,4 @@
-import { ALLOWED_NOTE_TYPES, allowedSearchOperators, MIME_TYPES_DICT, NOTE_TYPE_ICONS, SEARCH_NOTE_PATH, SEARCH_NOTE_PATH_SEGMENTS } from "@triliumnext/commons";
+import { ALLOWED_NOTE_TYPES, allowedSearchOperators, MIME_TYPES_DICT, NOTE_TYPE_ICONS, SEARCH_NOTE_PATH } from "@triliumnext/commons";
 
 import { t } from "../../services/i18n";
 import server from "../../services/server";
@@ -429,38 +429,65 @@ function orderingPosition(context: Context): OrderingPosition {
 }
 
 function segmentEntries(): SearchEntry[] {
-    return SEARCH_NOTE_PATH_SEGMENTS.map((segment) =>
-        entry(segment, SEGMENT_DETAILS[segment] ? t(SEGMENT_DETAILS[segment]) : undefined, "bx bx-detail"));
+    return Object.values(SEARCH_NOTE_PATH).flat().map((segment) => {
+        const { icon, detail } = SEGMENTS[segment];
+        return entry(segment, detail ? t(detail) : undefined, `bx ${icon}`);
+    });
 }
 
+type NotePathSegment = (typeof SEARCH_NOTE_PATH)[keyof typeof SEARCH_NOTE_PATH][number];
+
 /**
- * Glosses for the segments whose name does not already say what they hold. Several are the labels
- * the order-by dropdown offers for the same properties, which read the same way here.
+ * The icon of each segment, and a gloss for the segments whose name does not already say what they
+ * hold. Several glosses are the labels the order-by dropdown offers for the same properties, which
+ * read the same way here. The label and relation segments carry the icons of `#` and `~`.
  */
-const SEGMENT_DETAILS: Record<string, string> = {
-    content: "search_completion.property_content",
-    rawContent: "search_completion.property_raw_content",
-    text: "search_completion.property_text",
-    parents: "search_completion.property_parents",
-    children: "search_completion.property_children",
-    ancestors: "search_completion.property_ancestors",
-    labels: "search_completion.property_labels",
-    relations: "search_completion.property_relations",
-    attributeCount: "search_completion.property_attribute_count",
-    labelCount: "search_completion.property_label_count",
-    relationCount: "search_completion.property_relation_count",
-    relationCountIncludingLinks: "search_completion.property_relation_count_including_links",
-    ownedRelationCountIncludingLinks: "search_completion.property_owned_relation_count_including_links",
-    targetRelationCountIncludingLinks: "search_completion.property_target_relation_count_including_links",
-    parentCount: "order_by.parent_count",
-    childrenCount: "order_by.children_count",
-    ownedLabelCount: "order_by.owned_label_count",
-    ownedRelationCount: "order_by.owned_relation_count",
-    targetRelationCount: "order_by.target_relation_count",
-    contentSize: "order_by.content_size",
-    contentAndAttachmentsSize: "order_by.content_and_attachments_size",
-    contentAndAttachmentsAndRevisionsSize: "order_by.content_and_attachments_and_revisions_size",
-    revisionCount: "order_by.revision_count"
+const SEGMENTS: Record<NotePathSegment, { icon: string; detail?: string }> = {
+    noteId: { icon: "bx-fingerprint" },
+    title: { icon: "bx-heading" },
+    type: { icon: "bx-category" },
+    mime: { icon: "bx-code-alt" },
+    isProtected: { icon: "bx-lock-alt" },
+    isArchived: { icon: "bx-archive" },
+    dateCreated: { icon: "bx-calendar" },
+    dateModified: { icon: "bx-calendar" },
+    utcDateCreated: { icon: "bx-calendar" },
+    utcDateModified: { icon: "bx-calendar" },
+    parentCount: { icon: "bx-sitemap", detail: "order_by.parent_count" },
+    childrenCount: { icon: "bx-sitemap", detail: "order_by.children_count" },
+    attributeCount: { icon: "bx-purchase-tag-alt", detail: "search_completion.property_attribute_count" },
+    labelCount: { icon: "bx-hash", detail: "search_completion.property_label_count" },
+    ownedLabelCount: { icon: "bx-hash", detail: "order_by.owned_label_count" },
+    relationCount: { icon: "bx-transfer", detail: "search_completion.property_relation_count" },
+    ownedRelationCount: { icon: "bx-transfer", detail: "order_by.owned_relation_count" },
+    relationCountIncludingLinks: {
+        icon: "bx-transfer",
+        detail: "search_completion.property_relation_count_including_links"
+    },
+    ownedRelationCountIncludingLinks: {
+        icon: "bx-transfer",
+        detail: "search_completion.property_owned_relation_count_including_links"
+    },
+    targetRelationCount: { icon: "bx-transfer", detail: "order_by.target_relation_count" },
+    targetRelationCountIncludingLinks: {
+        icon: "bx-transfer",
+        detail: "search_completion.property_target_relation_count_including_links"
+    },
+    contentSize: { icon: "bx-data", detail: "order_by.content_size" },
+    contentAndAttachmentsSize: { icon: "bx-data", detail: "order_by.content_and_attachments_size" },
+    contentAndAttachmentsAndRevisionsSize: {
+        icon: "bx-data",
+        detail: "order_by.content_and_attachments_and_revisions_size"
+    },
+    revisionCount: { icon: "bx-history", detail: "order_by.revision_count" },
+    content: { icon: "bx-file", detail: "search_completion.property_content" },
+    rawContent: { icon: "bx-code", detail: "search_completion.property_raw_content" },
+    text: { icon: "bx-text", detail: "search_completion.property_text" },
+    parents: { icon: "bx-up-arrow-alt", detail: "search_completion.property_parents" },
+    children: { icon: "bx-sitemap", detail: "search_completion.property_children" },
+    ancestors: { icon: "bx-git-branch", detail: "search_completion.property_ancestors" },
+    labels: { icon: "bx-hash", detail: "search_completion.property_labels" },
+    relations: { icon: "bx-transfer", detail: "search_completion.property_relations" }
 };
 
 /** The operators the operand standing before the cursor can be compared with. */
