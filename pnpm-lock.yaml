@@ -739,8 +739,8 @@ importers:
         specifier: 0.2.6
         version: 0.2.6
       '@types/ws':
-        specifier: 8.18.1
-        version: 8.18.1
+        specifier: 8.18.2
+        version: 8.18.2
       '@types/yauzl':
         specifier: 3.4.0
         version: 3.4.0
@@ -5000,6 +5000,9 @@ packages:
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@types/xml2js@0.4.14':
     resolution: {integrity: sha512-4YnrRemBShWRO2QjvUin8ESA41rH+9nQGLUGZV/1IDhi3SL9OhdpNC/MrulTWuptXKwhx/aDxE7toV0f/ypIXQ==}
@@ -16072,6 +16075,10 @@ snapshots:
   '@types/wrap-ansi@3.0.0': {}
 
   '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 24.19.0
+
+  '@types/ws@8.18.2':
     dependencies:
       '@types/node': 24.19.0
 
