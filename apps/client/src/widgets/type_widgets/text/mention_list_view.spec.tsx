@@ -230,7 +230,7 @@ describe("createSlashCommandList", () => {
         { id: "snippet-0", title: "Greeting", iconClass: "tn-icon bx bx-note", iconColorClass: "use-note-color" }
     ];
 
-    it("lists the palette's entries for the query, opening on the first, and commits the one picked", async () => {
+    it("lists the palette's entries as the command palette lists commands, opening on the first, and commits the one picked", async () => {
         const search = vi.fn(() => definitions);
         const editor = { plugins: { get: () => ({ search }) } } as unknown as Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
         const list = createSlashCommandList(editor);
@@ -242,15 +242,15 @@ describe("createSlashCommandList", () => {
         await act(async () => {});
 
         expect(search).toHaveBeenLastCalledWith("q");
-        expect(list.element?.matches(".form-autocomplete-dropdown.slash-command-list")).toBe(true);
-        const [ quote, greeting ] = [ ...(list.element?.querySelectorAll(".form-autocomplete-item") ?? []) ];
-        expect(quote.classList.contains("active")).toBe(true);
-        expect(quote.querySelector(".slash-command-icon > svg.quote")).not.toBeNull();
-        expect(quote.querySelector(".slash-command-title")?.textContent).toBe("Block quote");
-        expect(quote.querySelector(".slash-command-description")?.textContent).toBe("Insert a quote.");
+        expect(list.element?.matches(".dropdown-menu.note-autocomplete-menu.slash-command-menu")).toBe(true);
+        const [ quote, greeting ] = [ ...(list.element?.querySelectorAll(".tn-menu-scroll > .dropdown-item") ?? []) ];
+        expect(quote.classList.contains("tn-menu-active")).toBe(true);
+        expect(quote.querySelector(".tn-icon.note-suggestion-svg-icon > svg.quote")).not.toBeNull();
+        expect(quote.querySelector(".search-result-title")?.textContent).toBe("Block quote");
+        expect(quote.querySelector(".note-suggestion-description")?.textContent).toBe("Insert a quote.");
         // A snippet's font icon, in its colour, and no description where it has none.
-        expect(greeting.querySelector(".slash-command-icon.bx-note.use-note-color")).not.toBeNull();
-        expect(greeting.querySelector(".slash-command-description")).toBeNull();
+        expect(greeting.querySelector(".tn-icon.bx-note.use-note-color")).not.toBeNull();
+        expect(greeting.querySelector(".note-suggestion-description")).toBeNull();
 
         await act(async () => { key("ArrowDown"); });
         expect(key("Enter")).toBe(true);

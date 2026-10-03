@@ -6,15 +6,11 @@ import { type ComponentChildren, render } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { AutocompleteList, type AutocompleteListHandle } from "../../react/FormAutocomplete";
-import Icon from "../../react/Icon";
-import { NoteMentionList } from "../../react/NoteAutocomplete";
+import { type CommandEntry, CommandMentionList, NoteMentionList } from "../../react/NoteAutocomplete";
 import Popup from "../../react/Popup";
-import RawHtml from "../../react/RawHtml";
 
 /** The least width of an {@link createAutocompleteMentionList} list, whose caret anchor has none. */
 const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
-/** The width of the `/` palette, which fits all but the longest descriptions. */
-const SLASH_COMMAND_LIST_WIDTH = 350;
 
 /**
  * Draws a text editor's suggestion list (emoji) as the note
@@ -145,31 +141,25 @@ export function createAutocompleteMentionList({ source, renderItem, toMention }:
 }
 
 /**
- * Lists the `/` palette's entries for the query as a form field's autocomplete lists its own, for the
+ * Lists the `/` palette's entries for the query as the command palette lists its commands, for the
  * editor config's `slashCommand.list`, opening on the best match so that Enter runs it.
  */
 export function createSlashCommandList(editor: Parameters<NonNullable<SlashCommandConfig["list"]>>[0]): MentionHostedList {
     const palette = editor.plugins.get("TriliumSlashCommands") as TriliumSlashCommands;
-    const source = async (query: string) => palette.search(query);
+    const source = async (query: string) => palette.search(query).map(toCommandEntry);
     const container = document.createElement("div");
     const handle: { current: AutocompleteListHandle | null } = { current: null };
     let element: HTMLElement | null = null;
 
     return {
         show(state) {
-            render(<AutocompleteList<SlashCommandDefinition>
+            render(<CommandMentionList<SlashCommandEntry>
                 query={state.query}
                 source={source}
-                schedule={lookUpNow}
                 // A new anchor each time the query changes, so it is placed again at the caret.
                 anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
-                minWidth={SLASH_COMMAND_LIST_WIDTH}
-                className="slash-command-list"
-                autoActivate
-                keyOf={(definition) => definition.id}
-                textOf={(definition) => definition.title}
-                renderItem={(definition) => <SlashCommandRow definition={definition} />}
-                onPick={(definition) => state.commit(toSlashCommandItem(definition))}
+                className="slash-command-menu"
+                onPick={({ definition }) => state.commit(toSlashCommandItem(definition))}
                 handleRef={handle}
                 elementRef={(el) => { element = el; }}
             />, container);
@@ -189,28 +179,23 @@ export function createSlashCommandList(editor: Parameters<NonNullable<SlashComma
     };
 }
 
+type SlashCommandEntry = CommandEntry & { definition: SlashCommandDefinition };
+
+/** What the palette commits for an entry, which `TriliumSlashCommands` then runs. */
 function toSlashCommandItem(definition: SlashCommandDefinition): SlashCommandItem {
     return { id: definition.id, definition };
 }
 
-/** Looks the palette's entries up at once: the catalog is in memory, so there is nothing to wait for. */
-function lookUpNow(lookUp: () => Promise<void>) {
-    void lookUp();
-}
-
-/** One entry of the `/` palette: its icon, its title and what it does. */
-function SlashCommandRow({ definition }: { definition: SlashCommandDefinition }) {
-    return (
-        <span className="slash-command">
-            {definition.iconClass
-                ? <Icon className="slash-command-icon" icon={clsx(definition.iconClass, definition.iconColorClass)} />
-                : <RawHtml className="slash-command-icon" html={definition.icon} />}
-            <span className="slash-command-text">
-                <span className="slash-command-title">{definition.title}</span>
-                {definition.description && <span className="slash-command-description">{definition.description}</span>}
-            </span>
-        </span>
-    );
+/** A palette entry as a command row: a snippet's font icon in its colour, or the entry's SVG. */
+function toCommandEntry(definition: SlashCommandDefinition): SlashCommandEntry {
+    return {
+        id: definition.id,
+        title: definition.title,
+        description: definition.description,
+        icon: definition.iconClass ? clsx(definition.iconClass, definition.iconColorClass) : undefined,
+        iconSvg: definition.iconClass ? undefined : definition.icon,
+        definition
+    };
 }
 
 /** The mention `MentionCustomization` turns into a reference link to `notePath`. */

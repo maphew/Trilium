@@ -28,57 +28,15 @@
     max-height: var(--ck-mention-list-max-height);
 }
 
-/* The `/` palette is long, and the query only narrows it, so it is given more height than a field's list. */
-.form-autocomplete-dropdown.slash-command-list > .form-autocomplete-list {
+/*
+ * The `/` palette, at a width that fits all but the longest descriptions, and given more height than
+ * a list usually is: it is long, and the query only narrows it.
+ */
+.slash-command-menu {
+    width: 350px;
+    max-width: calc(100vw - 10px);
+}
+
+.slash-command-menu > .tn-menu-scroll {
     max-height: var(--ck-mention-list-max-height);
-}
-
-.slash-command-list .slash-command {
-    --slash-command-icon-size: calc(var(--ck-icon-size, 20px) * 0.8);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.slash-command-list .slash-command-icon {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: var(--slash-command-icon-size);
-    height: var(--slash-command-icon-size);
-    /* A snippet's font icon, a little inside the box an svg fills. */
-    font-size: calc(var(--slash-command-icon-size) * 0.85);
-    line-height: 1;
-
-    & > svg {
-        width: 100%;
-        height: 100%;
-    }
-
-    /* As CKEditor's `ck-icon_inherit-color`: the icons draw in the text's colour. */
-    & svg *:not([fill]) {
-        fill: currentColor;
-    }
-}
-
-.slash-command-list .slash-command-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    line-height: 1.2;
-}
-
-.slash-command-list :is(.slash-command-title, .slash-command-description) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.slash-command-list .slash-command-title {
-    font-weight: bold;
-}
-
-.slash-command-list .slash-command-description {
-    font-size: 0.85em;
-    opacity: 0.75;
 }

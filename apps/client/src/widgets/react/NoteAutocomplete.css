@@ -128,6 +128,16 @@
         color: var(--muted-text-color);
     }
 
+    /* An icon drawn as SVG markup, sized and coloured as a font icon's glyph. */
+    .note-suggestion-svg-icon > svg {
+        width: 1em;
+        height: 1em;
+
+        & *:not([fill]) {
+            fill: currentColor;
+        }
+    }
+
     .note-suggestion-attributes {
         display: flex;
         flex-wrap: wrap;

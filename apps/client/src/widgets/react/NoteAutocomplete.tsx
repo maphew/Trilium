@@ -3,7 +3,7 @@ import "./NoteAutocomplete.css";
 
 import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
-import { type RefObject, render } from "preact";
+import { type ComponentChildren, type RefObject, render } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -482,6 +482,76 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, preselect =
     );
 }
 
+/** An entry of a {@link CommandMentionList}, drawn as the command palette draws a command. */
+export interface CommandEntry {
+    id: string;
+    title: string;
+    description?: string;
+    /** The classes of a font icon. */
+    icon?: string;
+    /** An icon as SVG markup, in place of {@link CommandEntry.icon}. */
+    iconSvg?: string;
+}
+
+/**
+ * Lists commands for a query typed somewhere else, such as after a `/` in a text editor, as the
+ * command palette lists its own after a `>`. The host keeps the focus and forwards its keys through
+ * `handleRef`. It opens on the best match, so Enter takes it.
+ */
+export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, onPick, handleRef, elementRef }: {
+    query: string;
+    /** The entries for a query, looked up as soon as it changes, with no debounce. */
+    source(query: string): Promise<T[]>;
+    anchor: PopupProps["anchor"];
+    /** A class for the popup, beside its own. */
+    className?: string;
+    onPick(entry: T): void;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
+    elementRef?: PopupProps["elementRef"];
+}) {
+    // The focus stays where the query is typed, so there is no field to return it to.
+    const inputRef = useRef<HTMLInputElement>(null);
+    const autocomplete = useAutocomplete({ query, source, onPick, inputRef, autoActivate: true, textOf: commandTitle, schedule: lookUpNow });
+
+    // The host shows the list by mounting it and closes it by unmounting it.
+    useEffect(() => autocomplete.open(), []);
+    useForwardedKeys(autocomplete, handleRef);
+
+    return autocomplete.isShown && (
+        <NoteSuggestionPopup anchor={anchor} elementRef={elementRef} className={className}>
+            <menu
+                className="tn-menu-scroll"
+                role="listbox"
+                // Keeps the focus where the query is typed, which closes the list without it.
+                onMouseDown={(e) => e.preventDefault()}
+            >
+                {autocomplete.items.map((entry, index) => (
+                    <SuggestionOption key={entry.id} autocomplete={autocomplete} index={index}>
+                        <span>
+                            <SuggestionRowContent
+                                icon={entry.iconSvg
+                                    ? <RawHtml className="tn-icon note-suggestion-svg-icon" html={entry.iconSvg} />
+                                    : <Icon icon={entry.icon ?? "bx bx-terminal"} />}
+                                header={<span className="search-result-title">{entry.title}</span>}
+                                details={entry.description && <span className="note-suggestion-description">{entry.description}</span>}
+                            />
+                        </span>
+                    </SuggestionOption>
+                ))}
+            </menu>
+        </NoteSuggestionPopup>
+    );
+}
+
+function commandTitle(entry: CommandEntry) {
+    return entry.title;
+}
+
+/** Runs a lookup at once, for a source that answers from memory. */
+function lookUpNow(lookUp: () => Promise<void>) {
+    void lookUp();
+}
+
 /** The popup the suggestions are listed in, below `anchor` where there is room. */
 function NoteSuggestionPopup({ className, ...props }: PopupProps) {
     return (
@@ -552,19 +622,31 @@ function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
                 recentGroups[index] && recentGroups[index] !== recentGroups[index - 1] && (
                     <FormListHeader key={`heading-${index}`} text={recentGroupTitle(recentGroups[index])} />
                 ),
-                <li
-                    key={suggestionKey(suggestion, index)}
-                    id={autocomplete.itemId(index)}
-                    className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
-                    role="option"
-                    aria-selected={index === autocomplete.activeIndex}
-                    onMouseMove={(e) => autocomplete.hover(index, e)}
-                    onClick={() => autocomplete.pick(suggestion)}
-                >
+                <SuggestionOption key={suggestionKey(suggestion, index)} autocomplete={autocomplete} index={index}>
                     <NoteSuggestionMenuItem suggestion={suggestion} />
-                </li>
+                </SuggestionOption>
             ])}
         </menu>
+    );
+}
+
+/** The menu row of the entry at `index`, which the pointer highlights and a click picks. */
+function SuggestionOption<T>({ autocomplete, index, children }: {
+    autocomplete: ReturnType<typeof useAutocomplete<T>>;
+    index: number;
+    children: ComponentChildren;
+}) {
+    return (
+        <li
+            id={autocomplete.itemId(index)}
+            className={clsx("dropdown-item", index === autocomplete.activeIndex && "tn-menu-active")}
+            role="option"
+            aria-selected={index === autocomplete.activeIndex}
+            onMouseMove={(e) => autocomplete.hover(index, e)}
+            onClick={() => autocomplete.pick(autocomplete.items[index])}
+        >
+            {children}
+        </li>
     );
 }
 
@@ -587,15 +669,14 @@ function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion 
         ? suggestion.highlightedParentPathTitle
         : undefined;
 
-    return <>
-        <Icon icon={icon} />
-        <span className="tn-menu-gap" />
-        <div className="note-suggestion-text">
-            <div className="note-suggestion-header">
+    return (
+        <SuggestionRowContent
+            icon={<Icon icon={icon} />}
+            header={<>
                 <RawHtml className="search-result-title" html={title} />
                 {parentPath && <span className="note-suggestion-path"><RawHtml html={parentPath} /></span>}
-            </div>
-            {isCommand
+            </>}
+            details={isCommand
                 ? suggestion.commandDescription && (
                     <span className="note-suggestion-description">{suggestion.commandDescription}</span>
                 )
@@ -603,8 +684,26 @@ function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion 
                     snippet={suggestion.highlightedAttributeSnippet}
                     className="note-suggestion-attributes"
                 />}
+            trailing={<SuggestionShortcut suggestion={suggestion} />}
+        />
+    );
+}
+
+/** A row's content: the icon, the title line, what goes under it, and the keys at the end. */
+function SuggestionRowContent({ icon, header, details, trailing }: {
+    icon: ComponentChildren;
+    header: ComponentChildren;
+    details?: ComponentChildren;
+    trailing?: ComponentChildren;
+}) {
+    return <>
+        {icon}
+        <span className="tn-menu-gap" />
+        <div className="note-suggestion-text">
+            <div className="note-suggestion-header">{header}</div>
+            {details}
         </div>
-        <SuggestionShortcut suggestion={suggestion} />
+        {trailing}
     </>;
 }
 
