@@ -69,13 +69,16 @@ function getRecentNotes(activeNoteId: string): AutocompleteResult[] {
         const notePathArray = rn.notePath.split("/");
 
         const { title, icon } = becca_service.getNoteTitleAndIcon(notePathArray[notePathArray.length - 1]);
-        const notePathTitle = becca_service.getNoteTitleForPath(notePathArray);
+        const pathTitles = becca_service.getNoteTitleArrayForPath(notePathArray);
+        const notePathTitle = pathTitles.join(" › ");
 
         return {
             notePath: rn.notePath,
             noteTitle: title,
             notePathTitle,
             highlightedNotePathTitle: escapeHtml(notePathTitle || title),
+            highlightedNoteTitle: escapeHtml(pathTitles.at(-1) ?? title),
+            highlightedParentPathTitle: escapeHtml(pathTitles.slice(0, -1).join(" › ")),
             icon: icon ?? "bx bx-note",
             utcDateVisited: rn.utcDateCreated
         };

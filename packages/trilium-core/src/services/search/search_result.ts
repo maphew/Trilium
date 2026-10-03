@@ -76,6 +76,8 @@ class SearchResult {
     private __pathTitleSegments?: string[];
     private __notePathTitle?: string;
     highlightedNotePathTitle?: string;
+    highlightedNoteTitle?: string;
+    highlightedParentPathTitle?: string;
     contentSnippet?: string;
     highlightedContentSnippet?: string;
     attributeSnippet?: string;
@@ -107,6 +109,16 @@ class SearchResult {
         }
 
         return this.__notePathTitle;
+    }
+
+    /** The note's own segment of {@link notePathTitle}. */
+    get noteTitleSegment(): string {
+        return this.pathTitleSegments.at(-1) ?? "";
+    }
+
+    /** The segments of {@link notePathTitle} before the note's own, empty for a top-level note. */
+    get parentPathTitle(): string {
+        return this.pathTitleSegments.slice(0, -1).join(" › ");
     }
 
     get notePath() {

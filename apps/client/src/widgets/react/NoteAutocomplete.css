@@ -48,7 +48,35 @@
 
     /* Lets a badge too long for the row shrink to its width and end in an ellipsis. */
     .note-suggestion-text {
+        flex: 1 1 auto;
         min-width: 0;
+    }
+
+    /*
+     * The title, then the path to the note at the end of the line, as the search results' cards set
+     * them. A path with no room beside the title moves under it rather than squeezing it.
+     */
+    .note-suggestion-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 12px;
+    }
+
+    .search-result-title {
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+
+    .note-suggestion-path {
+        flex: 0 1 auto;
+        min-width: 0;
+        margin-inline-start: auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.85em;
+        color: var(--muted-text-color);
     }
 
     .note-suggestion-description {
@@ -69,7 +97,7 @@
     }
 
     /* The search's matches, in the colors quick_search.css gives them, at the row's own weight. */
-    :is(.search-result-title, .note-suggestion-attributes) b {
+    :is(.search-result-title, .note-suggestion-path, .note-suggestion-attributes) b {
         background: var(--note-list-view-search-result-highlight-background, transparent);
         color:
             var(--note-list-view-search-result-highlight-color, var(--admonition-warning-accent-color));

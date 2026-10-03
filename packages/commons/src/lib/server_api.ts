@@ -382,6 +382,10 @@ export interface SearchResultDetails {
     noteTitle: string;
     notePathTitle: string;
     highlightedNotePathTitle?: string;
+    /** The note's own title as the path shows it, highlighted. */
+    highlightedNoteTitle?: string;
+    /** The path to the note, without its own title, highlighted; empty for a top-level note. */
+    highlightedParentPathTitle?: string;
     contentSnippet?: string;
     highlightedContentSnippet?: string;
     attributeSnippet?: string;
@@ -395,7 +399,8 @@ export interface SearchResultDetails {
  * time of the visit.
  */
 export type AutocompleteResult = Pick<SearchResultDetails, "notePath" | "noteTitle" | "notePathTitle"
-    | "highlightedNotePathTitle" | "attributeSnippet" | "highlightedAttributeSnippet" | "icon"> & {
+    | "highlightedNotePathTitle" | "highlightedNoteTitle" | "highlightedParentPathTitle"
+    | "attributeSnippet" | "highlightedAttributeSnippet" | "icon"> & {
     /** When the note was last visited, as `recent_notes.utcDateCreated` holds it. */
     utcDateVisited?: string;
 };

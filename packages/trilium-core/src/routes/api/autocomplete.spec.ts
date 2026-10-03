@@ -17,6 +17,8 @@ interface AutocompleteResult {
     highlightedNotePathTitle: string;
     icon: string;
     utcDateVisited?: string;
+    highlightedNoteTitle?: string;
+    highlightedParentPathTitle?: string;
 }
 
 describe("Autocomplete API (core)", () => {
@@ -44,6 +46,31 @@ describe("Autocomplete API (core)", () => {
             expect(match?.notePath).toBeTruthy();
             expect(typeof match?.highlightedNotePathTitle).toBe("string");
             expect(match?.icon).toBeTruthy();
+        });
+
+        it("splits a result's path into the note's title and the path to it, both highlighted", async () => {
+            const stamp = Date.now();
+            const { noteId: shelfId } = await createTextNote(api, { title: `Shelf ${stamp}` });
+            const { noteId } = await createTextNote(api, { parentNoteId: shelfId, title: `Ledger <${stamp}>` });
+
+            const found = await api.get<AutocompleteResult[]>("/api/autocomplete", {
+                query: { query: `ledger ${stamp}` }
+            });
+            const match = found.body.find((r) => r.notePath.endsWith(noteId));
+            expect(match?.highlightedNoteTitle).toBe(`<b>Ledger</b> &lt;<b>${stamp}</b>&gt;`);
+            expect(match?.highlightedParentPathTitle).toBe(`Shelf <b>${stamp}</b>`);
+            // A note at the top level has no path to it.
+            const shelf = await api.get<AutocompleteResult[]>("/api/autocomplete", {
+                query: { query: `shelf ${stamp}` }
+            });
+            expect(shelf.body.find((r) => r.notePath.endsWith(shelfId))?.highlightedParentPathTitle).toBe("");
+
+            // The recent notes come split too, escaped as there is nothing to highlight.
+            await api.post("/api/recent-notes", { body: { noteId, notePath: `root/${shelfId}/${noteId}` } });
+            const recent = await api.get<AutocompleteResult[]>("/api/autocomplete", { query: { query: "" } });
+            const visited = recent.body.find((r) => r.notePath.endsWith(noteId));
+            expect(visited?.highlightedNoteTitle).toBe(`Ledger &lt;${stamp}&gt;`);
+            expect(visited?.highlightedParentPathTitle).toBe(`Shelf ${stamp}`);
         });
 
         it("returns recent notes for an empty query, with when each was visited", async () => {

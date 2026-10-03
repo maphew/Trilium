@@ -220,6 +220,38 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(document.querySelector(".note-autocomplete-menu .dropdown-header")).toBeNull();
     });
 
+    it("reports the highlighted suggestion as the keys move, and none once the list closes", async () => {
+        const onHighlight = vi.fn();
+        const input = await mount({ onHighlight });
+        await type(input, "al");
+        expect(onHighlight).toHaveBeenLastCalledWith(notes[0]);
+
+        await press(input, "ArrowDown");
+        expect(onHighlight).toHaveBeenLastCalledWith(notes[1]);
+
+        await press(input, "Escape");
+        expect(onHighlight).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it("shows a note's title first and the path to it after, while other rows keep their one title", async () => {
+        getNoteSuggestions.mockResolvedValue([
+            { ...notes[1], highlightedNoteTitle: "<b>Be</b>ta", highlightedParentPathTitle: "X" },
+            { ...notes[0], highlightedNoteTitle: "Alpha", highlightedParentPathTitle: "" },
+            { action: "create-note", noteTitle: "be", highlightedNotePathTitle: "Create be" }
+        ]);
+        const input = await mount();
+        await type(input, "be");
+
+        const [ beta, alpha ] = rows();
+        expect(beta.querySelector(".search-result-title")?.innerHTML).toBe("<b>Be</b>ta");
+        expect(beta.querySelector(".note-suggestion-path")?.innerHTML).toBe("X");
+        // A top-level note has no path to show.
+        expect(alpha.querySelector(".note-suggestion-path")).toBeNull();
+        const create = allRows().find((row) => row.querySelector(".bx-plus"));
+        expect(create?.querySelector(".search-result-title")?.textContent).toBe("Create be");
+        expect(create?.querySelector(".note-suggestion-path")).toBeNull();
+    });
+
     it("lists the notes as the rows of a menu, the first one highlighted", async () => {
         const input = await mount();
         await type(input, "al");

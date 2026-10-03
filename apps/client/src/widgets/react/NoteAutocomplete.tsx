@@ -58,6 +58,8 @@ export interface NoteAutocompleteProps {
      * Note does.
      */
     searchFooter?: boolean;
+    /** Called with the suggestion the list highlights, or `undefined` while it highlights none. */
+    onHighlight?: (suggestion: Suggestion | undefined) => void;
 }
 
 /** Drives a note autocomplete from outside it, for a caller that decides when. */
@@ -75,7 +77,7 @@ export interface NoteAutocompleteHandle {
     clear(): void;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef, searchFooter }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef, searchFooter, onHighlight }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
@@ -171,6 +173,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         keepOpenOnPick: (suggestion) => suggestion.action === "full-text-search",
         schedule
     });
+
+    const highlighted = autocomplete.isShown ? autocomplete.items[autocomplete.activeIndex] : undefined;
+    const onHighlightRef = useRef(onHighlight);
+    onHighlightRef.current = onHighlight;
+    useEffect(() => onHighlightRef.current?.(highlighted), [ highlighted ]);
 
     /** Drops the selected note, and reports that to the host. */
     function clearSelection() {
@@ -511,12 +518,21 @@ function NoteSuggestionMenuItem({ suggestion }: { suggestion: Suggestion }) {
 function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion }) {
     const isCommand = suggestion.action === "command";
     const icon = isCommand ? (suggestion.icon || "bx bx-terminal") : suggestionIcon(suggestion);
+    // A note leads with its own title, the path to it after, as the search results do; the rows the
+    // client builds itself have only the one title.
+    const title = suggestion.highlightedNoteTitle ?? suggestion.highlightedNotePathTitle ?? "";
+    const parentPath = suggestion.highlightedNoteTitle !== undefined
+        ? suggestion.highlightedParentPathTitle
+        : undefined;
 
     return <>
         <Icon icon={icon} />
         <span className="tn-menu-gap" />
         <div className="note-suggestion-text">
-            <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
+            <div className="note-suggestion-header">
+                <RawHtml className="search-result-title" html={title} />
+                {parentPath && <RawHtml className="note-suggestion-path" html={parentPath} />}
+            </div>
             {isCommand
                 ? suggestion.commandDescription && (
                     <span className="note-suggestion-description">{suggestion.commandDescription}</span>

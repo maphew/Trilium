@@ -871,6 +871,8 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
             noteTitle: title,
             notePathTitle: result.notePathTitle,
             highlightedNotePathTitle: result.highlightedNotePathTitle,
+            highlightedNoteTitle: result.highlightedNoteTitle,
+            highlightedParentPathTitle: result.highlightedParentPathTitle,
             contentSnippet: result.contentSnippet,
             highlightedContentSnippet: result.highlightedContentSnippet,
             attributeSnippet: result.attributeSnippet,
@@ -895,6 +897,8 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     // The only characters that have to go are the { } markers themselves.
     for (const result of searchResults) {
         result.highlightedNotePathTitle = result.notePathTitle.replace(MARKER_CHARS, "");
+        result.highlightedNoteTitle = result.noteTitleSegment.replace(MARKER_CHARS, "");
+        result.highlightedParentPathTitle = result.parentPathTitle.replace(MARKER_CHARS, "");
 
         // Initialize highlighted content snippet, preserving newlines for later conversion to <br>
         if (result.contentSnippet) {
@@ -910,6 +914,8 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     for (const tokenInfo of tokenInfos) {
         for (const result of searchResults) {
             result.highlightedNotePathTitle = highlightField(result.highlightedNotePathTitle, tokenInfo);
+            result.highlightedNoteTitle = highlightField(result.highlightedNoteTitle, tokenInfo);
+            result.highlightedParentPathTitle = highlightField(result.highlightedParentPathTitle, tokenInfo);
             result.highlightedContentSnippet = highlightField(result.highlightedContentSnippet, tokenInfo);
             result.highlightedAttributeSnippet = highlightField(result.highlightedAttributeSnippet, tokenInfo);
         }
@@ -918,6 +924,14 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     for (const result of searchResults) {
         if (result.highlightedNotePathTitle) {
             result.highlightedNotePathTitle = renderHighlights(result.highlightedNotePathTitle);
+        }
+
+        if (result.highlightedNoteTitle) {
+            result.highlightedNoteTitle = renderHighlights(result.highlightedNoteTitle);
+        }
+
+        if (result.highlightedParentPathTitle) {
+            result.highlightedParentPathTitle = renderHighlights(result.highlightedParentPathTitle);
         }
 
         if (result.highlightedContentSnippet) {
