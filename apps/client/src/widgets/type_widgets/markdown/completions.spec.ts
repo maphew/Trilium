@@ -219,11 +219,10 @@ describe("buildSlashCommands", () => {
         expect(byId("table")).toMatchObject({ title: "markdown_slash_commands.titles.table", aliases: [ "table", "grid" ] });
         expect(byId("table")?.iconSvg).toContain("<svg");
         expect(byId("tip")?.iconSvg).toContain("<svg");
-        expect(byId("todo:done")).toMatchObject({ aliases: expect.arrayContaining([ "todo:done", "done" ]), icon: "bx bx-done", startsGroup: true });
-        expect(byId("snippet:Greeting")).toMatchObject({ title: "Greeting", description: "Says hello", icon: "bx bx-code-curly", startsGroup: true });
-        expect(byId("date")?.startsGroup).toBeUndefined();
-        expect(byId("tip")?.startsGroup).toBeUndefined();
-        expect(byId("note")?.startsGroup).toBe(true);
+        expect(byId("todo:done")).toMatchObject({ aliases: expect.arrayContaining([ "todo:done", "done" ]), icon: "bx bx-done" });
+        expect(byId("snippet:Greeting")).toMatchObject({ title: "Greeting", description: "Says hello", icon: "bx bx-code-curly" });
+        // One run of commands, with no dividers, as the text editor lists them.
+        expect(entries.some((entry) => entry.startsGroup)).toBe(false);
     });
 
     it("replaces the typed command with what it inserts", () => {

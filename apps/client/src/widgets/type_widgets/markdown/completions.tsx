@@ -122,8 +122,7 @@ export function slashCommandAt(before: string, _explicit: boolean, state: Editor
 /**
  * The commands the `/` list offers, titled, described, found by the same words and drawn with the same
  * icons as the text editor's, where it has the command too. Each is found by the word typed after the
- * `/` as well, such as `todo:done`. In groups: the inserts, the diagrams, the blocks, the callouts, the
- * tasks and the snippets.
+ * `/` as well, such as `todo:done`.
  */
 export function buildSlashCommands({ parentComponent, note, editorView, taskStates, snippets }: SlashCommandContext): SlashCommand[] {
     /** Removes the typed command, then runs one of the text editor's commands in its place. */
@@ -217,7 +216,7 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
         }),
         // One `/mermaid:<type>` per sample diagram (e.g. `/mermaid:flowchart`), pre-filling the
         // fenced block with that template's source.
-        ...grouped(SAMPLE_DIAGRAMS.map((sample) => command(`mermaid:${sample.name.toLowerCase().replace(/\s+/g, "-")}`, {
+        ...SAMPLE_DIAGRAMS.map((sample) => command(`mermaid:${sample.name.toLowerCase().replace(/\s+/g, "-")}`, {
             title: t("markdown_slash_commands.titles.mermaid_template", { name: sample.name }),
             description: t("markdown_slash_commands.mermaid_template", { name: sample.name }),
             aliases: [ "mermaid", "diagram", sample.name ],
@@ -228,62 +227,60 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 changes: { from, to, insert: template },
                 selection: { anchor: from + 11 }
             });
-        }))),
-        ...grouped([
-            command("collapsible", {
-                title: t("markdown_slash_commands.titles.collapsible"),
-                description: t("markdown_slash_commands.collapsible"),
-                aliases: [ "details", "fold", "toggle", "collapse", "expand", "accordion", "spoiler", "summary", "disclosure", "hide" ],
-                iconSvg: collapsibleIcon
-            }, (view, from, to) => {
-                // No native markdown syntax — round-trips through the importer as raw
-                // <details>/<summary> HTML (see markdown.ts).
-                const placeholder = t("markdown_slash_commands.placeholders.collapsible_summary");
-                const open = `<details class="trilium-collapsible">\n<summary>`;
-                const close = `</summary>\n\n${t("markdown_slash_commands.placeholders.collapsible_details")}\n\n</details>`;
-                const anchor = from + open.length;
-                view.dispatch({
-                    changes: { from, to, insert: open + placeholder + close },
-                    selection: { anchor, head: anchor + placeholder.length }
-                });
-            }),
-            command("page-break", {
-                title: t("markdown_slash_commands.titles.page_break"),
-                description: t("markdown_slash_commands.page_break"),
-                iconSvg: IconPageBreak
-            }, (view, from, to) => {
-                // No native markdown syntax — round-trips through the importer as raw HTML and
-                // drives the print/PDF page break (see print.css). The trailing blank line ends the
-                // raw-HTML block; without it the text on the next line is swallowed into the <div>.
-                const insert = `<div class="page-break"></div>\n\n`;
-                view.dispatch({
-                    changes: { from, to, insert },
-                    selection: { anchor: from + insert.length }
-                });
-            }),
-            command("table", {
-                title: t("markdown_slash_commands.titles.table"),
-                description: t("markdown_slash_commands.table"),
-                aliases: [ "grid" ],
-                iconSvg: IconTable
-            }, (view, from, to) => {
-                // GFM table skeleton. The trailing blank line ends the table block so following text
-                // isn't absorbed into it.
-                const header = t("markdown_slash_commands.placeholders.table_column", { number: 1 });
-                const table = [
-                    `| ${header} | ${t("markdown_slash_commands.placeholders.table_column", { number: 2 })} |`,
-                    `| -------- | -------- |`,
-                    `|          |          |`
-                ].join("\n");
-                // Selects the first header cell, past the leading "| ", for the first column's name.
-                const anchor = from + 2;
-                view.dispatch({
-                    changes: { from, to, insert: `${table}\n\n` },
-                    selection: { anchor, head: anchor + header.length }
-                });
-            })
-        ]),
-        ...grouped(admonitions().map(({ type, title, icon }) => command(type, {
+        })),
+        command("collapsible", {
+            title: t("markdown_slash_commands.titles.collapsible"),
+            description: t("markdown_slash_commands.collapsible"),
+            aliases: [ "details", "fold", "toggle", "collapse", "expand", "accordion", "spoiler", "summary", "disclosure", "hide" ],
+            iconSvg: collapsibleIcon
+        }, (view, from, to) => {
+            // No native markdown syntax — round-trips through the importer as raw
+            // <details>/<summary> HTML (see markdown.ts).
+            const placeholder = t("markdown_slash_commands.placeholders.collapsible_summary");
+            const open = `<details class="trilium-collapsible">\n<summary>`;
+            const close = `</summary>\n\n${t("markdown_slash_commands.placeholders.collapsible_details")}\n\n</details>`;
+            const anchor = from + open.length;
+            view.dispatch({
+                changes: { from, to, insert: open + placeholder + close },
+                selection: { anchor, head: anchor + placeholder.length }
+            });
+        }),
+        command("page-break", {
+            title: t("markdown_slash_commands.titles.page_break"),
+            description: t("markdown_slash_commands.page_break"),
+            iconSvg: IconPageBreak
+        }, (view, from, to) => {
+            // No native markdown syntax — round-trips through the importer as raw HTML and
+            // drives the print/PDF page break (see print.css). The trailing blank line ends the
+            // raw-HTML block; without it the text on the next line is swallowed into the <div>.
+            const insert = `<div class="page-break"></div>\n\n`;
+            view.dispatch({
+                changes: { from, to, insert },
+                selection: { anchor: from + insert.length }
+            });
+        }),
+        command("table", {
+            title: t("markdown_slash_commands.titles.table"),
+            description: t("markdown_slash_commands.table"),
+            aliases: [ "grid" ],
+            iconSvg: IconTable
+        }, (view, from, to) => {
+            // GFM table skeleton. The trailing blank line ends the table block so following text
+            // isn't absorbed into it.
+            const header = t("markdown_slash_commands.placeholders.table_column", { number: 1 });
+            const table = [
+                `| ${header} | ${t("markdown_slash_commands.placeholders.table_column", { number: 2 })} |`,
+                `| -------- | -------- |`,
+                `|          |          |`
+            ].join("\n");
+            // Selects the first header cell, past the leading "| ", for the first column's name.
+            const anchor = from + 2;
+            view.dispatch({
+                changes: { from, to, insert: `${table}\n\n` },
+                selection: { anchor, head: anchor + header.length }
+            });
+        }),
+        ...admonitions().map(({ type, title, icon }) => command(type, {
             title,
             description: t("markdown_slash_commands.admonition", { type }),
             aliases: [ "admonition", "box" ],
@@ -294,10 +291,10 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 changes: { from, to, insert: template },
                 selection: { anchor: from + template.length }
             });
-        }))),
+        })),
         // One `/todo:<state>` per configured task state that has a markdown marker — the ` `
         // (unchecked) and `x` (checked) anchors are markers too, so both are covered.
-        ...grouped(taskStates
+        ...taskStates
             .filter((state) => state.markdownSymbol)
             .map((state) => {
                 // Anchors (`none`/`done`) are the standard `[ ]`/`[x]`; custom states use
@@ -315,8 +312,8 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                     const insert = buildTaskItemInsert(state.markdownSymbol, precededByBullet);
                     view.dispatch({ changes: { from, to, insert } });
                 });
-            })),
-        ...grouped(snippets.map((snippet) => command(`snippet:${snippet.title}`, {
+            }),
+        ...snippets.map((snippet) => command(`snippet:${snippet.title}`, {
             title: snippet.title,
             description: snippet.description,
             aliases: [ "snippet", "template" ],
@@ -326,7 +323,7 @@ export function buildSlashCommands({ parentComponent, note, editorView, taskStat
                 changes: { from, to, insert: snippet.content },
                 selection: { anchor: from + snippet.content.length }
             });
-        })))
+        }))
     ];
 }
 
@@ -347,11 +344,6 @@ function admonitions() {
 /** A command typed as `/name`, which `name` finds as well as its title and aliases. */
 function command(name: string, entry: Omit<SlashCommand, "id" | "apply">, apply: HostedCompletionApply): SlashCommand {
     return { ...entry, id: name, aliases: [ name, ...(entry.aliases ?? []) ], apply };
-}
-
-/** Sets `commands` apart from those before them with a divider. */
-function grouped(commands: SlashCommand[]) {
-    return commands.map((entry, index) => (index === 0 ? { ...entry, startsGroup: true } : entry));
 }
 
 /** The `/` list, drawn as the text editor's, which runs the command picked on the typed `/command`. */
