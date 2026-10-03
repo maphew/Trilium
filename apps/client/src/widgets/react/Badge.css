@@ -55,6 +55,61 @@
     }
 }
 
+/*
+ * An attribute a search matched: its kind's icon and its name, then its value in a tinted segment
+ * reaching the badge's end. Muted unless the host sets `--color`.
+ */
+.ext-badge.attribute-badge {
+    overflow: hidden;
+    border-color: var(--color, var(--muted-text-color));
+    color: var(--color, var(--muted-text-color));
+
+    &.has-value {
+        padding-inline-end: 0;
+    }
+
+    /* Centered by the badge, so it takes none of the Next theme's `.dropdown-item .tn-icon` offset. */
+    .tn-icon {
+        translate: none;
+    }
+
+    > span,
+    .text {
+        align-self: stretch;
+    }
+
+    .text {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .attribute-badge-name {
+        flex-shrink: 0;
+        max-width: 50%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .attribute-badge-value {
+        display: flex;
+        align-items: center;
+        align-self: stretch;
+        min-width: 0;
+        margin-inline-start: 6px;
+        padding-inline: 6px 8px;
+        border-inline-start: 1px solid var(--color, var(--muted-text-color));
+        background: color-mix(in srgb, var(--color, var(--muted-text-color)) 15%, transparent);
+        color: var(--main-text-color);
+
+        > span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+}
+
 .dropdown-badge {
     min-width: 0;
     overflow: hidden;

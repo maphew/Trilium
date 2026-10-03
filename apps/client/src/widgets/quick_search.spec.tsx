@@ -75,7 +75,8 @@ describe("QuickSearch", () => {
         expect(first.querySelector(".quick-search-item-icon")?.classList.contains("bx-note")).toBe(true);
         expect(first.querySelector(".search-result-title")?.innerHTML).toBe("<b>Note</b> 0");
         const badges = first.querySelectorAll(".search-result-attributes > .ext-badge.outline");
-        expect([ ...badges ].map((badge) => badge.textContent)).toEqual([ "#year=1954", "#author=tolkien" ]);
+        const values = [ ...badges ].map((badge) => badge.querySelector(".attribute-badge-value")?.textContent);
+        expect(values).toEqual([ "1954", "tolkien" ]);
         expect(first.querySelector(".search-result-content")?.innerHTML).toBe("about <b>hello</b>");
     });
 
@@ -552,7 +553,7 @@ function response(count: number, highlightedTokens: string[]): QuickSearchRespon
         noteTitle: `Note ${index}`,
         notePathTitle: `Note ${index}`,
         highlightedNotePathTitle: `<b>Note</b> ${index}`,
-        highlightedAttributeSnippet: "#year=1954<br>#author=tolkien",
+        highlightedAttributeSnippet: "#year=&quot;1954&quot;<br>#author=&quot;tolkien&quot;",
         highlightedContentSnippet: "about <b>hello</b>",
         icon: "bx bx-note"
     }));

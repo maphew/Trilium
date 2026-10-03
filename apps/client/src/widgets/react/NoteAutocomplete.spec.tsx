@@ -123,7 +123,7 @@ describe("NoteAutocomplete's suggestion list", () => {
     const notes: Suggestion[] = [
         { notePath: "root/a", noteTitle: "Alpha", notePathTitle: "Alpha", highlightedNotePathTitle: "<b>Al</b>pha", icon: "bx bx-file" },
         { notePath: "root/x/b", noteTitle: "Beta", notePathTitle: "X / Beta", highlightedNotePathTitle: "X / Beta",
-            highlightedAttributeSnippet: "#tag<br>#status=\"<b>al</b>\"" }
+            highlightedAttributeSnippet: "#tag<br>#status=&quot;<b>al</b>&quot;" }
     ];
     const commands: Suggestion[] = [
         { action: "command", commandId: "cmd1", noteTitle: "Cmd One", highlightedNotePathTitle: "Cmd One",
@@ -205,8 +205,9 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(beta.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
         // One outline badge per attribute, its highlight kept.
         const badges = beta.querySelectorAll(".note-suggestion-attributes > .ext-badge.outline");
-        expect([ ...badges ].map((badge) => badge.textContent)).toEqual([ "#tag", "#status=\"al\"" ]);
-        expect(badges[1].querySelector("b")?.textContent).toBe("al");
+        const names = [ ...badges ].map((badge) => badge.querySelector(".attribute-badge-name")?.textContent);
+        expect(names).toEqual([ "tag", "status" ]);
+        expect(badges[1].querySelector(".attribute-badge-value b")?.textContent).toBe("al");
         expect(input.getAttribute("aria-expanded")).toBe("true");
         expect(input.getAttribute("aria-activedescendant")).toBe(alpha.id);
     });

@@ -57,7 +57,8 @@ export function Badge({ icon, className, text, tooltip, href, outline, ...contai
 
 /**
  * A search result's `highlightedAttributeSnippet`, which the server joins with `<br>`, as one outline
- * badge per attribute, its search highlights kept.
+ * badge per attribute, its search highlights kept: the icon of its kind, its name, and its value in a
+ * segment of its own. A line that does not parse is shown as it came.
  */
 export function AttributeSnippetBadges({ snippet, className }: { snippet: string | undefined; className: string }) {
     const lines = snippet?.split(/<br\s*\/?>/i).map((line) => line.trim()).filter(Boolean);
@@ -65,11 +66,51 @@ export function AttributeSnippetBadges({ snippet, className }: { snippet: string
 
     return (
         <div className={className}>
-            {lines.map((line, index) => (
-                <Badge key={index} outline text={<RawHtml html={line} />} />
-            ))}
+            {lines.map((line, index) => {
+                const attribute = parseAttributeSnippetLine(line);
+                if (!attribute) {
+                    return <Badge key={index} outline text={<RawHtml html={line} />} />;
+                }
+
+                return (
+                    <Badge
+                        key={index}
+                        outline
+                        className={clsx("attribute-badge", { "has-value": !!attribute.value })}
+                        icon={attribute.type === "label" ? "bx bx-purchase-tag" : "bx bx-transfer"}
+                        text={<>
+                            <RawHtml className="attribute-badge-name" html={attribute.name} />
+                            {attribute.value && (
+                                // The segment spans the badge's height; the text in it can end in an
+                                // ellipsis, which a flex container's own text cannot.
+                                <span className="attribute-badge-value"><RawHtml html={attribute.value} /></span>
+                            )}
+                        </>}
+                    />
+                );
+            })}
         </div>
     );
+}
+
+/** One attribute of a search result's snippet, its name and value as highlighted HTML. */
+export interface AttributeSnippetLine {
+    type: "label" | "relation";
+    name: string;
+    value?: string;
+}
+
+/**
+ * Reads a line of `highlightedAttributeSnippet` as `extractAttributeSnippet()` writes it, `#name`,
+ * `#name="value"` or `~name="target title"`, escaped, so its quotes arrive as `&quot;`. Returns
+ * `null` for a line in no such shape, such as one the server cut short.
+ */
+export function parseAttributeSnippetLine(line: string): AttributeSnippetLine | null {
+    const match = /^([#~])(.+?)(?:=&quot;(.*)&quot;)?$/s.exec(line);
+    if (!match || match[2].includes("=&quot;")) return null;
+
+    const [ , prefix, name, value ] = match;
+    return { type: prefix === "#" ? "label" : "relation", name, ...(value ? { value } : {}) };
 }
 
 export function BadgeWithDropdown({ text, children, tooltip, className, dropdownProps, ...props }: BadgeProps & {
