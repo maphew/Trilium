@@ -67,6 +67,20 @@
             --color: var(--muted-text-color);
         }
     }
+
+    /* The search's matches, in the colors quick_search.css gives them, at the row's own weight. */
+    :is(.search-result-title, .note-suggestion-attributes) b {
+        background: var(--note-list-view-search-result-highlight-background, transparent);
+        color:
+            var(--note-list-view-search-result-highlight-color, var(--admonition-warning-accent-color));
+        font-weight: inherit;
+        text-decoration: underline;
+
+        &.search-fuzzy-match {
+            color: var(--quick-search-result-fuzzy-highlight-color, #e47b19);
+            text-decoration: underline dotted;
+        }
+    }
 }
 
 /*
