@@ -39,6 +39,7 @@ import ImageActions from "./plugins/image_actions.js";
 import ClipboardBareImage from "./plugins/clipboard_bare_image.js";
 import ClipboardImageEmbed from "./plugins/clipboard_image_embed.js";
 import ClipboardPageStyles from "./plugins/clipboard_page_styles.js";
+import PasteFromVsCode from "./plugins/paste_from_vscode.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 import TriliumAiAssistant from "./plugins/ai_assistant/ai_assistant.js";
 
@@ -115,6 +116,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     ClipboardImageEmbed,
     ClipboardBareImage,
     ClipboardPageStyles,
+    PasteFromVsCode,
     AdaptiveColors,
     TriliumSnippets,
     TriliumAiAssistant,
