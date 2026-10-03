@@ -52,15 +52,20 @@
         min-width: 0;
     }
 
+    /* The icon stands beside the title's line, not in the middle of a row its badges make taller. */
+    > span:not([class]) {
+        align-items: baseline;
+    }
+
     /*
-     * The title, then the path to the note at the end of the line, as the search results' cards set
-     * them. A path with no room beside the title moves under it rather than squeezing it.
+     * The title, then the path to the note at the end of the same line, as the search results' cards
+     * set them. Short of room, the path gives way four times as fast as the title, which wraps within
+     * what is left, and the path is cut short.
      */
     .note-suggestion-header {
         display: flex;
-        flex-wrap: wrap;
         align-items: baseline;
-        gap: 0 12px;
+        gap: 12px;
     }
 
     .search-result-title {
@@ -69,14 +74,33 @@
     }
 
     .note-suggestion-path {
-        flex: 0 1 auto;
-        min-width: 0;
+        flex: 0 4 auto;
+        min-width: min(25%, 8em);
         margin-inline-start: auto;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         font-size: 0.85em;
         color: var(--muted-text-color);
+    }
+
+    /*
+     * Cut at its start rather than its end, so the parents nearest the note stay in view: laid out
+     * right to left, the overflow and its ellipsis fall on the left, while the isolated text inside
+     * keeps its own order. Right-to-left interfaces keep the cut at the end.
+     */
+    body:not([dir=rtl]) & .note-suggestion-path {
+        direction: rtl;
+        /* Logical margins follow the box's own direction, so its inline end is the line's left. */
+        margin-inline: 0 auto;
+        /* A short path in a box held wider by its minimum ends at the right, against the menu's
+           inherited `text-align: left`. */
+        text-align: right;
+
+        > span {
+            direction: ltr;
+            unicode-bidi: isolate;
+        }
     }
 
     .note-suggestion-description {

@@ -531,7 +531,7 @@ function NoteSuggestionMenuItemContent({ suggestion }: { suggestion: Suggestion 
         <div className="note-suggestion-text">
             <div className="note-suggestion-header">
                 <RawHtml className="search-result-title" html={title} />
-                {parentPath && <RawHtml className="note-suggestion-path" html={parentPath} />}
+                {parentPath && <span className="note-suggestion-path"><RawHtml html={parentPath} /></span>}
             </div>
             {isCommand
                 ? suggestion.commandDescription && (

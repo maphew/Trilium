@@ -244,7 +244,8 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         const [ beta, alpha ] = rows();
         expect(beta.querySelector(".search-result-title")?.innerHTML).toBe("<b>Be</b>ta");
-        expect(beta.querySelector(".note-suggestion-path")?.innerHTML).toBe("X");
+        // Wrapped, so a path too long for the row can be cut at its start, keeping the nearest parents.
+        expect(beta.querySelector(".note-suggestion-path > span")?.innerHTML).toBe("X");
         // A top-level note has no path to show.
         expect(alpha.querySelector(".note-suggestion-path")).toBeNull();
         const create = allRows().find((row) => row.querySelector(".bx-plus"));
