@@ -283,6 +283,22 @@ describe("TriliumMentionUI", () => {
             expect(text()).toBe("<paragraph>x @ga</paragraph>");
         });
 
+        it("leaves the text as it is for a pick arriving after the list closed, or a commit that fails", async () => {
+            setModelData(editor.model, "<paragraph>x []</paragraph>");
+            type("#al");
+            const commit = labels.state?.commit;
+            moveCaretTo(0);
+            commit?.({ id: "#alpha", text: "#alpha" });
+            expect(text()).toBe("<paragraph>x #al</paragraph>");
+
+            setModelData(editor.model, "<paragraph>x []</paragraph>");
+            type("#be");
+            labels.state?.commit(Promise.reject(new Error("canceled")));
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(text()).toBe("<paragraph>x #be</paragraph>");
+        });
+
         it("hands the item to the feed's commit with the trigger text gone, unless it went stale", async () => {
             const commit = vi.fn();
             const canCommit = vi.fn(() => true);
@@ -321,6 +337,19 @@ describe("TriliumMentionUI", () => {
 
             expect(labels.show).not.toHaveBeenCalled();
         });
+    });
+
+    it("places the list at the caret once the marked text was undone away", () => {
+        // The undos are invisible to the text watcher, so the list stays open on a marker whose range
+        // has meanwhile been moved to the graveyard.
+        editor.execute("enter");
+        type("#al");
+        const caretRect = labels.state?.caretRect;
+        editor.execute("undo");
+        editor.execute("undo");
+
+        expect(editor.model.markers.get("mention")?.getRange().root.rootName).toBe("$graveyard");
+        expect(caretRect?.().height).toBeGreaterThan(0);
     });
 
     it("tolerates being initialised before MentionEditing registers the mention command", async () => {

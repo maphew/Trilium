@@ -83,6 +83,7 @@ export default class TriliumMentionUI extends Plugin {
         clickOutsideHandler({
             emitter: this._domEmitter,
             activator: () => !!this._open?.hostedList.element,
+            /* v8 ignore next -- `clickOutsideHandler` only calls `contextElements()` once the activator reported the list showing, so its element is never null */
             contextElements: () => {
                 const element = this._open?.hostedList.element;
                 return element ? [ element ] : [];
@@ -240,6 +241,7 @@ export default class TriliumMentionUI extends Plugin {
                 const { left, top, width, height } = this._caretRect(marker);
                 return new DOMRect(left, top, width, height);
             },
+            /* v8 ignore next -- a live editor's editing view always has its DOM root, so the `?? null` arm never runs */
             editable: this.editor.editing.view.getDomRoot() ?? null,
             commit: (item) => this._commit(feed, item)
         });

@@ -770,18 +770,21 @@ describe("buildTriliumSlashCommands", () => {
 
     // The balloon needs the view and mapper settled, which they are not until the slash command has
     // finished its own DOM and selection cleanup.
-    it("defers the anchor form to the next tick", async () => {
+    it.each([
+        [ "anchor", BookmarkUI, "_showFormView" ],
+        [ "icon", InlineIconUI, "showPicker" ]
+    ] as const)("defers the %s entry's balloon to the next tick", (id, plugin, method) => {
         vi.useFakeTimers();
         try {
             const { fake, pluginInstances } = makeFakeEditor();
-            const showFormView = vi.fn();
-            pluginInstances.set(BookmarkUI, { _showFormView: showFormView });
+            const show = vi.fn();
+            pluginInstances.set(plugin, { [method]: show });
 
-            definition("anchor").execute?.(fake);
-            expect(showFormView).not.toHaveBeenCalled();
+            definition(id).execute?.(fake);
+            expect(show).not.toHaveBeenCalled();
 
             vi.runAllTimers();
-            expect(showFormView).toHaveBeenCalledOnce();
+            expect(show).toHaveBeenCalledOnce();
         } finally {
             vi.useRealTimers();
         }
