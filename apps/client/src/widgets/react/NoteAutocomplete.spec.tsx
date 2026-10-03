@@ -1160,6 +1160,8 @@ describe("NoteMentionList", () => {
         expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true, limit: 10 });
         expect(rows().map((row) => row.querySelector(".search-result-title")?.innerHTML)).toEqual([ "<b>Al</b>pha", "Beta" ]);
         expect(rows()[0].querySelector(".tn-icon")?.className).toContain("bx-file");
+        // Capped in width by its own class, as it has no field to take a width from.
+        expect(rows()[0].closest(".tn-popup")?.classList.contains("note-mention-menu")).toBe(true);
 
         await draw("alp");
         expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp", { allowCreatingNotes: true, limit: 10 });

@@ -478,7 +478,7 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNoteP
     useForwardedKeys(autocomplete, handleRef);
 
     return autocomplete.isShown && (
-        <NoteSuggestionPopup anchor={anchor} elementRef={elementRef}>
+        <NoteSuggestionPopup anchor={anchor} elementRef={elementRef} className="note-mention-menu">
             <NoteSuggestionMenu autocomplete={autocomplete} className="tn-menu-scroll" />
         </NoteSuggestionPopup>
     );
