@@ -39,7 +39,7 @@ describe("CanvasEmbedTools", () => {
     });
 
     /** A drawing with Excalidraw's container and its undo and redo buttons. */
-    function Drawing() {
+    function Drawing({ isEditable }: { isEditable: boolean }) {
         const rootRef = useRef<HTMLDivElement>(null);
         const apiRef = useRef<ExcalidrawImperativeAPI>(api.api);
         return (
@@ -48,14 +48,14 @@ describe("CanvasEmbedTools", () => {
                     <div className="excalidraw-container" tabIndex={0} />
                     <button type="button" data-testid="button-undo" onClick={() => undo()} />
                     <button type="button" data-testid="button-redo" disabled />
-                    <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} />
+                    <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} isEditable={isEditable} />
                 </div>
             </figure>
         );
     }
 
-    async function mount() {
-        await act(async () => render(<Drawing />, container));
+    async function mount(isEditable = true) {
+        await act(async () => render(<Drawing isEditable={isEditable} />, container));
         const embed = container.querySelector<HTMLElement>("figure.include-note");
         const provider = embed && getContentEmbedTools(embed);
         if (!embed || !provider) {
@@ -73,6 +73,7 @@ describe("CanvasEmbedTools", () => {
         expect(provider.hiddenToolbarItems).toEqual([
             "contentEmbedBoxSizeDropdown", "toggleContentEmbedTitle", "convertEmbedToLink"
         ]);
+        expect(provider.hasEditableFlag).toBe(true);
         const tools = provider.getTools();
         const count = MAIN_TOOL_IDS.length;
         expect(tools[0]).toEqual({
@@ -228,6 +229,33 @@ describe("CanvasEmbedTools", () => {
         provider.execute("moreTools");
         expect(api.setActiveTool).toHaveBeenCalledTimes(2);
         expect(api.updateScene).toHaveBeenCalledTimes(3);
+    });
+
+    it("offers and runs only the zoom while the drawing is read-only", async () => {
+        const { provider } = await mount(false);
+        const listener = vi.fn();
+        provider.subscribe(listener);
+        const getIds = () => provider.getTools().map((tool) => tool.id);
+        expect(getIds()).toEqual([ "zoomOut", "resetZoom", "zoomIn" ]);
+        expect(provider.hasEditableFlag).toBe(true);
+
+        for (const id of [ "rectangle", "frame", "lock", "undo" ]) {
+            provider.execute(id);
+        }
+        expect(api.setActiveTool).not.toHaveBeenCalled();
+        expect(api.updateScene).not.toHaveBeenCalled();
+        expect(undo).not.toHaveBeenCalled();
+
+        provider.execute("zoomIn");
+        expect(api.updateScene).toHaveBeenCalledExactlyOnceWith({
+            appState: expect.objectContaining({ zoom: { value: 1.1 } })
+        });
+
+        await mount(true);
+        expect(listener).toHaveBeenCalledTimes(1);
+        expect(getIds()).toEqual([
+            "lock", ...MAIN_TOOL_IDS, "moreTools", "undo", "redo", "zoomOut", "resetZoom", "zoomIn"
+        ]);
     });
 });
 

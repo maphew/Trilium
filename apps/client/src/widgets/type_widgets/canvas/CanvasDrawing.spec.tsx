@@ -1,16 +1,30 @@
-import { render } from "preact";
+import { type ComponentChildren, render, toChildArray, type VNode } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { AttachmentEditor } from "../../../services/content_renderer";
+
 vi.mock("@excalidraw/excalidraw", () => ({ exportToSvg: vi.fn() }));
 vi.mock("./Canvas", () => ({ CanvasEditor: MockCanvasEditor }));
-vi.mock("./persistence", () => ({ useCanvasDrawingPersistence: () => ({}) }));
+vi.mock("./persistence", () => ({
+    useCanvasDrawingPersistence: (...args: unknown[]) => {
+        persistenceArgs(...args);
+        return {};
+    }
+}));
 
 const canvasEditorProps = vi.fn();
+const persistenceArgs = vi.fn();
+
+interface MockCanvasEditorProps {
+    isDesktopLayout?: boolean;
+    isReadOnly?: boolean;
+    children?: ComponentChildren;
+}
 
 /** Renders Excalidraw's focusable container after a render, as once its language loads. */
-function MockCanvasEditor(props: { isDesktopLayout?: boolean }) {
+function MockCanvasEditor(props: MockCanvasEditorProps) {
     canvasEditorProps(props);
     const [ isLoaded, setIsLoaded ] = useState(false);
     useEffect(() => setIsLoaded(true), []);
@@ -31,6 +45,8 @@ globalThis.ResizeObserver = class {
 const {
     default: CanvasDrawing, useIsToolbarOverPanel, useSidePanels
 } = await import("./CanvasDrawing");
+const { default: CanvasDrawingMenu } = await import("./CanvasDrawingMenu");
+const { default: CanvasEmbedTools } = await import("./CanvasEmbedTools");
 
 /** Horizontal edges by class name; happy-dom computes no layout. */
 const edges: Record<string, { left: number; right: number }> = {
@@ -288,6 +304,7 @@ describe("useSidePanels", () => {
 });
 
 describe("CanvasDrawing", () => {
+    const ATTACHMENT = { attachmentId: "a1" } as never;
     let box: HTMLElement;
 
     beforeEach(() => {
@@ -302,12 +319,72 @@ describe("CanvasDrawing", () => {
         box.remove();
     });
 
-    async function mount() {
+    async function mount(editor?: AttachmentEditor) {
         await act(async () => {
-            render(<CanvasDrawing attachment={{ attachmentId: "a1" } as never} />, box);
+            render(<CanvasDrawing attachment={ATTACHMENT} editor={editor} />, box);
         });
         return box.querySelector(".excalidraw");
     }
+
+    /** Whether the last `CanvasEditor` is read-only, and what its menu and its tools can edit. */
+    function getEditingState() {
+        const props = canvasEditorProps.mock.lastCall?.[0] as MockCanvasEditorProps | undefined;
+        const children = toChildArray(props?.children) as VNode<{ isEditable?: boolean }>[];
+        const getIsEditable = (type: unknown) =>
+            children.find((child) => child.type === type)?.props.isEditable;
+        return {
+            isReadOnly: props?.isReadOnly,
+            menu: getIsEditable(CanvasDrawingMenu),
+            tools: getIsEditable(CanvasEmbedTools)
+        };
+    }
+
+    /** Sets or removes `data-editable`, as the Editable toggle of the embed does. */
+    async function setEmbedEditable(embed: HTMLElement, isEditable: boolean) {
+        await act(async () => {
+            if (isEditable) {
+                embed.setAttribute("data-editable", "true");
+            } else {
+                embed.removeAttribute("data-editable");
+            }
+            await Promise.resolve();
+        });
+    }
+
+    it("follows the Editable toggle of its embed, saving all along", async () => {
+        const editor = { canEdit: () => true, release: vi.fn() } as unknown as AttachmentEditor;
+        const embed = document.createElement("figure");
+        embed.className = "include-note";
+        embed.setAttribute("data-editable", "true");
+        embed.append(box);
+        document.body.append(embed);
+
+        await mount(editor);
+        expect(getEditingState()).toEqual({ isReadOnly: false, menu: true, tools: true });
+
+        await setEmbedEditable(embed, false);
+        expect(getEditingState()).toEqual({ isReadOnly: true, menu: false, tools: false });
+        expect(persistenceArgs).toHaveBeenLastCalledWith(
+            ATTACHMENT, editor, expect.anything(), expect.anything()
+        );
+
+        await setEmbedEditable(embed, true);
+        expect(getEditingState()).toEqual({ isReadOnly: false, menu: true, tools: true });
+
+        // An attachment that the note cannot save is read-only, with no toggle to offer.
+        render(null, box);
+        await mount({ canEdit: () => false } as unknown as AttachmentEditor);
+        expect(getEditingState()).toEqual({ isReadOnly: true, menu: false, tools: undefined });
+        expect(persistenceArgs).toHaveBeenLastCalledWith(
+            ATTACHMENT, undefined, expect.anything(), expect.anything()
+        );
+        embed.remove();
+    });
+
+    it("is editable outside an embed, which has no Editable toggle", async () => {
+        await mount({ canEdit: () => true, release: vi.fn() } as unknown as AttachmentEditor);
+        expect(getEditingState()).toEqual({ isReadOnly: false, menu: true, tools: true });
+    });
 
     it("takes the focus that its embed box holds once Excalidraw renders", async () => {
         box.focus();

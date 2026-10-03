@@ -26,7 +26,8 @@ import type { FileUploadOptions } from "./fileuploadcommand.js";
  * Registers the `fileUpload` split button. The button attaches the picked files and links them;
  * the list also offers to embed them.
  *
- * Also registers the `drawingCanvas` button, which attaches an empty canvas drawing and embeds it.
+ * Also registers the `drawingCanvas` button, which attaches an empty canvas drawing and embeds it,
+ * editable.
  */
 export default class FileUploadUI extends Plugin {
     static get pluginName() {
@@ -104,6 +105,7 @@ export default class FileUploadUI extends Plugin {
                     asEmbed: true,
                     boxSize: "medium",
                     hideTitle: true,
+                    editable: true,
                     quiet: true,
                     focusEmbed: true
                 });

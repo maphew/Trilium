@@ -87,17 +87,20 @@ interface CanvasEmbedToolsProps {
     /** The element of the drawing, inside the embed whose toolbar shows the tools. */
     rootRef: RefObject<HTMLElement>;
     apiRef: RefObject<ExcalidrawImperativeAPI>;
+    /** Whether the Editable toggle of the embed is on. A read-only drawing offers the zoom only. */
+    isEditable: boolean;
 }
 
 /**
  * Adds Excalidraw's tools, undo and redo, and zoom to the toolbar of the embed that shows the
  * drawing. Renders inside `<Excalidraw>`, for its translations.
  */
-export default function CanvasEmbedTools({ rootRef, apiRef }: CanvasEmbedToolsProps) {
+export default function CanvasEmbedTools({ rootRef, apiRef, isEditable }: CanvasEmbedToolsProps) {
     const { t, langCode } = useExcalidrawTranslation();
     const [ tools ] = useState(() => new CanvasTools(rootRef));
 
     useEffect(() => tools.setTranslate(t), [ tools, t, langCode ]);
+    useEffect(() => tools.setEditable(isEditable), [ tools, isEditable ]);
 
     useEffect(() => {
         const root = rootRef.current;
@@ -129,8 +132,11 @@ export class CanvasTools implements ContentEmbedToolProvider {
     readonly hiddenToolbarItems: readonly ContentEmbedToolbarItem[] = [
         "contentEmbedBoxSizeDropdown", "toggleContentEmbedTitle", "convertEmbedToLink"
     ];
+    readonly hasEditableFlag = true;
     private api: ExcalidrawImperativeAPI | null = null;
     private translate: Translate | null = null;
+    /** Whether the drawing can be edited, which adds the drawing tools and the history. */
+    private isEditable = true;
     private listeners = new Set<() => void>();
     /** The tools as last notified, to notify the listeners only when they change. */
     private shownTools = "";
@@ -167,14 +173,65 @@ export class CanvasTools implements ContentEmbedToolProvider {
         this.update();
     }
 
+    setEditable(isEditable: boolean) {
+        this.isEditable = isEditable;
+        this.update();
+    }
+
     getTools(): ContentEmbedTool[] {
         const appState = this.api?.getAppState();
         if (!appState) {
             return [];
         }
 
-        const { activeTool, zoom } = appState;
-        const zoomPercent = Math.round(zoom.value * 100);
+        const zoomTools = this.getZoomTools(appState.zoom.value);
+        return this.isEditable
+            ? [ ...this.getEditingTools(appState.activeTool), ...zoomTools ]
+            : zoomTools;
+    }
+
+    execute(id: string) {
+        const api = this.api;
+        if (!api) return;
+
+        // The embed covers the drawing with a backdrop until the drawing has the focus.
+        const container = this.rootRef.current?.querySelector<HTMLElement>(".excalidraw-container");
+        if (container && !container.contains(document.activeElement)) {
+            container.focus({ preventScroll: true });
+        }
+
+        const appState = api.getAppState();
+        const getZoom = ZOOMS[id];
+        if (getZoom) {
+            api.updateScene({ appState: getZoomState(appState, getZoom(appState.zoom.value)) });
+        } else if (this.isEditable) {
+            this.runEditingTool(api, appState, id);
+        }
+    }
+
+    subscribe(callback: () => void) {
+        this.listeners.add(callback);
+        return () => {
+            this.listeners.delete(callback);
+        };
+    }
+
+    private update() {
+        const shownTools = JSON.stringify(this.getTools());
+        if (shownTools !== this.shownTools) {
+            this.shownTools = shownTools;
+            for (const listener of this.listeners) {
+                listener();
+            }
+        }
+    }
+
+    private t(key: string) {
+        return this.translate?.(key) ?? key;
+    }
+
+    /** The lock, the drawing tools, undo and redo. */
+    private getEditingTools(activeTool: AppState["activeTool"]): ContentEmbedTool[] {
         return [
             {
                 id: LOCK,
@@ -204,18 +261,24 @@ export class CanvasTools implements ContentEmbedToolProvider {
                 }))
             },
             this.getHistoryTool("undo", undoIcon),
-            this.getHistoryTool("redo", redoIcon),
+            this.getHistoryTool("redo", redoIcon)
+        ];
+    }
+
+    /** Zoom out, the zoom level that resets it, and zoom in. */
+    private getZoomTools(zoom: number): ContentEmbedTool[] {
+        return [
             {
                 id: "zoomOut",
                 label: this.t("buttons.zoomOut"),
                 icon: zoomOutIcon,
-                isEnabled: zoom.value > MIN_ZOOM,
+                isEnabled: zoom > MIN_ZOOM,
                 group: "zoom"
             },
             {
                 id: "resetZoom",
                 label: this.t("buttons.resetZoom"),
-                text: `${zoomPercent}%`,
+                text: `${Math.round(zoom * 100)}%`,
                 class: "canvas-drawing-zoom-level",
                 group: "zoom"
             },
@@ -223,55 +286,22 @@ export class CanvasTools implements ContentEmbedToolProvider {
                 id: "zoomIn",
                 label: this.t("buttons.zoomIn"),
                 icon: zoomInIcon,
-                isEnabled: zoom.value < MAX_ZOOM,
+                isEnabled: zoom < MAX_ZOOM,
                 group: "zoom"
             }
         ];
     }
 
-    execute(id: string) {
-        const api = this.api;
-        if (!api) return;
-
-        // The embed covers the drawing with a backdrop until the drawing has the focus.
-        const container = this.rootRef.current?.querySelector<HTMLElement>(".excalidraw-container");
-        if (container && !container.contains(document.activeElement)) {
-            container.focus({ preventScroll: true });
-        }
-
-        const appState = api.getAppState();
-        const getZoom = ZOOMS[id];
+    /** Runs the lock, a drawing tool, undo or redo. */
+    private runEditingTool(api: ExcalidrawImperativeAPI, appState: AppState, id: string) {
         if (id === "undo" || id === "redo") {
             this.getHistoryButton(id)?.click();
-        } else if (getZoom) {
-            api.updateScene({ appState: getZoomState(appState, getZoom(appState.zoom.value)) });
         } else if (id === LOCK) {
             const locked = !appState.activeTool.locked;
             api.updateScene({ appState: { activeTool: { ...appState.activeTool, locked } } });
         } else if (isTool(id)) {
             api.setActiveTool({ type: id });
         }
-    }
-
-    subscribe(callback: () => void) {
-        this.listeners.add(callback);
-        return () => {
-            this.listeners.delete(callback);
-        };
-    }
-
-    private update() {
-        const shownTools = JSON.stringify(this.getTools());
-        if (shownTools !== this.shownTools) {
-            this.shownTools = shownTools;
-            for (const listener of this.listeners) {
-                listener();
-            }
-        }
-    }
-
-    private t(key: string) {
-        return this.translate?.(key) ?? key;
     }
 
     /** Undo or redo, enabled while Excalidraw's own button is: Excalidraw keeps the history. */

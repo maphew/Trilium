@@ -182,9 +182,10 @@ describe("FileUploadCommand", () => {
         });
 
         expect(getModelData(editor.model)).toMatch(/^<contentEmbed boxSize="medium" /);
+        expect(getModelData(editor.model)).not.toMatch(/editable|hideTitle/);
     });
 
-    it("gives the embeds the box size and hidden title the caller asks for", () => {
+    it("gives the embeds the box size, hidden title and editing the caller asks for", () => {
         const getEmbedBoxSize = vi.fn(() => "tiny");
         installGlobMock({ getComponentByEl: () => ({ getEmbedBoxSize }) });
         setModelData(editor.model, "<paragraph>[]</paragraph>");
@@ -195,11 +196,12 @@ describe("FileUploadCommand", () => {
             ],
             asEmbed: true,
             boxSize: "medium",
-            hideTitle: true
+            hideTitle: true,
+            editable: true
         });
 
         expect(getModelData(editor.model)).toMatch(new RegExp(
-            "^<contentEmbed boxSize=\"medium\" hideTitle=\"true\" " +
+            "^<contentEmbed boxSize=\"medium\" editable=\"true\" hideTitle=\"true\" " +
             "uploadFileName=\"Canvas.excalidraw\""
         ));
         expect(getEmbedBoxSize).not.toHaveBeenCalled();

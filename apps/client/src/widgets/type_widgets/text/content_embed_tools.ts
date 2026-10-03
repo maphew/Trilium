@@ -1,3 +1,6 @@
+import type { RefObject } from "preact";
+import { useEffect, useState } from "preact/hooks";
+
 /** A button that the content of an embed adds to the toolbar of the embed. */
 export interface ContentEmbedTool {
     id: string;
@@ -80,4 +83,29 @@ export function getContentEmbedTools(embed: HTMLElement) {
         }
     }
     return null;
+}
+
+/**
+ * Whether the Editable toggle of the embed that contains `ref` is on, for content whose provider
+ * sets `hasEditableFlag`. Content outside an embed has no toggle, and is editable. `false` until
+ * the content is in the page.
+ */
+export function useIsContentEmbedEditable(ref: RefObject<HTMLElement>) {
+    const [ isEditable, setIsEditable ] = useState(false);
+
+    useEffect(() => {
+        const embed = ref.current?.closest<HTMLElement>(".include-note");
+        if (!embed) {
+            setIsEditable(true);
+            return;
+        }
+
+        const update = () => setIsEditable(embed.dataset.editable === "true");
+        const observer = new MutationObserver(update);
+        observer.observe(embed, { attributes: true, attributeFilter: [ "data-editable" ] });
+        update();
+        return () => observer.disconnect();
+    }, [ ref ]);
+
+    return isEditable;
 }

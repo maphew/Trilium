@@ -12,6 +12,7 @@ import type { AttachmentEditor } from "../../../services/content_renderer";
 import options from "../../../services/options";
 import { isDesktop } from "../../../services/utils";
 import { useColorScheme } from "../../react/hooks";
+import { useIsContentEmbedEditable } from "../text/content_embed_tools";
 import { CanvasEditor } from "./Canvas";
 import CanvasDrawingMenu from "./CanvasDrawingMenu";
 import CanvasEmbedTools from "./CanvasEmbedTools";
@@ -23,15 +24,21 @@ interface CanvasDrawingProps {
     editor?: AttachmentEditor;
 }
 
-/** A canvas drawing saved in an attachment, edited in place inside the note that shows it. */
+/**
+ * A canvas drawing saved in an attachment, edited in place inside the note that shows it while
+ * the Editable toggle of its embed is on.
+ */
 export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps) {
     const rootRef = useRef<HTMLDivElement>(null);
     const apiRef = useRef<ExcalidrawImperativeAPI>(null);
     const colorScheme = useColorScheme();
-    const isEditable = !!editor?.canEdit(attachment) && !options.is("databaseReadonly");
+    const canEdit = !!editor?.canEdit(attachment) && !options.is("databaseReadonly");
+    const isEmbedEditable = useIsContentEmbedEditable(rootRef);
+    const isEditable = canEdit && isEmbedEditable;
+    // Follows `canEdit` rather than the toggle, so that turning editing off keeps a pending save.
     const persistence = useCanvasDrawingPersistence(
         attachment,
-        isEditable ? editor : undefined,
+        canEdit ? editor : undefined,
         apiRef,
         colorScheme
     );
@@ -53,7 +60,9 @@ export default function CanvasDrawing({ attachment, editor }: CanvasDrawingProps
                 isDesktopLayout={isDesktop()}
             >
                 <CanvasDrawingMenu apiRef={apiRef} isEditable={isEditable} />
-                {isEditable && <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} />}
+                {canEdit && (
+                    <CanvasEmbedTools rootRef={rootRef} apiRef={apiRef} isEditable={isEditable} />
+                )}
             </CanvasEditor>
         </div>
     );

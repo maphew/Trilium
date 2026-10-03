@@ -18,6 +18,8 @@ export interface FileUploadOptions {
     boxSize?: BoxSizeValue;
     /** Hides the title row of the embeds. */
     hideTitle?: boolean;
+    /** Turns on the Editable toggle of the embeds, for content that has an editable mode. */
+    editable?: boolean;
     /** Skips the `upload` event, for a file that the editor created itself. */
     quiet?: boolean;
     /** Gives the focus to what the embeds show, once the upload ends. */
@@ -51,7 +53,7 @@ export default class FileUploadCommand extends Command {
     }
 
     override execute(options: FileUploadOptions) {
-        const { file: files, asEmbed, boxSize, hideTitle, quiet, focusEmbed } = options;
+        const { file: files, asEmbed, boxSize, hideTitle, editable, quiet, focusEmbed } = options;
         const model = this.editor.model;
         const fileRepository = this.editor.plugins.get(FileRepository);
 
@@ -74,7 +76,8 @@ export default class FileUploadCommand extends Command {
                 if (asEmbed) {
                     insertEmbedPlaceholder(writer, model, loader.id, file.name, {
                         boxSize: boxSize ?? getEmbedBoxSize(this.editor, file),
-                        hideTitle
+                        hideTitle,
+                        editable
                     });
                 } else {
                     insertPlaceholder(writer, model, loader.id, file.name);
@@ -104,11 +107,12 @@ function insertEmbedPlaceholder(
     model: Model,
     uploadId: string,
     fileName: string,
-    { boxSize, hideTitle }: { boxSize: string; hideTitle?: boolean }
+    { boxSize, hideTitle, editable }: { boxSize: string; hideTitle?: boolean; editable?: boolean }
 ) {
     const placeholder = writer.createElement("contentEmbed", {
         boxSize,
         ...(hideTitle ? { hideTitle: true } : {}),
+        ...(editable ? { editable: true } : {}),
         uploadId,
         uploadFileName: fileName
     });

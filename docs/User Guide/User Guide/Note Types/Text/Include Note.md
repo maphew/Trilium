@@ -64,7 +64,7 @@ To open an included note in a new tab, press the <span class="tn-icon bx bx-link
 
 The <span class="tn-icon bx bx-dots-vertical-rounded"></span> _More actions_ button at the end of the title row opens the same menu as right-clicking anywhere on the title row: the other places to open the note in and, for an embedded attachment, the actions on the attachment.
 
-In a note being edited, the menu also has the commands of the include's toolbar: the _Size_ submenu, _Show title_ and _Show caption_, each checked while it is in effect, and _Convert to link_ at the end. For an embedded attachment they follow its first group of actions; for an included note they end the menu.
+In a note being edited, the menu also has the commands of the include's toolbar: the _Size_ submenu, _Show title_ and _Show caption_, each checked while it is in effect, and _Convert to link_ at the end. A drawing canvas also has _Editable_, above _Size_. For an embedded attachment they follow its first group of actions; for an included note they end the menu.
 
 To show an include of size _Medium_ or _Full_ on the whole screen, press the <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_ button at the end of its title. To return, press <span class="tn-icon bx bx-exit"></span> _Exit fullscreen_ in the top-right corner, or <kbd>Esc</kbd>.
 
@@ -106,10 +106,11 @@ In a _Small_ or _Medium_ box, the image is scaled down to fit the height of the 
 
 A drawing canvas is an Excalidraw canvas, like the one of a <a class="reference-link" href="../Canvas.md">Canvas</a> note, drawn directly in the text note. It is not a note of its own: the drawing is kept in a `Canvas.excalidraw` [attachment](../../Basic%20Concepts%20and%20Features/Notes/Attachments.md) of the text note and is saved together with the text.
 
-*   To insert a drawing canvas, press the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button in the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a>, next to the <span class="tn-icon cke cke-paper-clip"></span> _Attach file_ button. The canvas is added empty, in a _Medium_ box with its title hidden, and takes the focus, ready for drawing.
+*   To insert a drawing canvas, press the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button in the <a class="reference-link" href="Formatting%20toolbar.md">Formatting toolbar</a>, next to the <span class="tn-icon cke cke-paper-clip"></span> _Attach file_ button. The canvas is added empty and editable, in a _Medium_ box with its title hidden, and takes the focus, ready for drawing.
 *   To draw on a canvas that does not have the focus, click it first. Until then, the mouse wheel and touch gestures scroll the note. The canvas then has the tools, menus and keyboard shortcuts of a Canvas note. The toolbars, the menus and the properties of the selected shapes show only while the canvas has the focus, so elsewhere the drawing reads like a picture in the text.
 *   A new drawing has the background color of the note. A background chosen from the Excalidraw menu replaces it.
-*   The box sizes, resizing, the caption and the title work as for an included note. While the drawing can be changed, its toolbar holds the drawing tools and leaves the box size, _Show title_ and _Convert to link_ to its <span class="tn-icon cke cke-three-vertical-dots"></span> _More actions_ menu.
+*   To protect a finished drawing from accidental changes, select it and turn off the <span class="tn-icon bx bx-edit-alt"></span> _Editable_ button at the start of its toolbar, or uncheck _Editable_ in its <span class="tn-icon cke cke-three-vertical-dots"></span> _More actions_ menu. The drawing can then be panned and zoomed but not changed, and its toolbar holds only the zoom buttons. To draw again, turn _Editable_ back on.
+*   The box sizes, resizing, the caption and the title work as for an included note, but the toolbar of a drawing leaves the box size, _Show title_ and _Convert to link_ to its _More actions_ menu.
 *   In the desktop layout, Excalidraw keeps its desktop interface however small the box is. In the mobile layout, a narrow or short box switches it to a compact interface. For more room, choose _Full_, or show the title and press <span class="tn-icon bx bx-fullscreen"></span> _Fullscreen_.
 *   Pictures added to the drawing are stored in the same attachment.
 *   In a [read-only note](../../Basic%20Concepts%20and%20Features/Notes/Read-Only%20Notes.md), the drawing can be viewed but not changed.
