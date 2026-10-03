@@ -118,6 +118,7 @@ export default function JumpToNoteDialogComponent() {
                     }}
                     onTextChange={(text) => actualText.current = text}
                     onChange={onItemSelected}
+                    searchFooter
                 />
             </>}
             onShown={onShown}

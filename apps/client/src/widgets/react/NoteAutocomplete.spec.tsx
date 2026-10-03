@@ -471,7 +471,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await type(input, "a");
 
         const menu = host.querySelector<HTMLElement>(":scope > menu.note-suggestion-list");
-        expect(menu?.querySelectorAll(":scope > .dropdown-item")).toHaveLength(2);
+        expect(menu?.querySelectorAll(":scope > .dropdown-item")).toHaveLength(3);
         // In the host's flow, with no position of its own.
         expect(menu?.hasAttribute("style")).toBe(false);
         expect(document.querySelector(".dropdown-menu.note-autocomplete-menu")).toBeNull();
@@ -485,7 +485,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             input.focus();
             input.blur();
         });
-        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(2);
+        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(3);
 
         // Both are left to the host, as a dialog closes on Escape.
         const reachedHost: string[] = [];
@@ -494,7 +494,7 @@ describe("NoteAutocomplete's suggestion list", () => {
         await press(input, "Escape");
         await press(input, "Tab");
         document.body.removeEventListener("keydown", listen);
-        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(2);
+        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(3);
         expect(reachedHost).toEqual([ "Escape", "Tab" ]);
 
         await press(input, "Enter");
@@ -803,7 +803,7 @@ describe("NoteAutocomplete's suggestion list", () => {
             const onChange = vi.fn();
             const host = document.createElement("div");
             document.body.append(host);
-            const input = await mount({ onChange, container: { current: host }, opts: { allowJumpToSearchNotes: true } });
+            const input = await mount({ onChange, container: { current: host }, opts: { allowJumpToSearchNotes: true }, searchFooter: true });
             await type(input, "al");
 
             // The list holds the notes alone.
@@ -850,6 +850,16 @@ describe("NoteAutocomplete's suggestion list", () => {
             expect(footerBar?.classList.contains("nothing-to-search")).toBe(false);
             host.remove();
 
+            // A host that does not ask for the footer, the Empty tab, lists the searches as rows.
+            const plainHost = document.createElement("div");
+            document.body.append(plainHost);
+            const plainInput = await mount({ container: { current: plainHost }, opts: { allowJumpToSearchNotes: true } });
+            await type(plainInput, "al");
+            expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", expect.objectContaining({ allowJumpToSearchNotes: true }));
+            expect(plainHost.querySelector(".note-suggestion-footer")).toBeNull();
+            expect(plainHost.querySelector(".note-suggestion-list > .dropdown-item .bx-search")).not.toBeNull();
+            plainHost.remove();
+
             // A dropdown keeps its content search row and has no footer.
             const popupInput = await mount();
             await type(popupInput, "al");
@@ -868,9 +878,11 @@ describe("NoteAutocomplete's suggestion list", () => {
             };
 
             const host = document.createElement("div");
-            expect(await keysFor({ container: { current: host }, opts: { allowJumpToSearchNotes: true } }))
+            expect(await keysFor({ container: { current: host }, opts: { allowJumpToSearchNotes: true }, searchFooter: true }))
                 .toEqual([ "Up Down", "Enter", "Shift+Enter", "Ctrl+Enter" ]);
-            expect(await keysFor({ container: { current: host } })).toEqual([ "Up Down", "Enter", "Shift+Enter" ]);
+            expect(await keysFor({ container: { current: host }, searchFooter: true }))
+                .toEqual([ "Up Down", "Enter", "Shift+Enter" ]);
+            expect(await keysFor({ container: { current: host } })).toEqual([]);
             expect(await keysFor({})).toEqual([]);
         });
 

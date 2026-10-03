@@ -52,6 +52,12 @@ export interface NoteAutocompleteProps {
     handleRef?: MutableRef<NoteAutocompleteHandle | null>;
     /** The element the list hangs from and spans, in place of the field, for a host that frames it. */
     anchorRef?: RefObject<HTMLElement>;
+    /**
+     * Offers the searches in a footer under a list in the host's container, with the shortcut hints
+     * button, rather than as rows: for a host that scrolls the list in a box of its own, as Jump to
+     * Note does.
+     */
+    searchFooter?: boolean;
 }
 
 /** Drives a note autocomplete from outside it, for a caller that decides when. */
@@ -69,7 +75,7 @@ export interface NoteAutocompleteHandle {
     clear(): void;
 }
 
-export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef }: NoteAutocompleteProps) {
+export default function NoteAutocomplete({ id, inputRef: externalInputRef, text, placeholder, container, containerStyle, opts, onChange, onTextChange, onKeyDown, onBlur, noteIdChanged, noteId, readOnly, tabIndex, handleRef, anchorRef, searchFooter }: NoteAutocompleteProps) {
     const inputRef = useSyncedRef<HTMLInputElement>(externalInputRef);
     const groupRef = useRef<HTMLDivElement>(null);
     const [ value, setValue ] = useState("");
@@ -79,9 +85,9 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     // one changes `source` and so searches again.
     const [ fullTextSearchCount, setFullTextSearchCount ] = useState(0);
     const [ isSearchingFullText, setSearchingFullText ] = useState(false);
-    // A list in a host's container offers its searches in a footer under it: a switch for the content
+    // A footer under a list in a host's container offers its searches: a switch for the content
     // search, which stays on as the query changes, and a button for the full search.
-    const isContained = !!container;
+    const hasSearchFooter = !!container && !!searchFooter;
     const [ includeContents, setIncludeContents ] = useState(false);
 
     const { isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks } = opts ?? {};
@@ -92,10 +98,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
 
         const options = {
             allowCreatingNotes,
-            allowJumpToSearchNotes: allowJumpToSearchNotes && !isContained,
+            allowJumpToSearchNotes: allowJumpToSearchNotes && !hasSearchFooter,
             allowExternalLinks
         };
-        if (isContained) {
+        if (hasSearchFooter) {
             return getNoteSuggestions(query, includeContents ? { ...options, fastSearch: false } : options);
         }
         if (!fullTextSearchCount) {
@@ -110,7 +116,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
         }
     }, [
         isCommandPalette, allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fullTextSearchCount,
-        isContained, includeContents
+        hasSearchFooter, includeContents
     ]);
     const schedule = useMemo(() => createSearchScheduler(), []);
 
@@ -197,11 +203,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
     }
 
     /**
-     * Searches the content of the notes as well as their titles, for the text in the field. A list in a
-     * host's container switches its content search on or off instead.
+     * Searches the content of the notes as well as their titles, for the text in the field. A list with
+     * a search footer switches its content search on or off instead.
      */
     function fullTextSearch() {
-        if (isContained) {
+        if (hasSearchFooter) {
             // As the footer's switch, which is hidden for a query naming no notes.
             if (!canSearchFor(value)) return;
             setIncludeContents((include) => !include);
@@ -346,7 +352,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             )}
 
-            {isContained && <ContainedListShortcutHints allowFullSearch={!!allowJumpToSearchNotes} />}
+            {hasSearchFooter && <SearchFooterShortcutHints allowFullSearch={!!allowJumpToSearchNotes} />}
 
             {showButtons && <>
                 <a
@@ -366,30 +372,33 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         className="note-autocomplete-menu note-suggestion-list tn-menu-keyboard scroll-edge-fade"
                     />}
                     {/* Kept for any query, so the list does not move as the searches come and go. */}
-                    <div
-                        className={clsx("note-suggestion-footer", !canSearchFor(value) && "nothing-to-search")}
-                        // Keeps the focus in the field, as the rows do.
-                        onMouseDown={(e) => e.preventDefault()}
-                    >
-                        {!cachedIsMobile && (
-                            <OverlayControlGroup>
-                                <ShortcutHintOverlayButton />
-                            </OverlayControlGroup>
-                        )}
-                        <FormToggle
-                            switchOnName={t("note_autocomplete.include-contents")}
-                            switchOffName={t("note_autocomplete.include-contents")}
-                            currentValue={includeContents}
-                            onChange={fullTextSearch}
-                        />
-                        {allowJumpToSearchNotes && <Button
-                            className="show-in-full-search"
-                            kind="lowProfile"
-                            size="small"
-                            text={t("quick-search.show-in-full-search")}
-                            onClick={() => showInFullSearch(value.trim())}
-                        />}
-                    </div>
+                    {hasSearchFooter && (
+                        <div
+                            className={clsx("note-suggestion-footer",
+                                !canSearchFor(value) && "nothing-to-search")}
+                            // Keeps the focus in the field, as the rows do.
+                            onMouseDown={(e) => e.preventDefault()}
+                        >
+                            {!cachedIsMobile && (
+                                <OverlayControlGroup>
+                                    <ShortcutHintOverlayButton />
+                                </OverlayControlGroup>
+                            )}
+                            <FormToggle
+                                switchOnName={t("note_autocomplete.include-contents")}
+                                switchOffName={t("note_autocomplete.include-contents")}
+                                currentValue={includeContents}
+                                onChange={fullTextSearch}
+                            />
+                            {allowJumpToSearchNotes && <Button
+                                className="show-in-full-search"
+                                kind="lowProfile"
+                                size="small"
+                                text={t("quick-search.show-in-full-search")}
+                                onClick={() => showInFullSearch(value.trim())}
+                            />}
+                        </div>
+                    )}
                 </>, container.current)
                 : showsList && anchor && (
                     <Popup
@@ -422,10 +431,10 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
  * shows a row saying so in place of the suggestions.
  */
 /**
- * Lists the keys of a list in a host's container in the shortcut hints pane. Only such a list adds
- * hints, as they replace whatever the host registered.
+ * Lists the keys of a list with a search footer in the shortcut hints pane, which the footer's button
+ * opens. Only such a list adds hints, as they replace whatever the host registered.
  */
-function ContainedListShortcutHints({ allowFullSearch }: { allowFullSearch: boolean }) {
+function SearchFooterShortcutHints({ allowFullSearch }: { allowFullSearch: boolean }) {
     useContextualShortcutHints(() => [ {
         titleKey: "note_autocomplete.hints.title",
         hints: [
