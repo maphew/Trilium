@@ -13,6 +13,7 @@ import {
     ListView,
     Plugin,
     SplitButtonView,
+    type Editor,
     type FileInputViewDoneEvent,
     type Locale
 } from "ckeditor5";
@@ -96,21 +97,7 @@ export default class FileUploadUI extends Plugin {
                 button.isEnabled = false;
             }
 
-            button.on("execute", () => {
-                const file = new File([ EMPTY_CANVAS_CONTENT ], CANVAS_ATTACHMENT_TITLE, {
-                    type: CANVAS_ATTACHMENT_MIME
-                });
-                editor.execute("fileUpload", {
-                    file: [ file ],
-                    asEmbed: true,
-                    boxSize: "medium",
-                    hideTitle: true,
-                    editable: true,
-                    quiet: true,
-                    focusEmbed: true
-                });
-                editor.editing.view.focus();
-            });
+            button.on("execute", () => insertDrawingCanvas(editor));
 
             return button;
         });
@@ -141,4 +128,24 @@ export default class FileUploadUI extends Plugin {
             editor.editing.view.focus();
         });
     }
+}
+
+/**
+ * Attaches an empty canvas drawing and embeds it, editable and untitled, with the focus in it, as
+ * the `drawingCanvas` button does.
+ */
+export function insertDrawingCanvas(editor: Editor) {
+    const file = new File([ EMPTY_CANVAS_CONTENT ], CANVAS_ATTACHMENT_TITLE, {
+        type: CANVAS_ATTACHMENT_MIME
+    });
+    editor.execute("fileUpload", {
+        file: [ file ],
+        asEmbed: true,
+        boxSize: "medium",
+        hideTitle: true,
+        editable: true,
+        quiet: true,
+        focusEmbed: true
+    });
+    editor.editing.view.focus();
 }
