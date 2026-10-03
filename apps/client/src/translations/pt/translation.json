@@ -209,8 +209,7 @@
     "copy_to_clipboard": "Copiar para a área de transferência"
   },
   "jump_to_note": {
-    "search_placeholder": "Pesquise uma nota pelo nome ou digite > para comandos...",
-    "search_button": "Pesquisar no texto completo"
+    "search_placeholder": "Pesquise uma nota pelo nome ou digite > para comandos..."
   },
   "markdown_import": {
     "dialog_title": "Importar Markdown",
@@ -1693,12 +1692,9 @@
     "background-effects-description": "O Mica adiciona um desfoque, fundo estiloso as janelas da aplicação, criando uma profundidade e aspecto moderno. \"Barra de titulo nativa\" deve estar inactiva."
   },
   "note_autocomplete": {
-    "search-for": "Pesquisar por \"{{term}}\"",
     "create-note": "Criar conectar nota filha \"{{term}}\"",
     "insert-external-link": "Inserir ligação externa para \"{{term}}\"",
-    "clear-text-field": "Limpar campo de texto",
-    "show-recent-notes": "Exibir notas recentes",
-    "full-text-search": "Pesquisa por texto completo"
+    "clear-text-field": "Limpar campo de texto"
   },
   "note_tooltip": {
     "note-has-been-deleted": "A nota foi apagada.",

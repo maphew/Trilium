@@ -221,12 +221,9 @@
     "restart-app-button": "Riavviare l'applicazione per visualizzare le modifiche"
   },
   "note_autocomplete": {
-    "search-for": "Cerca \"{{term}}\"",
     "create-note": "Crea la nota “{{term}}”",
     "insert-external-link": "Inserisci il collegamento esterno a \"{{term}}\"",
     "clear-text-field": "Pulisci il campo di testo",
-    "show-recent-notes": "Mostra le note recenti",
-    "full-text-search": "Ricerca full text",
     "create-note-into": "Crea nota \"{{term}}\" in {{parentTitle}}",
     "create-note-into-day-note": "Crea nota \"{{term}}\" nella nota di oggi",
     "create-note-into-root": "Crea una nota \"{{term}}\" al livello superiore",
@@ -1052,8 +1049,7 @@
     "box_size_tiny": "piccolo (una sola riga con il titolo e le azioni)"
   },
   "jump_to_note": {
-    "search_placeholder": "Cerca una nota per nome oppure digita > per i comandi...",
-    "search_button": "Cerca nel testo completo"
+    "search_placeholder": "Cerca una nota per nome oppure digita > per i comandi..."
   },
   "markdown_import": {
     "dialog_title": "Importazione Markdown",

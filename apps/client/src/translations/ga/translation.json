@@ -317,8 +317,7 @@
     "copy_to_clipboard": "Cóipeáil chuig an ghearrthaisce"
   },
   "jump_to_note": {
-    "search_placeholder": "Cuardaigh nóta de réir a ainm nó a chineáil > le haghaidh orduithe...",
-    "search_button": "Cuardaigh sa téacs iomlán"
+    "search_placeholder": "Cuardaigh nóta de réir a ainm nó a chineáil > le haghaidh orduithe..."
   },
   "markdown_import": {
     "dialog_title": "Allmhairiú marcála síos",
@@ -2386,12 +2385,9 @@
     "zoom-factor": "Fachtóir súmála"
   },
   "note_autocomplete": {
-    "search-for": "Cuardaigh \"{{term}}\"",
     "create-note": "Cruthaigh nóta \"{{term}}\"",
     "insert-external-link": "Cuir nasc seachtrach chuig \"{{term}}\" isteach",
     "clear-text-field": "Glan réimse téacs",
-    "show-recent-notes": "Taispeáin nótaí le déanaí",
-    "full-text-search": "Cuardach téacs iomlán",
     "create-note-into": "Cruthaigh nóta \"{{term}}\" i {{parentTitle}}",
     "create-note-into-day-note": "Cruthaigh an nóta \"{{term}}\" i nóta an lae inniu",
     "create-note-into-root": "Cruthaigh an nóta \"{{term}}\" ag an leibhéal uachtarach",

@@ -262,7 +262,6 @@
     "copy_to_clipboard": "Copier dans le presse-papiers"
   },
   "jump_to_note": {
-    "search_button": "Rechercher dans le texte intégral",
     "search_placeholder": "Rechercher une note par son nom ou saisir ‘>’ pour les commandes…"
   },
   "markdown_import": {
@@ -1879,12 +1878,9 @@
     "zoom-factor": "Facteur de zoom"
   },
   "note_autocomplete": {
-    "search-for": "Rechercher \"{{term}}\"",
     "create-note": "Créer et lier une note enfant \"{{term}}\"",
     "insert-external-link": "Insérer un lien externe vers \"{{term}}\"",
-    "clear-text-field": "Effacer le champ de texte",
-    "show-recent-notes": "Afficher les notes récentes",
-    "full-text-search": "Recherche dans le texte"
+    "clear-text-field": "Effacer le champ de texte"
   },
   "note_tooltip": {
     "note-has-been-deleted": "La note a été supprimée.",

@@ -280,7 +280,6 @@
     "copy_to_clipboard": "Copiar al portapapeles"
   },
   "jump_to_note": {
-    "search_button": "Buscar en texto completo",
     "search_placeholder": "Busque nota por su nombre o escriba > para comandos..."
   },
   "markdown_import": {
@@ -2331,12 +2330,9 @@
     "zoom-factor": "Factor de zoom"
   },
   "note_autocomplete": {
-    "search-for": "Buscar por \"{{term}}\"",
     "create-note": "Crear y enlazar subnota \"{{term}}\"",
     "insert-external-link": "Insertar enlace externo a \"{{term}}\"",
     "clear-text-field": "Limpiar campo de texto",
-    "show-recent-notes": "Mostrar notas recientes",
-    "full-text-search": "Búsqueda de texto completo",
     "create-note-into": "Crear nota \"{{term}}\" en {{parentTitle}}",
     "create-note-into-day-note": "Crear nota \"{{term}}\" en la nota del día de hoy",
     "create-note-into-root": "Crear nota \"{{term}}\" en el nivel superior",

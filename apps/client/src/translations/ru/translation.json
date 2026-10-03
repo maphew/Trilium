@@ -1142,9 +1142,6 @@
     "attachment-info": "Вложение • {{size}}"
   },
   "note_autocomplete": {
-    "full-text-search": "Полнотекстовый поиск",
-    "show-recent-notes": "Показать последние заметки",
-    "search-for": "Поиск \"{{term}}\"",
     "clear-text-field": "Очистить текстовое поле",
     "insert-external-link": "Вставить внешнюю ссылку \"{{term}}\"",
     "create-note": "Создать заметку \"{{term}}\"",
@@ -1375,8 +1372,7 @@
     "copy_to_clipboard": "Скопировать в буфер обмена"
   },
   "jump_to_note": {
-    "search_placeholder": "Найдите заметку по её названию или введите > для команд...",
-    "search_button": "Поиск по всему тексту"
+    "search_placeholder": "Найдите заметку по её названию или введите > для команд..."
   },
   "move_to": {
     "target_parent_note": "Целевая родительская заметка",

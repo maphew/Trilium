@@ -397,8 +397,7 @@
     "copy_to_clipboard": "Naar klembord kopiëren"
   },
   "jump_to_note": {
-    "search_placeholder": "Zoek een notitie op naam of type > voor opdrachten...",
-    "search_button": "Zoeken in de volledige tekst"
+    "search_placeholder": "Zoek een notitie op naam of type > voor opdrachten..."
   },
   "markdown_editor": {
     "image_upload_failed": "De afbeelding “{{name}}” kan niet worden geüpload."

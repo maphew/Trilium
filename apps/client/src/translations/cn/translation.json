@@ -276,7 +276,6 @@
     "copy_to_clipboard": "复制到剪切板"
   },
   "jump_to_note": {
-    "search_button": "全文搜索",
     "search_placeholder": "按名称或类型搜索笔记 > 查看命令..."
   },
   "markdown_import": {
@@ -2292,12 +2291,9 @@
     "zoom-factor": "缩放系数"
   },
   "note_autocomplete": {
-    "search-for": "搜索 \"{{term}}\"",
     "create-note": "创建笔记 \"{{term}}\"",
     "insert-external-link": "插入指向 \"{{term}}\" 的外部链接",
     "clear-text-field": "清除文本字段",
-    "show-recent-notes": "显示最近的笔记",
-    "full-text-search": "全文搜索",
     "create-note-into": "在 {{parentTitle}} 中创建笔记 \"{{term}}\"",
     "create-note-into-day-note": "在今天的日记笔记中创建笔记 \"{{term}}\"",
     "create-note-into-root": "在顶层创建笔记 \"{{term}}\"",

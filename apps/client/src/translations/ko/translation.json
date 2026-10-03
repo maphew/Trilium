@@ -371,8 +371,7 @@
     "copy_to_clipboard": "클립보드에 복사"
   },
   "jump_to_note": {
-    "search_placeholder": "노트 이름으로 검색하거나 >를 입력하여 명령 사용...",
-    "search_button": "전체 텍스트 검색"
+    "search_placeholder": "노트 이름으로 검색하거나 >를 입력하여 명령 사용..."
   },
   "markdown_editor": {
     "image_upload_failed": "\"{{name}}\" 이미지를 업로드할 수 없습니다."
@@ -2891,12 +2890,9 @@
     "zoom-factor": "확대/축소 배율"
   },
   "note_autocomplete": {
-    "search-for": "\"{{term}}\" 검색",
     "create-note": "노트 \"{{term}}\" 생성",
     "insert-external-link": "\"{{term}}\" 외부 링크 삽입",
     "clear-text-field": "입력 내용 지우기",
-    "show-recent-notes": "최근 노트 표시",
-    "full-text-search": "전체 텍스트 검색",
     "create-note-into": "{{parentTitle}}에 노트 \"{{term}}\" 생성",
     "create-note-into-day-note": "오늘의 데일리 노트에 \"{{term}}\" 노트 생성",
     "create-note-into-root": "최상위에 \"{{term}}\" 노트 생성",

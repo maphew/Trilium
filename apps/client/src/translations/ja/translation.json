@@ -2233,8 +2233,7 @@
     "title": "ズーム倍率（デスクトップビルドのみ）"
   },
   "jump_to_note": {
-    "search_placeholder": "名前またはタイプでノートを検索 > コマンドを検索...",
-    "search_button": "全文検索"
+    "search_placeholder": "名前またはタイプでノートを検索 > コマンドを検索..."
   },
   "markdown_import": {
     "dialog_title": "マークダウンをインポート",
@@ -2493,12 +2492,9 @@
     "copy_image_to_clipboard": "画像をクリップボードにコピー"
   },
   "note_autocomplete": {
-    "search-for": "「{{term}}」を検索",
     "create-note": "ノート \"{{term}}\" を作成",
     "insert-external-link": "「{{term}}」への外部リンクを挿入",
     "clear-text-field": "テキストフィールドをクリア",
-    "show-recent-notes": "最近のノートを表示",
-    "full-text-search": "全文検索",
     "create-note-into": "{{parentTitle}} 内にノート \"{{term}}\" を作成",
     "create-note-into-day-note": "今日の日ノート内にノート \"{{term}}\" を作成",
     "create-note-into-root": "トップレベルにノート \"{{term}}\" を作成",
