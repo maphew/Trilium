@@ -1898,24 +1898,17 @@ body.desktop .dropdown-submenu > .dropdown-menu {
     max-height: min(var(--ck-mention-list-max-height), var(--tn-mention-visible-height, 100vh));
 }
 
-/* Slash commands */
+/* Snippet form */
 
-.ck.ck-slash-command-button {
-    padding: 0.5em 1em !important;
-}
-
-.ck.ck-slash-command-button__text-part,
 .ck.ck-template-form__text-part {
     margin-inline-start: 0.5em;
     line-height: 1.2em !important;
 }
 
-.ck.ck-slash-command-button__text-part > span,
 .ck.ck-template-form__text-part > span {
     line-height: inherit !important;
 }
 
-.ck.ck-slash-command-button__text-part .ck.ck-slash-command-button__description,
 .ck.ck-template-form__text-part .ck-template-form__description {
     display: block;
     opacity: 0.8;

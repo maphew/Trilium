@@ -1,6 +1,7 @@
 import "./FormAutocomplete.css";
 
 import type { ReferenceElement } from "@floating-ui/dom";
+import clsx from "clsx";
 import type { ComponentChildren, RefObject } from "preact";
 import { type MutableRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -184,23 +185,34 @@ export interface AutocompleteListHandle {
 
 /**
  * The dropdown of a {@link FormAutocomplete} for a query typed somewhere else, such as after a `#` in
- * a text editor, which keeps the focus and forwards its keys through `handleRef`. It opens with
- * nothing highlighted, so Enter stays with the host until an entry is arrowed to.
+ * a text editor, which keeps the focus and forwards its keys through `handleRef`. Without
+ * `autoActivate` it opens with nothing highlighted, so Enter stays with the host until an entry is
+ * arrowed to.
  */
-export function AutocompleteList({ query, source, anchor, minWidth, renderItem, onPick, handleRef, elementRef }: {
+export function AutocompleteList<T = string>({ query, source, schedule, anchor, minWidth, className, autoActivate, keyOf, textOf, renderItem, onPick, handleRef, elementRef }: {
     query: string;
-    source(query: string): Promise<string[]>;
+    source(query: string): Promise<T[]>;
+    /** See `useAutocomplete`'s `schedule`. */
+    schedule?(lookUp: () => Promise<void>): void;
     anchor: DropdownAnchor;
     /** See {@link FormAutocompleteProps.dropdownMinWidth}. */
     minWidth?: number;
-    renderItem?(item: string): ComponentChildren;
-    onPick(item: string): void;
+    /** A class for the dropdown, beside its own. */
+    className?: string;
+    /** See {@link FormAutocompleteProps.autoActivate}. */
+    autoActivate?: boolean;
+    /** Tells the entries apart, for an entry that is not a string. Defaults to `String(item)`. */
+    keyOf?(item: T): string;
+    /** See `useAutocomplete`'s `textOf`. */
+    textOf?(item: T): string;
+    renderItem?(item: T): ComponentChildren;
+    onPick(item: T): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
-    const autocomplete = useAutocomplete({ query, source, onPick, inputRef });
+    const autocomplete = useAutocomplete({ query, source, schedule, onPick, inputRef, autoActivate, textOf });
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
@@ -211,6 +223,8 @@ export function AutocompleteList({ query, source, anchor, minWidth, renderItem, 
             autocomplete={autocomplete}
             anchor={anchor}
             minWidth={minWidth}
+            className={className}
+            keyOf={keyOf}
             renderItem={renderItem}
             elementRef={elementRef}
         />
@@ -243,12 +257,14 @@ export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocompl
  * The list of a {@link useAutocomplete}, in a {@link Popup} under `anchor`, which places it again as
  * the list or the anchor changes size or moves.
  */
-function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, isHeading, elementRef }: {
-    autocomplete: ReturnType<typeof useAutocomplete<string>>;
+function AutocompleteDropdown<T>({ autocomplete, anchor, minWidth = 0, className, keyOf = String, renderItem = String, isHeading, elementRef }: {
+    autocomplete: ReturnType<typeof useAutocomplete<T>>;
     anchor: DropdownAnchor | null;
     minWidth?: number;
-    renderItem?(item: string): ComponentChildren;
-    isHeading?(item: string): boolean;
+    className?: string;
+    keyOf?(item: T): string;
+    renderItem?(item: T): ComponentChildren;
+    isHeading?(item: T): boolean;
     elementRef?: PopupProps["elementRef"];
 }) {
     const { isShown, items, activeIndex, itemId, pick } = autocomplete;
@@ -260,7 +276,7 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
     return (
         <Popup
             anchor={anchor}
-            className="form-autocomplete-dropdown"
+            className={clsx("form-autocomplete-dropdown", className)}
             elementRef={elementRef}
             // As wide as the field, or as `minWidth` where that is more.
             style={{ width: `${Math.max(anchor.getBoundingClientRect().width, minWidth)}px` }}
@@ -274,11 +290,11 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
             >
                 {items.map((item, index) => (
                     isHeading?.(item)
-                        ? <li key={item} className="form-autocomplete-heading" role="presentation">
-                            {renderItem ? renderItem(item) : item}
+                        ? <li key={keyOf(item)} className="form-autocomplete-heading" role="presentation">
+                            {renderItem(item)}
                         </li>
                         : <li
-                            key={item}
+                            key={keyOf(item)}
                             id={itemId(index)}
                             className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
                             role="option"
@@ -286,7 +302,7 @@ function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, 
                             onMouseMove={(e) => autocomplete.hover(index, e)}
                             onClick={() => pick(item)}
                         >
-                            {renderItem ? renderItem(item) : item}
+                            {renderItem(item)}
                         </li>
                 ))}
             </ul>

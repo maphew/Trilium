@@ -18,7 +18,7 @@ import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import buildAiAssistantStream, { type AiNoteLocationProvider, buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import diffAiResponse from "./ai_diff.js";
 import { buildFontColorConfig, buildTableColorConfig } from "./color_palette.js";
-import { createMentionListView, createNoteMentionList } from "./mention_list_view.js";
+import { createMentionListView, createNoteMentionList, createSlashCommandList } from "./mention_list_view.js";
 import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -203,7 +203,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             // Mermaid one (generic icon) and the list ones (Title Case titles, normalized to
             // sentence case).
             removeCommands: ["insertMermaidCommand", "bulletedList", "numberedList"],
-            dropdownLimit: Number.MAX_SAFE_INTEGER
+            list: createSlashCommandList
         },
         snippets: {
             definitions: opts.templates
@@ -313,7 +313,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                 list: () => createNoteMentionList({ allowCreatingNotes: true })
             }
         ] : [],
-        // Draws the lists of the `/` and emoji feeds the plugins add.
+        // Draws the list of the emoji feed the plugin adds.
         listView: createMentionListView
     };
 

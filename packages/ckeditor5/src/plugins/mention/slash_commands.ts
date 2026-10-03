@@ -1,5 +1,3 @@
-import "../../theme/slash_commands.css";
-
 import {
     IconAlignCenter,
     IconAlignJustify,
@@ -55,7 +53,8 @@ import MathUI from "../math/math_ui.js";
 import { INSERT_MERMAID_COMMAND } from "../mermaid/insert_mermaid_command.js";
 import type { MermaidSample } from "../mermaid/mermaid_ui.js";
 import SnippetsEditing from "../snippets/snippetsediting.js";
-import { registerMentionFeed } from "./register_feed.js";
+import { registerHostedMentionFeed } from "./register_feed.js";
+import type { MentionHostedList } from "./types.js";
 
 export const SLASH_MARKER = "/";
 
@@ -93,12 +92,19 @@ export interface SlashCommandDefinition {
 
 export interface SlashCommandConfig {
     removeCommands?: string[];
-    /** How many entries the palette shows at once. Unlimited by default, as premium's was. */
-    dropdownLimit?: number;
+    /**
+     * The host's list of the palette, which lists {@link TriliumSlashCommands.search} for the query
+     * and commits the entry picked as a {@link SlashCommandItem}. Without it there is no palette.
+     */
+    list?: ( editor: Editor ) => MentionHostedList;
 }
 
+/** What a palette's list commits for the entry picked. */
+export type SlashCommandItem = MentionFeedObjectItem & { definition: SlashCommandDefinition };
+
 /**
- * The `/` command palette, hosted on {@link TriliumMentionUI}.
+ * The `/` command palette: its catalog, its matcher and what an entry runs, for the list the host
+ * draws in `slashCommand.list`, which {@link TriliumMentionUI} runs as a hosted feed.
  *
  * This replaces premium `SlashCommand`, which was the only remaining plugin forcing the `Mention`
  * façade — and therefore upstream's `MentionUI` — into the text editor alongside ours. Two mention
@@ -107,8 +113,7 @@ export interface SlashCommandConfig {
  * next keystroke.
  *
  * CKEditor built the premium plugin on `Mention` themselves, so hosting `/` on a mention feed is
- * not a workaround but the same architecture. What is reimplemented here is the palette: the
- * catalog, the matcher and the row rendering.
+ * not a workaround but the same architecture.
  */
 export default class TriliumSlashCommands extends Plugin {
 
@@ -119,20 +124,26 @@ export default class TriliumSlashCommands extends Plugin {
     constructor(editor: Editor) {
         super(editor);
 
-        registerMentionFeed(editor, {
+        const list = editor.config.get("slashCommand.list");
+        if (!list) {
+            return;
+        }
+
+        registerHostedMentionFeed(editor, {
             marker: SLASH_MARKER,
             // A bare `/` opens the full palette, as the premium plugin did.
             minimumCharacters: 0,
-            // Premium defaulted this to `Infinity` and let the panel scroll. Capping it would hide
-            // entries the user cannot then reach, since the query only narrows the list.
-            dropdownLimit: (editor.config.get("slashCommand.dropdownLimit") as number | undefined) ?? Infinity,
-            feed: (query: string) => matchSlashCommands(this._catalog(), query).map(toFeedItem),
-            itemRenderer: (item) => renderRow(item as SlashCommandItem),
+            list,
             // The catalog gates on `isEnabled` at query time, but an entry can go stale while the
-            // panel is open; re-check here so a no-op commit never costs the user their `/query`.
+            // list is open; re-check here so a no-op commit never costs the user their `/query`.
             canCommit: (editorInstance, item) => isSlashCommandEnabled(editorInstance, (item as SlashCommandItem).definition),
             commit: (editorInstance, item) => runSlashCommand(editorInstance, (item as SlashCommandItem).definition)
         });
+    }
+
+    /** The entries for what was typed after the `/`, best match first. */
+    search(query: string): SlashCommandDefinition[] {
+        return matchSlashCommands(this._catalog(), query);
     }
 
     /**
@@ -183,13 +194,6 @@ export function isSlashCommandEnabled(editor: Editor, definition: SlashCommandDe
     }
 
     return editor.commands.get(definition.commandName)?.isEnabled ?? false;
-}
-
-type SlashCommandItem = MentionFeedObjectItem & { definition: SlashCommandDefinition };
-
-function toFeedItem(definition: SlashCommandDefinition): SlashCommandItem {
-    // Upstream requires a feed item's `id` to start with the marker.
-    return { id: `${SLASH_MARKER}${definition.id}`, text: definition.title, definition };
 }
 
 function runSlashCommand(editor: Editor, definition: SlashCommandDefinition) {
@@ -767,62 +771,4 @@ function createImageTypeRegExp(types: string[]): RegExp {
     const regExpSafeNames = types.map((type) => type.replace("+", "\\+"));
 
     return new RegExp(`^image\\/(${regExpSafeNames.join("|")})$`);
-}
-
-/**
- * Renders one palette row: icon, title and description. The class names match premium's, so the
- * overrides Trilium already carries in `style.css` and the Next theme keep applying unchanged.
- */
-function renderRow(item: SlashCommandItem): HTMLElement {
-    const { definition } = item;
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.tabIndex = -1;
-    // `ck-button_with-text` is load-bearing, not cosmetic: the base button styles hide
-    // `.ck-button__label` outright without it, which leaves the row showing its description and no
-    // title at all.
-    button.classList.add("ck", "ck-button", "ck-button_with-text", "ck-slash-command-button");
-
-    const icon = document.createElement("span");
-    icon.classList.add("ck", "ck-icon");
-
-    if (definition.iconClass) {
-        // A snippet note's font icon: the same chip, painted by icon-font classes instead of SVG.
-        // The glyph lives on an inner span: core sizes the chip box in em against the chip's own
-    // font-size, so enlarging the glyph's font on the chip itself would inflate the chip too.
-        icon.classList.add("ck-slash-command-button__note-icon");
-        const glyph = document.createElement("span");
-        for (const classList of [ definition.iconClass, definition.iconColorClass ]) {
-            if (classList) {
-                glyph.classList.add(...classList.split(/\s+/).filter(Boolean));
-            }
-        }
-        icon.append(glyph);
-    } else if (definition.icon) {
-        // `ck-icon_inherit-color` opts into core's `*:not([fill]) { fill: currentColor }` rule, as
-        // `IconView` does — without it the glyphs keep SVG's default black fill on dark themes.
-        icon.classList.add("ck-icon_inherit-color");
-        icon.innerHTML = definition.icon;
-    }
-
-    button.append(icon);
-
-    const textPart = document.createElement("span");
-    textPart.classList.add("ck", "ck-slash-command-button__text-part");
-
-    const label = document.createElement("span");
-    label.classList.add("ck", "ck-button__label");
-    label.textContent = definition.title;
-    textPart.append(label);
-
-    if (definition.description) {
-        const description = document.createElement("span");
-        description.classList.add("ck", "ck-slash-command-button__description");
-        description.textContent = definition.description;
-        textPart.append(description);
-    }
-
-    button.append(textPart);
-    return button;
 }

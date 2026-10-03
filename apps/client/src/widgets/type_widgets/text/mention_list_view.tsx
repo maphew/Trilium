@@ -1,19 +1,23 @@
 import "./mention_list_view.css";
 
-import type { MentionFeedObjectItem, MentionHostedList, MentionListEntry, MentionListState, MentionListView } from "@triliumnext/ckeditor5";
+import type { MentionFeedObjectItem, MentionHostedList, MentionListEntry, MentionListState, MentionListView, SlashCommandConfig, SlashCommandDefinition, SlashCommandItem, TriliumSlashCommands } from "@triliumnext/ckeditor5";
 import clsx from "clsx";
 import { type ComponentChildren, render } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { AutocompleteList, type AutocompleteListHandle } from "../../react/FormAutocomplete";
+import Icon from "../../react/Icon";
 import { NoteMentionList } from "../../react/NoteAutocomplete";
 import Popup from "../../react/Popup";
+import RawHtml from "../../react/RawHtml";
 
 /** The least width of an {@link createAutocompleteMentionList} list, whose caret anchor has none. */
 const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
+/** The width of the `/` palette, which fits all but the longest descriptions. */
+const SLASH_COMMAND_LIST_WIDTH = 350;
 
 /**
- * Draws a text editor's suggestion list (`/` commands, emoji) as the note
+ * Draws a text editor's suggestion list (emoji) as the note
  * autocomplete's menu, in a {@link Popup} at the caret, for the editor config's `mention.listView`.
  *
  * `TriliumMentionUI` keeps everything but the drawing: when the list opens and closes, the keys, the
@@ -140,6 +144,75 @@ export function createAutocompleteMentionList({ source, renderItem, toMention }:
     };
 }
 
+/**
+ * Lists the `/` palette's entries for the query as a form field's autocomplete lists its own, for the
+ * editor config's `slashCommand.list`, opening on the best match so that Enter runs it.
+ */
+export function createSlashCommandList(editor: Parameters<NonNullable<SlashCommandConfig["list"]>>[0]): MentionHostedList {
+    const palette = editor.plugins.get("TriliumSlashCommands") as TriliumSlashCommands;
+    const source = async (query: string) => palette.search(query);
+    const container = document.createElement("div");
+    const handle: { current: AutocompleteListHandle | null } = { current: null };
+    let element: HTMLElement | null = null;
+
+    return {
+        show(state) {
+            render(<AutocompleteList<SlashCommandDefinition>
+                query={state.query}
+                source={source}
+                schedule={lookUpNow}
+                // A new anchor each time the query changes, so it is placed again at the caret.
+                anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
+                minWidth={SLASH_COMMAND_LIST_WIDTH}
+                className="slash-command-list"
+                autoActivate
+                keyOf={(definition) => definition.id}
+                textOf={(definition) => definition.title}
+                renderItem={(definition) => <SlashCommandRow definition={definition} />}
+                onPick={(definition) => state.commit(toSlashCommandItem(definition))}
+                handleRef={handle}
+                elementRef={(el) => { element = el; }}
+            />, container);
+        },
+        hide() {
+            render(null, container);
+            element = null;
+        },
+        handleKeyDown: (e) => handle.current?.handleKeyDown(e) ?? false,
+        get element() {
+            return element;
+        },
+        destroy() {
+            render(null, container);
+            element = null;
+        }
+    };
+}
+
+function toSlashCommandItem(definition: SlashCommandDefinition): SlashCommandItem {
+    return { id: definition.id, definition };
+}
+
+/** Looks the palette's entries up at once: the catalog is in memory, so there is nothing to wait for. */
+function lookUpNow(lookUp: () => Promise<void>) {
+    void lookUp();
+}
+
+/** One entry of the `/` palette: its icon, its title and what it does. */
+function SlashCommandRow({ definition }: { definition: SlashCommandDefinition }) {
+    return (
+        <span className="slash-command">
+            {definition.iconClass
+                ? <Icon className="slash-command-icon" icon={clsx(definition.iconClass, definition.iconColorClass)} />
+                : <RawHtml className="slash-command-icon" html={definition.icon} />}
+            <span className="slash-command-text">
+                <span className="slash-command-title">{definition.title}</span>
+                {definition.description && <span className="slash-command-description">{definition.description}</span>}
+            </span>
+        </span>
+    );
+}
+
 /** The mention `MentionCustomization` turns into a reference link to `notePath`. */
 function toMention(notePath: string) {
     return { id: `@${notePath}`, notePath };
@@ -167,7 +240,7 @@ function MentionMenu({ state, elementRef, scrollsToSelection, onPointerSelect }:
             anchor={{ getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined }}
             elementRef={elementRef}
             // The pointer moves the highlighted row, so `:hover` marks no second one.
-            className={clsx("dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu mention-list-menu", state.className)}
+            className="dropdown-menu show tn-dropdown-menu tn-menu-keyboard note-autocomplete-menu mention-list-menu"
         >
             <menu
                 ref={menuRef}

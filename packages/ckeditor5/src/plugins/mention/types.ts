@@ -82,11 +82,6 @@ export interface MentionListEntry {
 /** What a {@link MentionListView} draws, each time the list or its selection changes. */
 export interface MentionListState {
     entries: readonly MentionListEntry[];
-    /**
-     * A class for the list, under which the rows of the built-in feeds (the `/` commands) keep the
-     * layout they have in CKEditor's balloon.
-     */
-    className: string;
     /** The highlighted entry, or `-1` where none is. */
     selectedIndex: number;
     /** Where the caret ends the query, in viewport coordinates. */
@@ -132,6 +127,10 @@ export interface MentionHostedFeed {
     allowSpaces?: boolean;
     /** Creates the list, once per editor. */
     list( editor: Editor ): MentionHostedList;
+    /** See `MentionFeed.canCommit`, for what the list commits. */
+    canCommit?: ( editor: Editor, item: MentionFeedObjectItem ) => boolean;
+    /** See `MentionFeed.commit`, for what the list commits. */
+    commit?: ( editor: Editor, item: MentionFeedObjectItem ) => void;
 }
 
 /** What a {@link MentionHostedList} is shown for, each time the query changes. */
@@ -143,8 +142,9 @@ export interface MentionHostedListState {
     /** The editable element the caret is in. See {@link MentionListState.editable}. */
     editable: HTMLElement | null;
     /**
-     * Replaces the marker and the query with a mention of `item`, as a pick from the list does. For a
-     * promise, the text stays until it settles, and stays for good where it settles on `undefined`.
+     * Replaces the marker and the query with a mention of `item`, or hands `item` to the feed's
+     * `commit`, as a pick from the list does. For a promise, the text stays until it settles, and
+     * stays for good where it settles on `undefined`.
      */
     commit( item: MentionFeedObjectItem | Promise<MentionFeedObjectItem | undefined> ): void;
 }

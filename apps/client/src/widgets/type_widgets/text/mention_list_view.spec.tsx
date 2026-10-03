@@ -1,4 +1,4 @@
-import type { MentionHostedListState, MentionListState } from "@triliumnext/ckeditor5";
+import type { MentionHostedListState, MentionListState, SlashCommandConfig, SlashCommandDefinition } from "@triliumnext/ckeditor5";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,7 @@ vi.mock("../../../services/note_autocomplete", async (importOriginal) => ({
     createNoteFromSuggestion
 }));
 
-import { createAutocompleteMentionList, createMentionListView, createNoteMentionList } from "./mention_list_view";
+import { createAutocompleteMentionList, createMentionListView, createNoteMentionList, createSlashCommandList } from "./mention_list_view";
 
 describe("createMentionListView", () => {
     const views: ReturnType<typeof createMentionListView>[] = [];
@@ -36,7 +36,6 @@ describe("createMentionListView", () => {
                 { item: { id: "/heading" }, marker: "/", render: () => command },
                 { item: { id: "#plain" }, marker: "#", render: () => undefined }
             ],
-            className: "ck-mention-list",
             selectedIndex: 0,
             caretRect: () => new DOMRect(10, 10, 1, 16),
             editable: null,
@@ -61,7 +60,6 @@ describe("createMentionListView", () => {
         const menu = view.element;
         expect(menu?.className).toContain("dropdown-menu");
         expect(menu?.className).toContain("note-autocomplete-menu");
-        expect(menu?.classList.contains("ck-mention-list")).toBe(true);
         expect(rows().map((row) => row.classList.contains("tn-menu-active"))).toEqual([ true, false, false ]);
 
         // Each entry as its feed draws it, or by its id.
@@ -222,6 +220,41 @@ describe("createAutocompleteMentionList", () => {
 
         await act(async () => list.hide());
         expect(list.element).toBeNull();
+        list.destroy?.();
+    });
+});
+
+describe("createSlashCommandList", () => {
+    const definitions: SlashCommandDefinition[] = [
+        { id: "blockQuote", title: "Block quote", description: "Insert a quote.", icon: "<svg class=\"quote\"></svg>" },
+        { id: "snippet-0", title: "Greeting", iconClass: "tn-icon bx bx-note", iconColorClass: "use-note-color" }
+    ];
+
+    it("lists the palette's entries for the query, opening on the first, and commits the one picked", async () => {
+        const search = vi.fn(() => definitions);
+        const editor = { plugins: { get: () => ({ search }) } } as unknown as Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
+        const list = createSlashCommandList(editor);
+        const commit = vi.fn<MentionHostedListState["commit"]>();
+        const key = (k: string) => list.handleKeyDown(new KeyboardEvent("keydown", { key: k, cancelable: true }));
+
+        await act(async () => list.show({ query: "q", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        // The list opens, then looks its entries up at once, with no debounce to wait out.
+        await act(async () => {});
+
+        expect(search).toHaveBeenLastCalledWith("q");
+        expect(list.element?.matches(".form-autocomplete-dropdown.slash-command-list")).toBe(true);
+        const [ quote, greeting ] = [ ...(list.element?.querySelectorAll(".form-autocomplete-item") ?? []) ];
+        expect(quote.classList.contains("active")).toBe(true);
+        expect(quote.querySelector(".slash-command-icon > svg.quote")).not.toBeNull();
+        expect(quote.querySelector(".slash-command-title")?.textContent).toBe("Block quote");
+        expect(quote.querySelector(".slash-command-description")?.textContent).toBe("Insert a quote.");
+        // A snippet's font icon, in its colour, and no description where it has none.
+        expect(greeting.querySelector(".slash-command-icon.bx-note.use-note-color")).not.toBeNull();
+        expect(greeting.querySelector(".slash-command-description")).toBeNull();
+
+        await act(async () => { key("ArrowDown"); });
+        expect(key("Enter")).toBe(true);
+        expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "snippet-0", definition: definitions[1] });
         list.destroy?.();
     });
 });

@@ -32,8 +32,6 @@ const MARKER_NAME = "mention";
 const FEED_DEBOUNCE_MS = 100;
 const DEFAULT_DROPDOWN_LIMIT = 10;
 
-/** See {@link MentionListState.className}, which `slash_commands.css` styles the `/` rows under. */
-const MENTION_LIST_CLASS = "ck-mention-list";
 
 /** A configured feed with its compiled trigger pattern. */
 type Pattern = TriliumMentionFeed & { pattern: RegExp };
@@ -479,7 +477,7 @@ export default class TriliumMentionUI extends Plugin {
                 return new DOMRect(left, top, width, height);
             },
             editable: this.editor.editing.view.getDomRoot() ?? null,
-            commit: (item) => this._commitHosted(feed.marker, item)
+            commit: (item) => this._commitHosted(feed, item)
         });
     }
 
@@ -490,10 +488,10 @@ export default class TriliumMentionUI extends Plugin {
     }
 
     /**
-     * Replaces the trigger text with a mention of `item`. For a promise, the text stays where it is,
-     * followed by a live range, until it settles.
+     * Replaces the trigger text with a mention of `item`, or hands `item` to the feed's `commit`.
+     * For a promise, the text stays where it is, followed by a live range, until it settles.
      */
-    private _commitHosted(markerText: string, item: MentionFeedObjectItem | Promise<MentionFeedObjectItem | undefined>) {
+    private _commitHosted(feed: HostedPattern, item: MentionFeedObjectItem | Promise<MentionFeedObjectItem | undefined>) {
         const editor = this.editor;
         const model = editor.model;
         const marker = model.markers.get(MARKER_NAME);
@@ -509,10 +507,20 @@ export default class TriliumMentionUI extends Plugin {
         this._clearDismissal();
 
         const insert = (mention: MentionFeedObjectItem | undefined) => {
-            // The text can have been deleted while a promise was pending.
-            if (mention && range.root.rootName !== "$graveyard") {
-                editor.execute("mention", { mention, text: mention.text, marker: markerText, range: range.toRange() });
-                editor.editing.view.focus();
+            // The text can have been deleted while a promise was pending. An item gone stale keeps
+            // the text, as in `_commit()`.
+            if (mention && range.root.rootName !== "$graveyard" && (feed.canCommit?.(editor, mention) ?? true)) {
+                if (feed.commit) {
+                    // As in `_commit()`: the text goes first, and the focus returns before the
+                    // callback, which can open a UI that takes it.
+                    const target = range.toRange();
+                    model.change((writer) => model.deleteContent(writer.createSelection(target)));
+                    editor.editing.view.focus();
+                    feed.commit(editor, mention);
+                } else {
+                    editor.execute("mention", { mention, text: mention.text, marker: feed.marker, range: range.toRange() });
+                    editor.editing.view.focus();
+                }
             }
             range.detach();
         };
@@ -597,7 +605,6 @@ export default class TriliumMentionUI extends Plugin {
 
         this._listView?.show({
             entries,
-            className: MENTION_LIST_CLASS,
             selectedIndex: this._selectedIndex,
             caretRect: () => {
                 const { left, top, width, height } = this._caretRect(marker);
