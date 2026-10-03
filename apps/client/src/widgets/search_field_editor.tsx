@@ -120,10 +120,11 @@ function createSearchCompletionList() {
 }
 
 /**
- * Names the note an id in the query stands for. Froca answers for one it already holds without a
- * round trip, so a chip for a note on screen is drawn in the same pass the id appears in.
+ * Names the note an id stands for, for the chips of the search field and of a Markdown note's links.
+ * Froca answers for one it already holds without a round trip, so a chip for a note on screen is drawn
+ * in the same pass the id appears in.
  */
-function resolveNoteChip(noteId: string): NoteChip | Promise<NoteChip | null> | null {
+export function resolveNoteChip(noteId: string): NoteChip | Promise<NoteChip | null> | null {
     const cached = froca.getNoteFromCache(noteId);
     if (cached) {
         return { title: cached.title, icon: cached.getIcon() };

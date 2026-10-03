@@ -185,6 +185,8 @@ You can also start typing the link directly: `[[` opens the same list, and closi
 
 Like slash commands, `@` and `[[` do nothing inside code blocks and inline code.
 
+In the editor, a `[[noteId]]` link shows as the note's icon and title, so you can tell which note it points to without looking up its ID. Clicking it, or moving the cursor next to it, shows the link as written so it can be edited. Links inside code blocks and inline code are left as they are.
+
 #### Code block language auto-completion
 
 Starting with v0.104.0, typing \`\`\` to insert a code block will automatically open a list of suggested language types which have syntax highlighting.
