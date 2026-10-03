@@ -4,6 +4,9 @@ import clsx from "clsx";
 import { ComponentChildren, HTMLAttributes } from "preact";
 import { useRef } from "preact/hooks";
 
+import { isDefinitionName } from "../../entities/fattribute";
+import { escapeHtml } from "../../services/utils";
+import { attributeKindIcon } from "../attribute_widgets/attribute_types";
 import Dropdown, { DropdownProps } from "./Dropdown";
 import { useStaticTooltip } from "./hooks";
 import Icon from "./Icon";
@@ -77,7 +80,7 @@ export function AttributeSnippetBadges({ snippet, className }: { snippet: string
                         key={index}
                         outline
                         className={clsx("attribute-badge", { "has-value": !!attribute.value })}
-                        icon={attribute.type === "label" ? "bx bx-purchase-tag" : "bx bx-transfer"}
+                        icon={attribute.icon}
                         text={<>
                             <RawHtml className="attribute-badge-name" html={attribute.name} />
                             {attribute.value && (
@@ -93,24 +96,48 @@ export function AttributeSnippetBadges({ snippet, className }: { snippet: string
     );
 }
 
-/** One attribute of a search result's snippet, its name and value as highlighted HTML. */
+/**
+ * One attribute of a search result's snippet: its kind's icon, and its name and value as highlighted
+ * HTML.
+ */
 export interface AttributeSnippetLine {
-    type: "label" | "relation";
+    icon: string;
     name: string;
     value?: string;
 }
 
 /**
  * Reads a line of `highlightedAttributeSnippet` as `extractAttributeSnippet()` writes it, `#name`,
- * `#name="value"` or `~name="target title"`, escaped, so its quotes arrive as `&quot;`. Returns
- * `null` for a line in no such shape, such as one the server cut short.
+ * `#name="value"` or `~name="target title"`, escaped, so its quotes arrive as `&quot;`. The icon is
+ * the attributes panel's; a definition (`#label:name="promoted,…"`) is shown by its bare name, the
+ * icon standing for the field it sets up. Returns `null` for a line in no such shape, such as one the
+ * server cut short.
  */
 export function parseAttributeSnippetLine(line: string): AttributeSnippetLine | null {
     const match = /^([#~])(.+?)(?:=&quot;(.*)&quot;)?$/s.exec(line);
     if (!match || match[2].includes("=&quot;")) return null;
 
     const [ , prefix, name, value ] = match;
-    return { type: prefix === "#" ? "label" : "relation", name, ...(value ? { value } : {}) };
+    const type = prefix === "#" ? "label" : "relation";
+    const plainName = htmlToText(name);
+    const icon = attributeKindIcon(type, plainName, htmlToText(value ?? ""));
+
+    if (type === "label" && isDefinitionName(plainName)) {
+        const definitionPrefix = plainName.substring(0, plainName.indexOf(":") + 1);
+        // A highlight across the prefix leaves no bare name to keep it in, so the name is shown as text.
+        const bareName = name.startsWith(definitionPrefix)
+            ? name.substring(definitionPrefix.length)
+            : escapeHtml(plainName.substring(definitionPrefix.length));
+        return { icon, name: bareName };
+    }
+
+    return { icon, name, ...(value ? { value } : {}) };
+}
+
+function htmlToText(html: string) {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    return template.content.textContent ?? "";
 }
 
 export function BadgeWithDropdown({ text, children, tooltip, className, dropdownProps, ...props }: BadgeProps & {
