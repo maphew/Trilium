@@ -719,6 +719,12 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
     }
 }
 
+/**
+ * Labels left out of the attribute snippet: the help notes' `docName` and `docUrl` spell out the
+ * page's own path and address, which match a search for its title and repeat it.
+ */
+const SNIPPET_HIDDEN_LABELS = new Set([ "docName", "docUrl" ]);
+
 function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenInfo[] | string[], maxLength: number = 200): string {
     const note = becca.notes[noteId];
     if (!note) {
@@ -738,6 +744,10 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
 
         // Look for attributes that match the search tokens
         for (const attr of attributes) {
+            if (attr.type === "label" && SNIPPET_HIDDEN_LABELS.has(attr.name)) {
+                continue;
+            }
+
             const attrName = attr.name?.toLowerCase() || "";
             const attrValue = attr.value?.toLowerCase() || "";
             const attrType = attr.type || "";

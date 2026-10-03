@@ -148,6 +148,22 @@ describe("buildSearchResultDetails", () => {
         expect(details.highlightedAttributeSnippet).toContain("<b>phoenix</b>");
     });
 
+    it("leaves the help notes' docName and docUrl out of the attribute snippet", () => {
+        const child = note("Hidden Notes")
+            .label("docName", "User Guide/Hidden Notes")
+            .label("docUrl", "https://docs.triliumnotes.org/hidden-notes")
+            .label("topic", "hidden");
+        rootNote.child(child);
+        const result = new SearchResult(["root", child.note.noteId]);
+
+        const searchContext = new SearchContext();
+        searchContext.highlightedTokens.push("hidden");
+
+        const [details] = searchService.buildSearchResultDetails([result], searchContext);
+
+        expect(details.attributeSnippet).toBe(`#topic="hidden"`);
+    });
+
     it("matches attribute values with a regex token from getHighlightedTokenInfos", () => {
         const child = note("Server config").label("env", "production");
         rootNote.child(child);
