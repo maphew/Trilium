@@ -320,7 +320,13 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
 
             {(autocomplete.isShown || (autocomplete.isOpen && isSearchingFullText)) && (container
                 ? container.current && createPortal(
-                    <NoteSuggestionList autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />,
+                    <NoteSuggestionMenu
+                        autocomplete={autocomplete}
+                        searchingFor={isSearchingFullText ? value : undefined}
+                        // The popup's rows, in the host's panel. Faded at an edge only where the host
+                        // sets `--scroll-fade-top` or `--scroll-fade-bottom`.
+                        className="note-autocomplete-menu note-suggestion-list tn-menu-keyboard scroll-edge-fade"
+                    />,
                     container.current)
                 : anchor && (
                     <Popup
@@ -336,7 +342,11 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                         escapeDismisses={false}
                         onDismiss={autocomplete.close}
                     >
-                        <NoteSuggestionMenu autocomplete={autocomplete} searchingFor={isSearchingFullText ? value : undefined} />
+                        <NoteSuggestionMenu
+                            autocomplete={autocomplete}
+                            searchingFor={isSearchingFullText ? value : undefined}
+                            className="tn-menu-scroll"
+                        />
                     </Popup>
                 ))}
         </div>
@@ -344,67 +354,18 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
 }
 
 /**
- * The list of suggestions, in the `aa-*` markup that the Empty tab and Jump to Note style. With
- * `searchingFor`, the query of a search in progress, it shows a row saying so in place of the
- * suggestions.
+ * The list of suggestions as the rows of a menu, so it looks like the app's other dropdowns, whether
+ * in the popup or in a host's container. With `searchingFor`, the query of a search in progress, it
+ * shows a row saying so in place of the suggestions.
  */
-function NoteSuggestionList({ autocomplete, searchingFor }: {
+function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
     autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
     searchingFor?: string;
-}) {
-    return (
-        <span
-            // Faded at an edge only where a host sets `--scroll-fade-top` or `--scroll-fade-bottom`.
-            className="aa-dropdown-menu scroll-edge-fade"
-            role="listbox"
-            // Keeps the input focused, so its blur does not close the list before the click lands
-            // on a suggestion.
-            onMouseDown={(e) => e.preventDefault()}
-        >
-            <div className="aa-dataset-0">
-                <span className="aa-suggestions">
-                    {searchingFor !== undefined && (
-                        <div className="aa-suggestion">
-                            <NoteSuggestion suggestion={{ noteTitle: searchingFor, highlightedNotePathTitle: t("quick-search.searching") }} />
-                        </div>
-                    )}
-                    {searchingFor === undefined && listsNoNote(autocomplete.items) && <>
-                        <div className="aa-suggestion disabled">
-                            <NoteSuggestion suggestion={noNotesRow()} />
-                        </div>
-                        <div className="note-suggestion-separator" role="separator" />
-                    </>}
-                    {searchingFor === undefined && autocomplete.items.map((suggestion, index) => [
-                        startsGroup(autocomplete.items, index) && <div key={`separator-${index}`} className="note-suggestion-separator" role="separator" />,
-                        <div
-                            key={suggestionKey(suggestion, index)}
-                            id={autocomplete.itemId(index)}
-                            className={clsx("aa-suggestion", index === autocomplete.activeIndex && "aa-cursor")}
-                            role="option"
-                            aria-selected={index === autocomplete.activeIndex}
-                            onMouseMove={(e) => autocomplete.hover(index, e)}
-                            onClick={() => autocomplete.pick(suggestion)}
-                        >
-                            <NoteSuggestion suggestion={suggestion} />
-                        </div>
-                    ])}
-                </span>
-            </div>
-        </span>
-    );
-}
-
-/**
- * The list of suggestions as the rows of a menu, for the popup, so it looks like the app's other
- * dropdowns. With `searchingFor`, it shows a row saying a search is in progress instead.
- */
-function NoteSuggestionMenu({ autocomplete, searchingFor }: {
-    autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
-    searchingFor?: string;
+    className: string;
 }) {
     return (
         <menu
-            className="tn-menu-scroll"
+            className={className}
             role="listbox"
             // Keeps the input focused, so its blur does not close the list before the click lands
             // on a suggestion.
@@ -473,37 +434,6 @@ export function renderNoteSuggestion(suggestion: Suggestion): HTMLElement {
     render(<NoteSuggestionMenuItemContent suggestion={suggestion} />, element);
 
     return element;
-}
-
-/** One row of the list. */
-function NoteSuggestion({ suggestion }: { suggestion: Suggestion }) {
-    if (suggestion.action === "command") {
-        return (
-            <div className="command-suggestion">
-                <span className={clsx("command-icon", suggestion.icon || "bx bx-terminal")} />
-                <div className="command-content">
-                    <div className="command-name">{suggestion.highlightedNotePathTitle}</div>
-                    {suggestion.commandDescription && (
-                        <div className="command-description">{suggestion.commandDescription}</div>
-                    )}
-                </div>
-                {suggestion.commandShortcut && <kbd className="command-shortcut">{suggestion.commandShortcut}</kbd>}
-            </div>
-        );
-    }
-
-    return (
-        <div className="note-suggestion">
-            <span className={clsx("icon", suggestionIcon(suggestion))} />
-            <span className="text">
-                <SuggestionShortcut suggestion={suggestion} />
-                <RawHtml className="search-result-title" html={suggestion.highlightedNotePathTitle ?? ""} />
-                {suggestion.highlightedAttributeSnippet && (
-                    <RawHtml className="search-result-attributes" html={suggestion.highlightedAttributeSnippet} />
-                )}
-            </span>
-        </div>
-    );
 }
 
 /**

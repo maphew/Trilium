@@ -436,17 +436,22 @@ describe("NoteAutocomplete's suggestion list", () => {
         const input = await mount({ container: { current: host } });
         await type(input, "a");
 
-        const menu = host.querySelector<HTMLElement>(":scope > span.aa-dropdown-menu");
-        expect(menu?.querySelectorAll(".aa-suggestion")).toHaveLength(3);
+        const menu = host.querySelector<HTMLElement>(":scope > menu.note-suggestion-list");
+        expect(menu?.querySelectorAll(":scope > .dropdown-item")).toHaveLength(3);
         // In the host's flow, with no position of its own.
         expect(menu?.hasAttribute("style")).toBe(false);
-        expect(document.querySelector(".note-autocomplete-menu")).toBeNull();
+        expect(document.querySelector(".dropdown-menu.note-autocomplete-menu")).toBeNull();
+        // Drawn as the popup draws its rows.
+        const beta = menu?.querySelectorAll<HTMLElement>(".dropdown-item")[1];
+        expect(beta?.querySelector(".tn-icon")?.className).toBe("bx bx-note tn-icon");
+        expect(beta?.querySelector(".search-result-title")?.innerHTML).toBe("X / Beta");
+        expect(beta?.querySelector(".search-result-attributes")?.textContent).toBe("#tag");
 
         await act(async () => {
             input.focus();
             input.blur();
         });
-        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(3);
+        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(3);
 
         // Both are left to the host, as a dialog closes on Escape.
         const reachedHost: string[] = [];
@@ -455,15 +460,15 @@ describe("NoteAutocomplete's suggestion list", () => {
         await press(input, "Escape");
         await press(input, "Tab");
         document.body.removeEventListener("keydown", listen);
-        expect(host.querySelectorAll(".aa-suggestion")).toHaveLength(3);
+        expect(host.querySelectorAll(".dropdown-item")).toHaveLength(3);
         expect(reachedHost).toEqual([ "Escape", "Tab" ]);
 
         await press(input, "Enter");
-        expect(host.querySelector(".aa-dropdown-menu")).toBeNull();
+        expect(host.querySelector(".note-suggestion-list")).toBeNull();
         host.remove();
     });
 
-    it("lists the commands for a `>` in a command palette, in the plugin's markup", async () => {
+    it("lists the commands for a `>` in a command palette, as menu rows", async () => {
         // In a host's container, as Jump to Note lists them.
         const host = document.createElement("div");
         document.body.append(host);
@@ -472,13 +477,13 @@ describe("NoteAutocomplete's suggestion list", () => {
 
         expect(getCommandSuggestions).toHaveBeenLastCalledWith("> cmd");
         expect(getNoteSuggestions).not.toHaveBeenCalled();
-        const [ described, bare ] = host.querySelectorAll<HTMLElement>(".aa-suggestion");
-        expect(described.querySelector(".command-suggestion > .command-icon")?.className).toBe("command-icon bx bx-cog");
-        expect(described.querySelector(".command-content > .command-name")?.textContent).toBe("Cmd One");
-        expect(described.querySelector(".command-content > .command-description")?.textContent).toBe("Does a thing");
-        expect(described.querySelector(".command-suggestion > kbd.command-shortcut")?.textContent).toBe("Ctrl+1");
-        expect(bare.querySelector(".command-icon")?.className).toBe("command-icon bx bx-terminal");
-        expect(bare.querySelector(".command-description, .command-shortcut")).toBeNull();
+        const [ described, bare ] = host.querySelectorAll<HTMLElement>(".note-suggestion-list > .dropdown-item");
+        expect(described.querySelector(".tn-icon")?.className).toBe("bx bx-cog tn-icon");
+        expect(described.querySelector(".search-result-title")?.textContent).toBe("Cmd One");
+        expect(described.querySelector(".search-result-attributes")?.textContent).toBe("Does a thing");
+        expect(described.querySelector("kbd")?.textContent).toBe("Ctrl+1");
+        expect(bare.querySelector(".tn-icon")?.className).toBe("bx bx-terminal tn-icon");
+        expect(bare.querySelector(".search-result-attributes, kbd")).toBeNull();
         host.remove();
 
         // Elsewhere a `>` is only text to search for.
@@ -728,9 +733,9 @@ describe("NoteAutocomplete's suggestion list", () => {
             document.body.append(host);
             const contained = await mount({ container: { current: host } });
             await type(contained, "New");
-            const firstContained = host.querySelector(".aa-suggestions")?.firstElementChild;
+            const firstContained = host.querySelector(".note-suggestion-list")?.firstElementChild;
             expect(firstContained?.classList.contains("disabled")).toBe(true);
-            expect(firstContained?.nextElementSibling?.className).toBe("note-suggestion-separator");
+            expect(firstContained?.nextElementSibling?.className).toBe("dropdown-divider");
             host.remove();
 
             // A list with notes needs no such row.
@@ -766,8 +771,8 @@ describe("NoteAutocomplete's suggestion list", () => {
             const input = await mount({ container: { current: host } });
             await type(input, "al");
 
-            const separators = [ ...host.querySelectorAll(".note-suggestion-separator") ];
-            const suggestions = [ ...host.querySelectorAll(".aa-suggestion") ];
+            const separators = [ ...host.querySelectorAll(".note-suggestion-list > .dropdown-divider") ];
+            const suggestions = [ ...host.querySelectorAll(".note-suggestion-list > .dropdown-item") ];
             expect(separators).toHaveLength(1);
             expect(separators[0].previousElementSibling).toBe(suggestions[1]);
             expect(separators[0].nextElementSibling?.querySelector(".bx-search")).not.toBeNull();

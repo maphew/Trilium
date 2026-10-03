@@ -33,7 +33,8 @@ test("Open the note in the correct split pane", async ({ page, context }) => {
 
     // Click the search result in the second split. The notes come ahead of the search and
     // creation rows, which also carry the title.
-    await resultsSelector.locator(".aa-suggestion", { hasText: CODE_NOTE_TITLE })
+    await resultsSelector
+        .locator(".note-suggestion-list > .dropdown-item", { hasText: CODE_NOTE_TITLE })
         .first().click();
 
     await expect(split2.locator(".note-title").first()).toHaveValue(CODE_NOTE_TITLE);

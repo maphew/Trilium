@@ -119,7 +119,7 @@ export default function JumpToNoteDialogComponent() {
             onHidden={() => setShown(false)}
             show={shown}
         >
-            <div className="algolia-autocomplete-container jump-to-note-results" ref={containerRef} />
+            <div className="jump-to-note-results" ref={containerRef} />
         </Modal>
     );
 }

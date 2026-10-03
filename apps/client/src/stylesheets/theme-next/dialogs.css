@@ -156,7 +156,7 @@ div.tn-tool-dialog {
     padding: 0 !important;
 }
 
-.jump-to-note-dialog .jump-to-note-results .aa-dropdown-menu {
+.jump-to-note-dialog .jump-to-note-results .note-suggestion-list {
     /* Auto, as a fixed width would shift with the negative margin rather than grow by it. */
     width: auto;
     margin-inline-end: calc(0px - var(--jump-to-note-padding));

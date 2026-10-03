@@ -54,67 +54,30 @@
 }
 
 /*
- * The lists in a host's container, such as the empty tab's and Jump to Note's.
+ * The lists in a host's container, such as the Empty tab's and Jump to Note's: the popup's rows,
+ * outside a `.dropdown-menu`, which defines Bootstrap's item and divider variables.
  */
-span.aa-dropdown-menu,
-span.aa-dropdown-menu .aa-suggestions {
-    display: block;
-}
-
-span.aa-dropdown-menu .aa-suggestion {
-    cursor: pointer;
-    padding: 6px 16px;
+:where(menu.note-suggestion-list) {
     margin: 0;
-
-    .note-suggestion {
-        display: flex;
-    }
-
-    .icon {
-        flex: none;
-        line-height: inherit;
-    }
-
-    /* The rest of the row, so the keys floated in it end at the row's padding. */
-    .text {
-        flex: 1;
-        min-width: 0;
-        padding-inline-start: 4px;
-    }
-
-    .search-result-title {
-        display: block;
-    }
-
-    .search-result-attributes {
-        display: block;
-        font-size: 0.8em;
-        color: var(--muted-text-color);
-        opacity: 0.6;
-        line-height: 1;
-        word-wrap: break-word;
-    }
-
-    p {
-        padding: 0;
-        margin: 0;
-    }
-
-    &.aa-cursor {
-        color: var(--suggestion-active-text-color);
-        background-color: var(--suggestion-active-background-color);
-    }
-
-    /* A row saying something about the list, not one to pick. */
-    &.disabled {
-        cursor: default;
-        color: var(--muted-text-color);
-    }
+    padding: 0;
+    list-style: none;
 }
 
-span.aa-dropdown-menu .note-suggestion-separator {
-    margin-block: 8px;
-    border-top: 1px solid var(--main-border-color);
+.note-suggestion-list {
+    /* The theme draws a divider's line this far past each side of its row. */
+    --padding: 0px;
+
+    > .dropdown-item {
+        --menu-item-vertical-padding: 6px;
+        --menu-item-start-padding: 16px;
+        --menu-item-end-padding: 16px;
+        padding: 6px 16px;
+    }
+
+    > .dropdown-divider {
+        margin-block: 8px;
+        border-top: 1px solid var(--main-border-color);
+    }
 }
 
 /*
@@ -129,15 +92,11 @@ span.aa-dropdown-menu .note-suggestion-separator {
     color: var(--muted-text-color);
 }
 
-span.aa-dropdown-menu .note-suggestion-shortcut {
-    float: inline-end;
-}
-
 /*
  * Each key drawn as the Next theme draws a button's (`button.btn kbd` in forms.css), plainly in the
  * themes without its variables. The `!important`s outrank the Next theme's `.dropdown-item kbd`.
  */
-:is(.dropdown-item, .aa-suggestion) .note-suggestion-shortcut > kbd {
+.dropdown-item .note-suggestion-shortcut > kbd {
     padding: 0.1875rem 0.375rem;
     border: 0;
     box-shadow: none;

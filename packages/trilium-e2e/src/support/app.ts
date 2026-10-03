@@ -126,7 +126,7 @@ export default class App {
         // `.note-detail-empty-results`, which also contains the recent-notes list) ensures the
         // dropdown actually opened.
         const suggestionSelector = this.currentNoteSplit
-            .locator(".note-detail-empty-results .aa-suggestion")
+            .locator(".note-detail-empty-results .note-suggestion-list > .dropdown-item")
             .first();
         await expect(suggestionSelector).toContainText(noteTitle);
         await suggestionSelector.click();
