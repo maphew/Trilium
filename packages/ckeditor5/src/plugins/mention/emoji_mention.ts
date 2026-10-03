@@ -1,3 +1,4 @@
+import { IconEmoji } from "@ckeditor/ckeditor5-icons";
 import {
     type Editor,
     EmojiPicker,
@@ -36,6 +37,8 @@ export interface EmojiSuggestion extends MentionFeedObjectItem {
     title: string;
     /** Marks the entry that opens the emoji picker on the query instead of inserting an emoji. */
     opensPicker?: boolean;
+    /** The picker entry's icon as SVG markup: the one of the toolbar button that opens the picker too. */
+    icon?: string;
 }
 
 /**
@@ -117,7 +120,7 @@ export default class TriliumEmojiMention extends Plugin {
         // One slot is given up to the hand-off entry, so the list length stays at the limit.
         return [
             ...emojis.slice(0, limit - 1),
-            { id: SHOW_ALL_ID, title: this.editor.t("Show all emoji..."), text: query, opensPicker: true }
+            { id: SHOW_ALL_ID, title: this.editor.t("Show all emoji..."), text: query, opensPicker: true, icon: IconEmoji }
         ];
     }
 

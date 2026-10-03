@@ -198,13 +198,17 @@ function toCommandEntry(definition: SlashCommandDefinition): SlashCommandEntry {
 
 type EmojiEntry = CommandEntry & { suggestion: EmojiSuggestion };
 
-/** An emoji as a command row, the emoji its icon, or the entry that opens the picker. */
+/**
+ * An emoji as a command row, the emoji its icon, or the entry that opens the picker, set apart from
+ * the emoji above it with the icon of the editor's emoji button.
+ */
 function toEmojiEntry(suggestion: EmojiSuggestion): EmojiEntry {
     return {
         id: suggestion.id,
         title: suggestion.title,
-        icon: suggestion.opensPicker ? "bx bx-smile" : undefined,
+        iconSvg: suggestion.icon,
         iconText: suggestion.opensPicker ? undefined : suggestion.text,
+        startsGroup: suggestion.opensPicker,
         suggestion
     };
 }

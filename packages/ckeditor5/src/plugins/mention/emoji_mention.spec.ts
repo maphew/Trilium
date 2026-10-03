@@ -207,7 +207,10 @@ describe("TriliumEmojiMention", () => {
             const items = query("grinning");
             expect(items).toHaveLength(2);
             expect(items[0].text).toBe("😀");
-            expect(items[1]).toEqual({ id: expect.stringContaining("show_all"), title: "Show all emoji...", text: "grinning", opensPicker: true });
+            expect(items[1]).toEqual({
+                id: expect.stringContaining("show_all"), title: "Show all emoji...", text: "grinning", opensPicker: true,
+                icon: expect.stringContaining("<svg")
+            });
         });
 
         it("hands the query over to the picker instead of inserting anything", async () => {

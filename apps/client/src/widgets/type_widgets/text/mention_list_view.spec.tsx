@@ -262,7 +262,7 @@ describe("createSlashCommandList", () => {
 describe("createEmojiList", () => {
     const suggestions: EmojiSuggestion[] = [
         { id: ":grinning face:", title: ":grinning face:", text: "😀" },
-        { id: ":show-all:", title: "Show all emoji...", text: "grin", opensPicker: true }
+        { id: ":show-all:", title: "Show all emoji...", text: "grin", opensPicker: true, icon: "<svg class=\"emoji\"></svg>" }
     ];
 
     it("lists the emoji as command rows, the emoji as the icon, and commits the one picked", async () => {
@@ -277,12 +277,14 @@ describe("createEmojiList", () => {
 
         expect(search).toHaveBeenLastCalledWith("grin");
         expect(list.element?.matches(".dropdown-menu.note-autocomplete-menu")).toBe(true);
-        const [ grinning, showAll ] = [ ...(list.element?.querySelectorAll(".tn-menu-scroll > .dropdown-item") ?? []) ];
+        const [ grinning, showAll ] = [ ...(list.element?.querySelectorAll(".tn-menu-scroll > .dropdown-item:not(.dropdown-divider)") ?? []) ];
         expect(grinning.classList.contains("tn-menu-active")).toBe(true);
         expect(grinning.querySelector(".tn-icon.note-suggestion-text-icon")?.textContent).toBe("😀");
         expect(grinning.querySelector(".search-result-title")?.textContent).toBe(":grinning face:");
-        // The entry opening the picker has an icon of its own.
-        expect(showAll.querySelector(".tn-icon.bx-smile")).not.toBeNull();
+        // The entry opening the picker is set apart, with the icon of the editor's emoji button.
+        expect(showAll.previousElementSibling?.matches(".dropdown-divider")).toBe(true);
+        expect(showAll.querySelector(".note-suggestion-svg-icon > svg.emoji")).not.toBeNull();
+        expect(grinning.previousElementSibling).toBeNull();
         expect(showAll.querySelector(".search-result-title")?.textContent).toBe("Show all emoji...");
 
         expect(key("Enter")).toBe(true);

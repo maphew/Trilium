@@ -493,6 +493,8 @@ export interface CommandEntry {
     iconSvg?: string;
     /** A character drawn as the icon, such as an emoji, in place of {@link CommandEntry.icon}. */
     iconText?: string;
+    /** Draws a divider above the entry, setting it and those after it apart from the ones before. */
+    startsGroup?: boolean;
 }
 
 /**
@@ -527,7 +529,8 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
                 // Keeps the focus where the query is typed, which closes the list without it.
                 onMouseDown={(e) => e.preventDefault()}
             >
-                {autocomplete.items.map((entry, index) => (
+                {autocomplete.items.map((entry, index) => [
+                    entry.startsGroup && index > 0 && <FormDropdownDivider key={`divider-${entry.id}`} />,
                     <SuggestionOption key={entry.id} autocomplete={autocomplete} index={index}>
                         <span>
                             <SuggestionRowContent
@@ -537,7 +540,7 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
                             />
                         </span>
                     </SuggestionOption>
-                ))}
+                ])}
             </menu>
         </NoteSuggestionPopup>
     );
