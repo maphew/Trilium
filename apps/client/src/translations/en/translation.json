@@ -4417,7 +4417,7 @@
       "tiny": "Tiny",
       "show-title": "Show title",
       "more-actions": "More actions",
-      "insert-drawing-canvas": "Insert drawing canvas",
+      "drawing-canvas": "Drawing canvas",
       "editable": "Editable"
     },
     "task-state-dropped-title": "Invalid task states",

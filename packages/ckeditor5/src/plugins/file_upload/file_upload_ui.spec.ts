@@ -156,7 +156,7 @@ describe("FileUploadUI", () => {
             const focus = vi.spyOn(editor.editing.view, "focus");
 
             expect([ button.label, button.icon, button.tooltip ])
-                .toEqual([ "Insert drawing canvas", bxPen, true ]);
+                .toEqual([ "Drawing canvas", bxPen, true ]);
 
             button.fire("execute");
 

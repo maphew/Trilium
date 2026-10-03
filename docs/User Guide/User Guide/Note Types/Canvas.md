@@ -22,4 +22,4 @@ Embedding notes in the canvas follows the same rules as <a class="reference-lin
 
 ## Drawing in a text note
 
-To draw inside a <a class="reference-link" href="Text.md">Text</a> note instead of in a note of its own, insert a drawing canvas with the <span class="tn-icon bx bx-pen"></span> _Insert drawing canvas_ button. See _Drawing canvases_ in <a class="reference-link" href="Text/Include%20Note.md">Include Note</a>.
+To draw inside a <a class="reference-link" href="Text.md">Text</a> note instead of in a note of its own, insert a drawing canvas with <span class="tn-icon bx bx-pen"></span> _Drawing canvas_ in the <span class="tn-icon cke cke-plus"></span> _Insert_ menu. See _Drawing canvases_ in <a class="reference-link" href="Text/Include%20Note.md">Include Note</a>.

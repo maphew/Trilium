@@ -85,7 +85,7 @@ export default class FileUploadUI extends Plugin {
 
         editor.ui.componentFactory.add("drawingCanvas", (locale) => {
             const button = new ButtonView(locale);
-            button.set({ label: t("Insert drawing canvas"), icon: bxPen, tooltip: true });
+            button.set({ label: t("Drawing canvas"), icon: bxPen, tooltip: true });
 
             const uploadCommand = editor.commands.get("fileUpload");
             const embedCommand = editor.commands.get("insertContentEmbed");
