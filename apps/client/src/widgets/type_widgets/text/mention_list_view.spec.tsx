@@ -60,6 +60,23 @@ describe("createNoteMentionList", () => {
         expect(await canceled.commit.mock.calls[0]?.[0]).toBeUndefined();
         canceled.list.destroy?.();
     });
+
+    it("creates a child note under the note the editor is open on when the row is picked", async () => {
+        const childRow = { action: "create-child-note", noteTitle: "al", parentNoteId: "active", highlightedNotePathTitle: "Create child" };
+        getNoteSuggestions.mockResolvedValue([ childRow ] as never);
+        createNoteFromSuggestion.mockResolvedValue(undefined);
+        let editedNotePath = "root/first";
+        const list = createNoteMentionList({ allowCreatingNotes: true, getParentNotePath: () => editedNotePath });
+        const commit = vi.fn<MentionHostedListState["commit"]>();
+        // The editor is reused for the next note, so the parent is read as the list is shown.
+        editedNotePath = "root/second";
+        await act(async () => list.show({ query: "al", caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit }));
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+        list.handleKeyDown(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
+        expect(createNoteFromSuggestion).toHaveBeenLastCalledWith(childRow, "root/second");
+        list.destroy?.();
+    });
 });
 
 describe("createAutocompleteMentionList", () => {
@@ -133,6 +150,25 @@ describe("createSlashCommandList", () => {
 
         await act(async () => { key("ArrowDown"); });
         expect(key("Enter")).toBe(true);
+        expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "snippet-0", definition: definitions[1] });
+        list.destroy?.();
+    });
+
+    it("runs on Tab the command of the refined query, not the one highlighted before it", async () => {
+        const search = vi.fn((query: string) => query === "g" ? [ definitions[1] ] : definitions);
+        const editor = { plugins: { get: () => ({ search }) } } as unknown as Parameters<NonNullable<SlashCommandConfig["list"]>>[0];
+        const list = createSlashCommandList(editor);
+        const commit = vi.fn<MentionHostedListState["commit"]>();
+        const show = (query: string) => list.show({ query, caretRect: () => new DOMRect(10, 10, 1, 16), editable: null, commit });
+
+        await act(async () => show(""));
+        await act(async () => {});
+        show("g");
+        expect(list.handleKeyDown(new KeyboardEvent("keydown", { key: "Tab", cancelable: true }))).toBe(true);
+        expect(commit).not.toHaveBeenCalled();
+
+        // Rendered outside `act`, the lookup effect waits for the next frame.
+        await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
         expect(commit).toHaveBeenCalledExactlyOnceWith({ id: "snippet-0", definition: definitions[1] });
         list.destroy?.();
     });

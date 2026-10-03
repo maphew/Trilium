@@ -35,7 +35,8 @@ export interface BuildEditorOptions {
     contentLanguage: string | null;
     templates: SnippetDefinition[];
     /**
-     * Names the note the editor is open on, for the AI assistant to say where a run is writing.
+     * Names the note the editor is open on, for the AI assistant to say where a run is writing and
+     * for the `@` list to create a child note under.
      * A getter rather than the note itself: switching notes reuses the editor, so anything captured
      * here would name the note that happened to be open when it was built.
      */
@@ -311,7 +312,10 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                 minimumCharacters: 0,
                 // Note titles contain spaces, so the query must be allowed to as well.
                 allowSpaces: true,
-                list: () => createNoteMentionList({ allowCreatingNotes: true })
+                list: () => createNoteMentionList({
+                    allowCreatingNotes: true,
+                    getParentNotePath: () => opts.getNoteLocation?.()?.notePath
+                })
             }
         ] : []
     };

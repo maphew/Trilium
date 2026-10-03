@@ -226,12 +226,7 @@ export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocompl
         handleRef.current = {
             handleKeyDown(e) {
                 if (!autocomplete.isShown) return false;
-                const highlighted = autocomplete.items[autocomplete.activeIndex];
-                if (e.key === "Tab" && highlighted !== undefined) {
-                    e.preventDefault();
-                    autocomplete.pick(highlighted);
-                    return true;
-                }
+                if (e.key === "Tab" && autocomplete.takeHighlighted(e)) return true;
                 autocomplete.handleKeyDown(e);
                 return e.defaultPrevented;
             }
@@ -359,10 +354,18 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // next render: a second Enter in the same task then reaches the host's form (issue #5669).
     const pickedSinceRender = useRef(false);
     pickedSinceRender.current = false;
-    // Whether the entries on show answer an older query than the field's text. An Enter pressed then
-    // is held in `enterHeld` and picks from the newer query's entries once they arrive.
+    // Whether the entries on show answer an older query than the field's text. An Enter (or a
+    // forwarded Tab) pressed then is held in `keyHeld` and picks from the newer query's entries once
+    // they arrive.
     const isStale = useRef(false);
-    const enterHeld = useRef(false);
+    const keyHeld = useRef(false);
+    // A host that forwards its keys changes `query` without `handleInput`, and a key can arrive
+    // before the lookup effect runs.
+    const renderedQuery = useRef(query);
+    if (renderedQuery.current !== query) {
+        renderedQuery.current = query;
+        isStale.current = true;
+    }
     const pickLatest = useRef(pick);
     pickLatest.current = pick;
     // Set when the keyboard or a new list moves the highlight, which the effect below scrolls into view.
@@ -385,7 +388,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
         latestQuery.current++;
         isStale.current = false;
-        enterHeld.current = false;
+        keyHeld.current = false;
         setIsOpen(false);
         setActiveIndex(-1);
         setItems([]);
@@ -419,8 +422,8 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 setItems(suggestions);
                 scrollToActive.current = true;
                 setActiveIndex(index);
-                if (enterHeld.current) {
-                    enterHeld.current = false;
+                if (keyHeld.current) {
+                    keyHeld.current = false;
                     if (index >= 0) pickLatest.current(suggestions[index]);
                 }
             }
@@ -462,6 +465,27 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         inputRef.current?.focus();
     }
 
+    /**
+     * Picks the highlighted entry for a key that confirms it, or holds the key until the entries for
+     * a newer query arrive. Returns whether the key was taken.
+     */
+    function takeHighlighted(e: KeyboardEvent) {
+        // Without `autoActivate` the newer entries open with nothing highlighted, so a key pressed
+        // before they arrive belongs to the host.
+        if (!isShown || activeIndex < 0 || pickedSinceRender.current || (!autoActivate && isStale.current)) {
+            return false;
+        }
+        // Consume the key so it does not also reach the surrounding form or dialog.
+        e.preventDefault();
+        e.stopPropagation();
+        if (isStale.current) {
+            keyHeld.current = true;
+        } else {
+            pick(items[activeIndex]);
+        }
+        return true;
+    }
+
     function handleKeyDown(e: KeyboardEvent) {
         // The keys belong to the input method, such as the Enter that commits a candidate.
         if (e.isComposing) return;
@@ -480,19 +504,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 break;
 
             case "Enter":
-                // Without `autoActivate` the newer entries open with nothing highlighted, so an Enter
-                // pressed before they arrive belongs to the host.
-                if (isShown && activeIndex >= 0 && !pickedSinceRender.current
-                    && (autoActivate || !isStale.current)) {
-                    // Consume the key so it does not also reach the surrounding form or dialog.
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (isStale.current) {
-                        enterHeld.current = true;
-                    } else {
-                        pick(items[activeIndex]);
-                    }
-                } else if (openOnEnter) {
+                if (!takeHighlighted(e) && openOnEnter) {
                     open();
                 }
                 break;
@@ -533,8 +545,8 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         handleInput() {
             // The lookup effect runs after the next render, and a key can arrive before it.
             isStale.current = true;
-            // A held Enter confirms the text it was pressed on, not text typed after it.
-            enterHeld.current = false;
+            // A held key confirms the text it was pressed on, not text typed after it.
+            keyHeld.current = false;
             open();
         },
         handleFocus() {
@@ -548,6 +560,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             setIsComposing(false);
         },
         handleKeyDown,
+        takeHighlighted,
         /** The field's combobox attributes. */
         comboboxProps: {
             role: "combobox",

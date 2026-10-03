@@ -301,6 +301,15 @@ describe("createNoteFromSuggestion", () => {
         expect(getInboxNotePath).toHaveBeenCalledTimes(1);
     });
 
+    it("puts a child note under the parent the host gives, over the row's own", async () => {
+        await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "Child", parentNoteId: "active" }, "root/edited");
+        expect(createNote).toHaveBeenLastCalledWith("root/edited", expect.objectContaining({ title: "Child" }));
+
+        // The host's parent is for a child note only; the other row still goes to the inbox.
+        await createNoteFromSuggestion({ action: "create-note", noteTitle: "Inboxed" }, "root/edited");
+        expect(createNote).toHaveBeenLastCalledWith("root/inbox", expect.objectContaining({ title: "Inboxed" }));
+    });
+
     it("puts the note where the type chooser says, over the row's own parent", async () => {
         chooseNoteType.mockResolvedValue({ success: true, noteType: "code", notePath: "chosen/path" });
 

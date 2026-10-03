@@ -19,15 +19,21 @@ const AUTOCOMPLETE_MENTION_MIN_WIDTH = 220;
  * Lists the notes for the query typed after `@` as the note autocomplete does, for the editor config's
  * `mention.hostedFeeds`, and mentions the note picked as a reference link.
  */
-export function createNoteMentionList({ allowCreatingNotes, preselect }: {
+export function createNoteMentionList({ allowCreatingNotes, preselect, getParentNotePath }: {
     allowCreatingNotes?: boolean;
     preselect?: boolean;
+    /**
+     * The note the editor is open on, which a child note is created under. A getter, as switching
+     * notes reuses the editor.
+     */
+    getParentNotePath?(): string | null | undefined;
 } = {}): MentionHostedList {
     return createHostedList((state, list) => (
         <NoteMentionList
             {...list}
             query={state.query}
             allowCreatingNotes={allowCreatingNotes}
+            parentNotePath={getParentNotePath?.()}
             preselect={preselect}
             onPick={(notePath) => state.commit(typeof notePath === "string"
                 ? toMention(notePath)

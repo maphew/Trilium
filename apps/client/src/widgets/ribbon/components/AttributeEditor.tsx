@@ -36,24 +36,11 @@ type AttributeCommandNames = FilteredCommandNames<CommandData>;
  */
 const BLINK_DURATION = 300;
 
-// Every list opens with nothing highlighted: in this editor Enter means "save the attributes", so an
-// open list must not swallow it into committing whichever suggestion happens to be first.
-const hostedMentions: MentionHostedFeed[] = [
-    attributeNameMention("#", "label"),
-    attributeNameMention("~", "relation"),
-    {
-        marker: "@",
-        minimumCharacters: 0,
-        // Relation targets are note titles, which contain spaces.
-        allowSpaces: true,
-        list: () => createNoteMentionList({ allowCreatingNotes: true, preselect: false })
-    }
-];
-
 interface AttributeEditorProps {
     api: MutableRef<AttributeEditorImperativeHandlers | null>;
     note: FNote;
     componentId: string;
+    notePath?: string | null;
     ntxId?: string | null;
     hidden?: boolean;
     /**
@@ -70,7 +57,7 @@ export interface AttributeEditorImperativeHandlers {
     renderOwnedAttributes(ownedAttributes: FAttribute[]): Promise<void>;
 }
 
-export default function AttributeEditor({ api, note, componentId, ntxId, hidden, hideHelpButton }: AttributeEditorProps) {
+export default function AttributeEditor({ api, note, componentId, notePath, ntxId, hidden, hideHelpButton }: AttributeEditorProps) {
     const [ currentValue, setCurrentValue ] = useState("");
     const [ error, setError ] = useState<unknown>();
     const [ needsSaving, setNeedsSaving ] = useState(false);
@@ -83,6 +70,10 @@ export default function AttributeEditor({ api, note, componentId, ntxId, hidden,
     const currentValueRef = useRef(currentValue);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<CKEditorApi>();
+    // The editor outlives a switch to another note, so its `@` list reads the path as it opens.
+    const notePathRef = useRef(notePath);
+    notePathRef.current = notePath;
+    const hostedMentions = useMemo(() => buildHostedMentions(() => notePathRef.current), []);
 
     // The CKEditor bundle is heavy and this component mounts in always-visible containers
     // (e.g. the status bar), so the editor class is loaded on demand to keep CKEditor out
@@ -407,6 +398,25 @@ export default function AttributeEditor({ api, note, componentId, ntxId, hidden,
  * Completes the name typed after `marker` as the attributes panel's name box completes it, from the
  * same names drawn the same way, and inserts the name picked behind the marker.
  */
+/**
+ * The lists for the markers typed in the editor. Every list opens with nothing highlighted: in this
+ * editor Enter means "save the attributes", so an open list must not swallow it into committing
+ * whichever suggestion happens to be first.
+ */
+function buildHostedMentions(getNotePath: () => string | null | undefined): MentionHostedFeed[] {
+    return [
+        attributeNameMention("#", "label"),
+        attributeNameMention("~", "relation"),
+        {
+            marker: "@",
+            minimumCharacters: 0,
+            // Relation targets are note titles, which contain spaces.
+            allowSpaces: true,
+            list: () => createNoteMentionList({ allowCreatingNotes: true, preselect: false, getParentNotePath: getNotePath })
+        }
+    ];
+}
+
 function attributeNameMention(marker: "#" | "~", type: "label" | "relation"): MentionHostedFeed {
     return {
         marker,

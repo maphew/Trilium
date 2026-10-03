@@ -104,10 +104,14 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
 
 /**
  * Creates the note a creation row offers, under the parent the user picks in the type chooser, or
- * else in the inbox (`create-note`) or under the row's parent (`create-child-note`). Returns the
- * new note's path, or nothing when the chooser is canceled or no parent is found.
+ * else in the inbox (`create-note`) or under `childParentNotePath` or the row's parent
+ * (`create-child-note`). Returns the new note's path, or nothing when the chooser is canceled or no
+ * parent is found.
+ *
+ * @param childParentNotePath the note a host is editing, which the row's parent, the active note,
+ * need not be.
  */
-export async function createNoteFromSuggestion(suggestion: Suggestion) {
+export async function createNoteFromSuggestion(suggestion: Suggestion, childParentNotePath?: string | null) {
     const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
     if (!success) {
         return;
@@ -115,7 +119,7 @@ export async function createNoteFromSuggestion(suggestion: Suggestion) {
 
     const parentNotePath = notePath ?? (suggestion.action === "create-note"
         ? await dateNoteService.getInboxNotePath()
-        : suggestion.parentNoteId);
+        : childParentNotePath ?? suggestion.parentNoteId);
     if (!parentNotePath) {
         return;
     }
