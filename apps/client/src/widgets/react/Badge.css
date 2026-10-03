@@ -87,10 +87,14 @@
         min-width: 0;
     }
 
+    /*
+     * The name and the value shrink only once the badge runs out of room, each by its share of the
+     * width, so a long name gives up more than a short value.
+     */
     .attribute-badge-key {
         display: flex;
         align-items: center;
-        flex-shrink: 0;
+        min-width: 0;
         padding-inline: 6px 8px;
         /* The shade and text of a button's keyboard shortcut (`button.btn kbd` in forms.css). */
         background: var(
@@ -100,14 +104,11 @@
         color: var(--cmd-button-keyboard-shortcut-color, var(--main-text-color));
     }
 
-    /* A long name leaves room for the value beside it. */
-    &.has-value .attribute-badge-key {
-        max-width: 50%;
-    }
-
     .attribute-badge-name {
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .attribute-badge-value {
