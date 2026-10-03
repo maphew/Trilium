@@ -7,6 +7,12 @@ It is also possible to configure most keyboard shortcuts in <a class="reference
 
 On the <a class="reference-link" href="../Installation%20%26%20Setup/Desktop%20Installation.md">Desktop Installation</a>, it's also possible to make shortcuts global by pressing on the globe icon near the key combination, which makes the shortcut work even without Trilium being in focus.
 
+### Keyboard layouts
+
+Shortcuts follow the characters printed on the keys of the active keyboard layout. On a French AZERTY keyboard, for example, <kbd>Ctrl</kbd>+<kbd>Z</kbd> is the key labeled Z.
+
+On a layout that doesn't type Latin letters, such as Russian, Greek or Hebrew, a shortcut uses the key at the same position on a US QWERTY keyboard. <kbd>Ctrl</kbd>+<kbd>J</kbd> is then the key that types `о` on a Russian keyboard, so shortcuts keep working without switching the layout first.
+
 ## Shortcut reference
 
 > [!NOTE]
