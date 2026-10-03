@@ -80,7 +80,7 @@ export function codeBlockLanguage(mode: string): string | null {
 
 /**
  * Whether the clipboard HTML has the shape VS Code writes: a single `div` with `white-space: pre`
- * and a monospace font, holding a `div` per line.
+ * and a monospace font, holding a `div` per line and a `br` per empty line.
  */
 export function isVsCodeHtml(html: string): boolean {
     if (!html) {
@@ -94,7 +94,13 @@ export function isVsCodeHtml(html: string): boolean {
         return false;
     }
 
-    return root.style.whiteSpace === "pre" && root.style.fontFamily.includes("monospace");
+    if (root.style.whiteSpace !== "pre" || !root.style.fontFamily.includes("monospace")) {
+        return false;
+    }
+
+    const lines = [...root.childNodes];
+    return lines.some((line) => line instanceof HTMLDivElement)
+        && lines.every((line) => line instanceof HTMLDivElement || line instanceof HTMLBRElement);
 }
 
 /**

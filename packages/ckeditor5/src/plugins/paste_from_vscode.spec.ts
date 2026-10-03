@@ -7,6 +7,10 @@ import PasteFromVsCode, { codeBlockLanguage, isVsCodeHtml, VSCODE_EDITOR_DATA, v
 /** A CSS rule copied out of VS Code under a dark theme: the clipboard's HTML, verbatim. */
 const VSCODE_HTML = `<meta charset='utf-8'><div style="color: #bbbebf;background-color: #121314;font-family: Menlo, Monaco, 'Courier New', monospace;font-weight: normal;font-size: 12px;line-height: 18px;white-space: pre;"><div><span style="color: #d7ba7d;">#trilium-error-overlay</span><span style="color: #bbbebf;"> </span><span style="color: #d7ba7d;">.tn-eo-title</span><span style="color: #bbbebf;"> {</span></div><div><span style="color: #bbbebf;">    </span><span style="color: #9cdcfe;">margin</span><span style="color: #bbbebf;">: </span><span style="color: #b5cea8;">0</span><span style="color: #bbbebf;">;</span></div><div><span style="color: #bbbebf;">    </span><span style="color: #9cdcfe;">font-size</span><span style="color: #bbbebf;">: </span><span style="color: #b5cea8;">1.4em</span><span style="color: #bbbebf;">;</span></div><div><span style="color: #bbbebf;">    </span><span style="color: #9cdcfe;">font-weight</span><span style="color: #bbbebf;">: </span><span style="color: #b5cea8;">600</span><span style="color: #bbbebf;">;</span></div><div><span style="color: #bbbebf;">}</span></div></div>`;
 
+/** The style VS Code puts on the container, as in {@link VSCODE_HTML}. */
+const VSCODE_STYLE = "color: #bbbebf;background-color: #121314;font-family: Menlo, Monaco, 'Courier New', monospace;"
+    + "font-weight: normal;font-size: 12px;line-height: 18px;white-space: pre;";
+
 /** The same copy as plain text. */
 const VSCODE_TEXT = "#trilium-error-overlay .tn-eo-title {\n    margin: 0;\n    font-size: 1.4em;\n    font-weight: 600;\n}";
 
@@ -48,7 +52,10 @@ describe("PasteFromVsCode", () => {
     describe("isVsCodeHtml", () => {
         it("recognizes the HTML VS Code writes", () => {
             expect(isVsCodeHtml(VSCODE_HTML)).toBe(true);
-            expect(isVsCodeHtml(`<div style="font-family: Consolas, monospace; white-space: pre;"><div>x</div></div>`)).toBe(true);
+            // A single line: the container holds one line div.
+            expect(isVsCodeHtml(`<div style="${VSCODE_STYLE}"><div><span style="color: #9cdcfe;">margin</span></div></div>`)).toBe(true);
+            // An empty line is a bare <br> in the container rather than a line div.
+            expect(isVsCodeHtml(`<div style="${VSCODE_STYLE}"><div>a</div><br><div>b</div></div>`)).toBe(true);
         });
 
         it("rejects HTML of any other shape", () => {
@@ -59,6 +66,14 @@ describe("PasteFromVsCode", () => {
             // More than the one block, or a block that is not a div.
             expect(isVsCodeHtml(`${VSCODE_HTML}<p>after</p>`)).toBe(false);
             expect(isVsCodeHtml(`<pre style="font-family: monospace; white-space: pre;">x</pre>`)).toBe(false);
+        });
+
+        it("rejects a preformatted block whose content is not a div per line", () => {
+            // Text and links straight inside the container, as on a page that styles a div this way.
+            expect(isVsCodeHtml(`<div style="${VSCODE_STYLE}">see <a href="https://example.com">the docs</a></div>`)).toBe(false);
+            expect(isVsCodeHtml(`<div style="${VSCODE_STYLE}"><div>a</div>b</div>`)).toBe(false);
+            // Only empty lines.
+            expect(isVsCodeHtml(`<div style="${VSCODE_STYLE}"><br></div>`)).toBe(false);
         });
     });
 
