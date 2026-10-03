@@ -1169,7 +1169,10 @@
     "open_note_in_new_split": "Открыть заметку в новой панели",
     "open_note_in_other_split": "Открыть заметку в другой панели",
     "open_note": "Открыть заметку",
-    "convert_link_to_embed": "Конвертировать ссылку во встроенную"
+    "convert_link_to_embed": "Конвертировать ссылку во встроенную",
+    "convert_embed_to_link": "Конвертировать в ссылку",
+    "include_size": "Размер",
+    "convert_link_to_included_note": "Конвертировать ссылку во включенную заметку"
   },
   "image_context_menu": {
     "copy_image_to_clipboard": "Копировать изображение в буфер обмена",
@@ -2186,7 +2189,8 @@
     "box_size_medium": "средний (~ 30 строк)",
     "box_size_full": "полный (в рамке показан полный текст)",
     "box_size_prompt": "Размер рамки вставленной заметки:",
-    "box_size_expandable": "разворачиваемый (по умолчанию свёрнут)"
+    "box_size_expandable": "разворачиваемая (по умолчанию свёрнута)",
+    "box_size_tiny": "крошечный (одна строка с названием и действиями)"
   },
   "execute_script": {
     "execute_script": "Выполнить скрипт",
@@ -3643,7 +3647,9 @@
     "save": "Сохранить",
     "cancel": "Отмена",
     "fullscreen": "На весь экран",
-    "exit_fullscreen": "Выйти из полноэкранного режима"
+    "exit_fullscreen": "Выйти из полноэкранного режима",
+    "open_in_new_tab": "Открыть в новой вкладке",
+    "more_actions": "Другие действия"
   },
   "spreadsheet": {
     "read-only": "Эта заметка доступна только для чтения.",
@@ -3837,7 +3843,9 @@
       "attach-file-as-a-link": "Вложить файл как ссылку",
       "convert-to-link": "Конвертировать в ссылку",
       "upload-files-as-attachments-and-insert-embeds": "Загрузить файлы как вложения и встроить.",
-      "upload-files-as-attachments-and-insert-links": "Загрузить файлы как вложения и вставить ссылки."
+      "upload-files-as-attachments-and-insert-links": "Загрузить файлы как вложения и вставить ссылки.",
+      "tiny": "Крошечный",
+      "more-actions": "Другие действия"
     },
     "task-state-dropped-title": "Недопустимые состояния задачи",
     "task-state-dropped-configure": "Настроить состояния задач",
