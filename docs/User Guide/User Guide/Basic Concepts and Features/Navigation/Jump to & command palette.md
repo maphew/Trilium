@@ -22,6 +22,7 @@ In addition to searching for notes, it is also possible to search for commands. 
 *   When the title search does not find a note, the bar below the results offers two ways to search further. It stays below the list, however far the results are scrolled.
     *   The _Include note contents_ switch searches the content of the notes as well as their titles, and lists what it finds in place of the current results, without leaving the dialog. It stays on while the query changes, until it is switched off. Press <kbd>Shift</kbd>+<kbd>Enter</kbd> to switch it from the keyboard.
     *   _Show in full search_ opens the query in the full <a class="reference-link" href="Search.md">Search</a>, in a new tab, where its options can refine it. Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run it from the keyboard.
+*   To see the keys the results answer to, click the <kbd>?</kbd> button below the results, or press <kbd>Alt</kbd>+<kbd>F1</kbd> while the search field is focused.
 *   The options to create a note are listed after the notes. When no note matches, the list says so above them. <kbd>Enter</kbd> opens the note that matches best, or creates the note when none matches. Otherwise, press <kbd>↑</kbd> from the first note to reach the options to create a note.
 
 ## Recent notes

@@ -3088,7 +3088,12 @@
     "insert-external-link": "Insert external link to \"{{term}}\"",
     "clear-text-field": "Clear text field",
     "include-note-contents": "Include note contents in the results for \"{{term}}\"",
-    "include-contents": "Include note contents"
+    "include-contents": "Include note contents",
+    "hints": {
+      "title": "Note search results",
+      "move": "Move through the results",
+      "open": "Open the highlighted result"
+    }
   },
   "note_tooltip": {
     "note-has-been-deleted": "Note has been deleted.",

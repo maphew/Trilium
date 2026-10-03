@@ -16,10 +16,13 @@ vi.mock("../../services/note_autocomplete", async (importOriginal) => ({
 }));
 
 import appContext from "../../components/app_context";
+import Component from "../../components/component";
 import type { NoteSuggestionOptions, Suggestion } from "../../services/note_autocomplete";
+import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, renderNoteSuggestion } from "./NoteAutocomplete";
+import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
     let container = document.createElement("div");
@@ -795,8 +798,12 @@ describe("NoteAutocomplete's suggestion list", () => {
             expect(getNoteSuggestions.mock.lastCall?.[1]?.fastSearch).toBeUndefined();
             expect(document.activeElement).toBe(input);
 
+            // The switch leaves its key to the shortcut hints, which the footer opens as quick search's does.
+            expect(host.querySelector(".note-suggestion-footer .switch-widget kbd")).toBeNull();
+            expect(host.querySelector(".note-suggestion-footer .shortcut-hint-button")).not.toBeNull();
+
             // The footer under the list opens the full search, reported for the host to close on.
-            const footer = host.querySelector<HTMLButtonElement>(".note-suggestion-footer button.btn");
+            const footer = host.querySelector<HTMLButtonElement>(".note-suggestion-footer button.show-in-full-search");
             await act(async () => { footer?.click(); });
             expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "alp" });
             expect(onChange).toHaveBeenLastCalledWith({ action: "search-notes", noteTitle: "alp" });
@@ -807,6 +814,23 @@ describe("NoteAutocomplete's suggestion list", () => {
             await type(popupInput, "al");
             expect(fullTextRow()).toBeDefined();
             expect(document.querySelector(".note-suggestion-footer")).toBeNull();
+        });
+
+        it("lists the keys of a host's list in the shortcut hints, and leaves a dropdown's host alone", async () => {
+            const keysFor = async (props: NoteAutocompleteProps) => {
+                const parent = new Component();
+                await act(async () => {
+                    renderInto(<ParentComponent.Provider value={parent}><NoteAutocomplete {...props} /></ParentComponent.Provider>);
+                });
+                return collectShortcutHints(parent).flatMap((section) => section.hints)
+                    .map((hint) => ("keys" in hint ? hint.keys.join(" ") : hint.action));
+            };
+
+            const host = document.createElement("div");
+            expect(await keysFor({ container: { current: host }, opts: { allowJumpToSearchNotes: true } }))
+                .toEqual([ "Up Down", "Enter", "Shift+Enter", "Ctrl+Enter" ]);
+            expect(await keysFor({ container: { current: host } })).toEqual([ "Up Down", "Enter", "Shift+Enter" ]);
+            expect(await keysFor({})).toEqual([]);
         });
 
         it("runs a search from its row, with its shortcut shown, reporting it for the host to close on", async () => {

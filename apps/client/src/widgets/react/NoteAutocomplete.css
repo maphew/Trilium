@@ -114,19 +114,12 @@
 .note-suggestion-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     padding: 6px 16px;
     border-top: 1px solid var(--main-border-color);
 
-    .switch-widget {
-        gap: 8px;
-    }
-
-    /* Beside the switch's label, not pushed to the end of a row. */
-    .note-suggestion-shortcut {
-        margin-inline-start: 0;
-        padding-inline-start: 0;
+    .show-in-full-search {
+        margin-inline-start: auto;
     }
 }
 
@@ -146,7 +139,7 @@
  * Each key drawn as the Next theme draws a button's (`button.btn kbd` in forms.css), plainly in the
  * themes without its variables. The `!important`s outrank the Next theme's `.dropdown-item kbd`.
  */
-:is(.dropdown-item, .note-suggestion-footer) .note-suggestion-shortcut > kbd {
+.dropdown-item .note-suggestion-shortcut > kbd {
     padding: 0.1875rem 0.375rem;
     border: 0;
     box-shadow: none;

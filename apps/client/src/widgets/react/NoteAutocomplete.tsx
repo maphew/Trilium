@@ -12,13 +12,15 @@ import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import { createSearchScheduler, createNoteFromSuggestion, getCommandSuggestions, getNoteSuggestions, type Options, type Suggestion } from "../../services/note_autocomplete";
 import { escapeHtml, isMobile } from "../../services/utils";
+import { ShortcutHintOverlayButton } from "../shortcut_hints/shortcut_hint_button";
 import { AttributeSnippetBadges } from "./Badge";
 import Button from "./Button";
 import { useAutocomplete } from "./FormAutocomplete";
 import { FormDropdownDivider } from "./FormList";
 import FormToggle from "./FormToggle";
-import { useSyncedRef } from "./hooks";
+import { useContextualShortcutHints, useSyncedRef } from "./hooks";
 import Icon from "./Icon";
+import OverlayControlGroup from "./OverlayControlGroup";
 import Popup from "./Popup";
 import RawHtml from "./RawHtml";
 import { renderShortcutKbds } from "./shortcut_kbd";
@@ -341,6 +343,8 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                 />
             )}
 
+            {isContained && <ContainedListShortcutHints allowFullSearch={!!allowJumpToSearchNotes} />}
+
             {showButtons && <>
                 <a
                     className="input-group-text input-clearer-button bx bxs-tag-x"
@@ -364,16 +368,19 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
                             // Keeps the focus in the field, as the rows do.
                             onMouseDown={(e) => e.preventDefault()}
                         >
+                            {!cachedIsMobile && (
+                                <OverlayControlGroup>
+                                    <ShortcutHintOverlayButton />
+                                </OverlayControlGroup>
+                            )}
                             <FormToggle
                                 switchOnName={t("note_autocomplete.include-contents")}
                                 switchOffName={t("note_autocomplete.include-contents")}
                                 currentValue={includeContents}
                                 onChange={fullTextSearch}
-                                afterName={!cachedIsMobile && (
-                                    <span className="note-suggestion-shortcut">{renderShortcutKbds("Shift+Enter")}</span>
-                                )}
                             />
                             {allowJumpToSearchNotes && <Button
+                                className="show-in-full-search"
                                 kind="lowProfile"
                                 size="small"
                                 icon="bx-file-find"
@@ -414,6 +421,25 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
  * in the popup or in a host's container. With `searchingFor`, the query of a search in progress, it
  * shows a row saying so in place of the suggestions.
  */
+/**
+ * Lists the keys of a list in a host's container in the shortcut hints pane. Only such a list adds
+ * hints, as they replace whatever the host registered.
+ */
+function ContainedListShortcutHints({ allowFullSearch }: { allowFullSearch: boolean }) {
+    useContextualShortcutHints(() => [ {
+        titleKey: "note_autocomplete.hints.title",
+        hints: [
+            { keys: [ "Up", "Down" ], labelKey: "note_autocomplete.hints.move" },
+            { keys: [ "Enter" ], labelKey: "note_autocomplete.hints.open" },
+            { keys: [ "Shift+Enter" ], labelKey: "note_autocomplete.include-contents" },
+            ...(allowFullSearch
+                ? [ { keys: [ "Ctrl+Enter" ], labelKey: "quick-search.show-in-full-search" } ]
+                : [])
+        ]
+    } ]);
+    return null;
+}
+
 function NoteSuggestionMenu({ autocomplete, searchingFor, className }: {
     autocomplete: ReturnType<typeof useAutocomplete<Suggestion>>;
     searchingFor?: string;
