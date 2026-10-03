@@ -1066,7 +1066,8 @@
     "box_size_small": "スモール (~ 10 行)",
     "box_size_medium": "ミディアム (~ 30 行)",
     "box_size_full": "フル (ボックスに全文が表示されます)",
-    "box_size_expandable": "展開可能 (デフォルトでは折りたたまれています)"
+    "box_size_expandable": "展開可能 (デフォルトでは折りたたまれています)",
+    "box_size_tiny": "コンパクト（タイトルとアクションを 1 行に表示）"
   },
   "ancestor": {
     "placeholder": "ノート名で検索",
@@ -1700,7 +1701,12 @@
     "open_note_in_new_window": "新しいウィンドウでノートを開く",
     "open_note_in_other_split": "他の分割画面でノートを開く",
     "open_note": "ノートを開く",
-    "convert_link_to_embed": "リンクを埋め込みに変換"
+    "convert_link_to_embed": "リンクを埋め込みに変換",
+    "convert_link_to_included_note": "リンクを埋め込みノートに変換",
+    "convert_embed_to_link": "リンクに変換",
+    "include_size": "サイズ",
+    "show_title": "タイトルを表示",
+    "show_caption": "キャプションを表示"
   },
   "note_tooltip": {
     "quick-edit": "クイック編集",
@@ -2145,7 +2151,11 @@
     "connection_exists": "これらのノート間の接続 '{{name}}' は既に存在します。",
     "start_dragging_relations": "ここからリレーションをドラッグして、別のノートにドロップします。",
     "note_already_in_diagram": "ノート「{{title}}」はすでに図に含まれています。",
-    "rename_relation": "リレーション名の変更"
+    "rename_relation": "リレーション名の変更",
+    "rename": "名前を変更",
+    "new_relation": "新しいリレーション",
+    "create_relation": "リレーションを作成",
+    "relation_name_placeholder": "リレーション名"
   },
   "database_anonymization": {
     "title": "データベースの匿名化",
@@ -2498,7 +2508,22 @@
     "create-note-into": "{{parentTitle}} 内にノート \"{{term}}\" を作成",
     "create-note-into-day-note": "今日の日ノート内にノート \"{{term}}\" を作成",
     "create-note-into-root": "トップレベルにノート \"{{term}}\" を作成",
-    "create-child-note": "子ノート \"{{term}}\" を作成"
+    "create-child-note": "子ノート \"{{term}}\" を作成",
+    "show-in-full-search": "\"{{term}}\" の全検索結果を表示",
+    "include-note-contents": "\"{{term}}\" の検索結果にノートの内容を含める",
+    "include-contents": "ノートの内容を含める",
+    "hints": {
+      "title": "ノートの検索結果",
+      "move": "検索結果を移動",
+      "open": "ハイライトされた結果を開く"
+    },
+    "recent": {
+      "today": "今日",
+      "yesterday": "昨日",
+      "past_week": "過去 7 日間",
+      "past_month": "過去 30 日間",
+      "older": "それ以前"
+    }
   },
   "geo-map": {
     "create-child-note-title": "新しい子ノートを作成し、マップに追加する",
@@ -3508,7 +3533,9 @@
     "save": "保存",
     "cancel": "キャンセル",
     "fullscreen": "全画面表示",
-    "exit_fullscreen": "全画面表示を終了"
+    "exit_fullscreen": "全画面表示を終了",
+    "open_in_new_tab": "新しいタブで開く",
+    "more_actions": "その他のアクション"
   },
   "spreadsheet": {
     "read-only": "このノートは読み取り専用です。",
@@ -3739,7 +3766,12 @@
       "attach-file-as-a-link": "ファイルをリンクとして添付",
       "convert-to-link": "リンクに変換",
       "upload-files-as-attachments-and-insert-embeds": "ファイルを添付ファイルとしてアップロードし、埋め込みを挿入する。",
-      "upload-files-as-attachments-and-insert-links": "ファイルを添付ファイルとしてアップロードし、リンクを挿入する。"
+      "upload-files-as-attachments-and-insert-links": "ファイルを添付ファイルとしてアップロードし、リンクを挿入する。",
+      "caption-for-the-included-note": "埋め込みノートのキャプション",
+      "enter-caption": "キャプションを入力",
+      "tiny": "コンパクト",
+      "show-title": "タイトルを表示",
+      "more-actions": "その他のアクション"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",
