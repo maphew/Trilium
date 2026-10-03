@@ -46,7 +46,8 @@ const AUTO_SCROLL_STEP = 16;
 /**
  * Resizes until the pointer pressed in `event` is released. The width grows towards the inline
  * end, or on both sides when centered, the height towards the bottom, and the scroll container
- * scrolls near its edges. Returns a function that ends the gesture without calling back.
+ * scrolls near its edges. Returns a function that cancels the gesture as Escape does, while it is
+ * under way.
  */
 export function startResizeGesture(event: PointerEvent, options: ResizeGestureOptions) {
     const { axes, widthTarget, heightTarget } = options;
@@ -62,6 +63,7 @@ export function startResizeGesture(event: PointerEvent, options: ResizeGestureOp
     let x = startX;
     let y = startY;
     let isMoved = false;
+    let isActive = true;
     let frame = 0;
 
     options.handle.setPointerCapture(pointerId);
@@ -132,6 +134,7 @@ export function startResizeGesture(event: PointerEvent, options: ResizeGestureOp
     };
 
     const stop = () => {
+        isActive = false;
         cancelAnimationFrame(frame);
         window.removeEventListener("pointermove", onPointerMove, true);
         window.removeEventListener("pointerup", onPointerUp, true);
@@ -150,7 +153,12 @@ export function startResizeGesture(event: PointerEvent, options: ResizeGestureOp
         frame = requestAnimationFrame(scrollStep);
     }
 
-    return stop;
+    return () => {
+        if (isActive) {
+            stop();
+            options.onCancel();
+        }
+    };
 }
 
 /** The width inside the padding of the parent of `element`. */

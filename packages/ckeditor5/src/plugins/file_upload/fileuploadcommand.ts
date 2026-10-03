@@ -1,6 +1,7 @@
 import {
     Command,
     FileRepository,
+    findOptimalInsertionRange,
     type Editor,
     type FileLoader,
     type Model,
@@ -22,7 +23,10 @@ export interface FileUploadOptions {
     editable?: boolean;
     /** Skips the `upload` event, for a file that the editor created itself. */
     quiet?: boolean;
-    /** Gives the focus to what the embeds show, once the upload ends. */
+    /**
+     * Gives the focus to what the embeds show, once the upload ends. The embeds go beside the
+     * block of the selection, as an image does, and the cursor stays where the selection starts.
+     */
     focusEmbed?: boolean;
 }
 
@@ -77,7 +81,8 @@ export default class FileUploadCommand extends Command {
                     insertEmbedPlaceholder(writer, model, loader.id, file.name, {
                         boxSize: boxSize ?? getEmbedBoxSize(this.editor, file),
                         hideTitle,
-                        editable
+                        editable,
+                        isBesideSelection: focusEmbed
                     });
                 } else {
                     insertPlaceholder(writer, model, loader.id, file.name);
@@ -107,7 +112,7 @@ function insertEmbedPlaceholder(
     model: Model,
     uploadId: string,
     fileName: string,
-    { boxSize, hideTitle, editable }: { boxSize: string; hideTitle?: boolean; editable?: boolean }
+    { boxSize, hideTitle, editable, isBesideSelection }: EmbedPlaceholderOptions
 ) {
     const placeholder = writer.createElement("contentEmbed", {
         boxSize,
@@ -116,7 +121,21 @@ function insertEmbedPlaceholder(
         uploadId,
         uploadFileName: fileName
     });
-    model.insertObject(placeholder, model.document.selection, null, { setSelection: "after" });
+    if (isBesideSelection) {
+        const selection = model.document.selection;
+        model.insertObject(placeholder, findOptimalInsertionRange(selection, model));
+        writer.setSelection(selection.getFirstPosition());
+    } else {
+        model.insertObject(placeholder, model.document.selection, null, { setSelection: "after" });
+    }
+}
+
+interface EmbedPlaceholderOptions {
+    boxSize: string;
+    hideTitle?: boolean;
+    editable?: boolean;
+    /** Places the embed beside the block of the selection, which collapses to its start. */
+    isBesideSelection?: boolean;
 }
 
 /** The box size the host gives an embed of `file`, `medium` when the host does not say. */

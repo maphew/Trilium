@@ -334,23 +334,29 @@ describe("ResizableWidgets", () => {
         expect(editor.getData()).toBe(RESIZED);
     });
 
-    it("stops a resize when another pointer starts one", async () => {
-        await createEditor();
+    it("cancels a resize when another pointer starts one", async () => {
+        await createEditor({}, [ WidgetToolbarRepository ]);
         editor.setData(RESIZED);
         const box = getBox();
+        const toolbars = editor.plugins.get(WidgetToolbarRepository);
+        const getWidth = () => box.style.getPropertyValue("--test-width");
+        const pressPen = () => press(getHandle("width"), { pointerId: 2, pointerType: "pen" });
 
         press(getHandle("width"));
         move(150, 300);
-        expect(box.style.getPropertyValue("--test-width")).toBe("35em");
+        expect([ getWidth(), toolbars.isEnabled ]).toEqual([ "35em", false ]);
 
-        press(getHandle("width"), { pointerId: 2, pointerType: "pen" });
-        move(250, 300);
-        expect(box.style.getPropertyValue("--test-width")).toBe("35em");
-        move(120, 300, 2);
-        expect(box.style.getPropertyValue("--test-width")).toBe("37em");
-
+        // A tap of the pen ends the drag of the mouse as Escape does.
+        pressPen();
         window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 2 }));
-        expect(getSize()).toContain("customWidth=\"37em\"");
+        expect([ getWidth(), toolbars.isEnabled ]).toEqual([ "30em", true ]);
+        move(250, 300);
+        expect(getWidth()).toBe("30em");
+
+        pressPen();
+        move(120, 300, 2);
+        window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 2 }));
+        expect(getSize()).toContain("customWidth=\"32em\"");
     });
 
     it("stops resizing once the editor is destroyed", async () => {

@@ -207,6 +207,43 @@ describe("FileUploadCommand", () => {
         expect(getEmbedBoxSize).not.toHaveBeenCalled();
     });
 
+    it("places an embed that takes the focus as an image, keeping the text and the cursor", () => {
+        installGlobMock({ getComponentByEl: () => ({}) });
+        const insert = (data: string, focusEmbed: boolean) => {
+            setModelData(editor.model, data);
+            editor.execute("fileUpload", {
+                file: [ new File([ "{}" ], "Canvas.excalidraw") ],
+                asEmbed: true,
+                focusEmbed
+            });
+            return getModelData(editor.model).replace(/<contentEmbed[^>]*><\/contentEmbed>/, "<E>");
+        };
+
+        // Beside the block of the selection, which collapses to its start.
+        expect([
+            insert("<paragraph>f[oo] bar</paragraph><paragraph>baz</paragraph>", true),
+            insert("<paragraph>foo [bar</paragraph><paragraph>ba]z</paragraph>", true),
+            insert("<paragraph>foo[] bar</paragraph>", true),
+            insert("<paragraph>[foo bar]</paragraph>", true),
+            insert("<paragraph>foo bar[]</paragraph>", true),
+            insert(
+                "<paragraph>foo</paragraph><paragraph>[]</paragraph><paragraph>bar</paragraph>",
+                true
+            )
+        ]).toEqual([
+            "<E><paragraph>f[]oo bar</paragraph><paragraph>baz</paragraph>",
+            "<E><paragraph>foo []bar</paragraph><paragraph>baz</paragraph>",
+            "<E><paragraph>foo[] bar</paragraph>",
+            "<paragraph>[]foo bar</paragraph><E>",
+            "<paragraph>foo bar[]</paragraph><E>",
+            // An empty line becomes the embed, as it becomes an image.
+            "<paragraph>foo[]</paragraph><E><paragraph>bar</paragraph>"
+        ]);
+        // Other embeds take the place of the selection.
+        expect(insert("<paragraph>f[oo] bar</paragraph>", false))
+            .toBe("<paragraph>f</paragraph><E><paragraph>[] bar</paragraph>");
+    });
+
     it("marks the loaders of a quiet upload and of a focus upload, and only those", () => {
         installGlobMock({ getComponentByEl: () => ({}) });
         setModelData(editor.model, "<paragraph>[]</paragraph>");

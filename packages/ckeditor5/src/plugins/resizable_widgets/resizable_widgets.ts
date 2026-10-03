@@ -61,8 +61,8 @@ const EM_PATTERN = /^\d+(\.\d+)?em$/;
 export default class ResizableWidgets extends Plugin {
 
     private lastTap: { handle: Element; time: number } | null = null;
-    /** Ends the resize under way, if any, without a change. */
-    private stopResize: (() => void) | null = null;
+    /** Cancels the resize under way, if any. */
+    private cancelResize: (() => void) | null = null;
 
     static get pluginName() {
         return "ResizableWidgets" as const;
@@ -125,7 +125,7 @@ export default class ResizableWidgets extends Plugin {
     }
 
     override destroy() {
-        this.stopResize?.();
+        this.cancelResize?.();
         super.destroy();
     }
 
@@ -187,9 +187,9 @@ export default class ResizableWidgets extends Plugin {
             this.showSize(viewElement, getSavedSize(element, config), config, false);
         };
 
-        // One resize at a time: another pointer, such as a pen beside the mouse, ends the first.
-        this.stopResize?.();
-        this.stopResize = startResizeGesture(event, {
+        // One resize at a time: another pointer, such as a pen beside the mouse, cancels the first.
+        this.cancelResize?.();
+        this.cancelResize = startResizeGesture(event, {
             handle,
             axes,
             widthTarget: targets.width,
