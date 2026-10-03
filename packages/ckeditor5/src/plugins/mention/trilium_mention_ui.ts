@@ -51,6 +51,8 @@ export default class TriliumMentionUI extends Plugin {
     private _feeds: Pattern[] = [];
     /** The marker whose list is open, or `null`. */
     private _open: Pattern | null = null;
+    /** The id the editable's `aria-activedescendant` holds, or `null` while it holds none. */
+    private _activeDescendant: string | null = null;
     /** Listens for presses outside the open list, which close it. */
     private readonly _domEmitter = new (DomEmitterMixin())();
 
@@ -243,7 +245,12 @@ export default class TriliumMentionUI extends Plugin {
             },
             /* v8 ignore next -- a live editor's editing view always has its DOM root, so the `?? null` arm never runs */
             editable: this.editor.editing.view.getDomRoot() ?? null,
-            commit: (item) => this._commit(feed, item)
+            commit: (item) => this._commit(feed, item),
+            setActiveDescendant: (id) => {
+                if (this._open === feed) {
+                    this._setActiveDescendant(id);
+                }
+            }
         });
     }
 
@@ -259,7 +266,32 @@ export default class TriliumMentionUI extends Plugin {
     private _hideList() {
         const open = this._open;
         this._open = null;
+        this._setActiveDescendant(null);
         open?.hostedList.hide();
+    }
+
+    /** Sets the root editable's `aria-activedescendant` through the view, whose renderer owns its attributes. */
+    private _setActiveDescendant(id: string | null) {
+        if (id === this._activeDescendant) {
+            return;
+        }
+
+        const view = this.editor.editing.view;
+        const root = view.document.getRoot();
+
+        /* v8 ignore next 3 -- a live editor's editing view always has its root, so the guard only narrows its type */
+        if (!root) {
+            return;
+        }
+
+        this._activeDescendant = id;
+        view.change((writer) => {
+            if (id) {
+                writer.setAttribute("aria-activedescendant", id, root);
+            } else {
+                writer.removeAttribute("aria-activedescendant", root);
+            }
+        });
     }
 
     /**

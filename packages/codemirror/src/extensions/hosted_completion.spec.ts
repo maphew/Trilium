@@ -189,6 +189,34 @@ describe("hostedCompletion", () => {
         expect(list.destroy).toHaveBeenCalledOnce();
     });
 
+    it("points the editor at the entry the open list highlights, and at none once it closes", async () => {
+        const { shown } = build();
+        type("@");
+        await vi.waitFor(() => expect(shown()).toBeDefined());
+        const open = shown();
+        const activeDescendant = () => editor?.contentDOM.getAttribute("aria-activedescendant");
+
+        open?.setActiveDescendant("row-1");
+        expect(activeDescendant()).toBe("row-1");
+        open?.setActiveDescendant(null);
+        expect(activeDescendant()).toBe(null);
+
+        open?.setActiveDescendant("row-2");
+        type(" ");
+        expect(activeDescendant()).toBe(null);
+        // A list that has closed points at nothing.
+        open?.setActiveDescendant("row-3");
+        expect(activeDescendant()).toBe(null);
+
+        type("@");
+        await vi.waitFor(() => expect(shown()).not.toBe(open));
+        shown()?.setActiveDescendant("row-4");
+        const dom = editor?.contentDOM;
+        editor?.destroy();
+        editor = undefined;
+        expect(dom?.hasAttribute("aria-activedescendant")).toBe(false);
+    });
+
     it("places the list at the caret, or at the editor where the caret has no place on screen", async () => {
         const { shown, placed } = build();
         type("@");

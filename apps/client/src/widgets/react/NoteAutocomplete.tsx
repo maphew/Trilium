@@ -439,7 +439,7 @@ export default function NoteAutocomplete({ id, inputRef: externalInputRef, text,
  * creation row: `onPick` then receives a promise, settling on `undefined` where the creation is
  * canceled.
  */
-export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNotePath, preselect = true, onPick, handleRef, elementRef }: {
+export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNotePath, preselect = true, onPick, handleRef, elementRef, onActiveDescendant }: {
     query: string;
     anchor: PopupProps["anchor"];
     allowCreatingNotes?: boolean;
@@ -450,6 +450,8 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNoteP
     onPick(notePath: string | Promise<string | undefined>): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
+    /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
+    onActiveDescendant?(id: string | null): void;
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
@@ -476,7 +478,7 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNoteP
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-    useForwardedKeys(autocomplete, handleRef);
+    useForwardedKeys(autocomplete, handleRef, onActiveDescendant);
 
     return autocomplete.isShown && (
         <NoteSuggestionPopup anchor={anchor} elementRef={elementRef} className="note-mention-menu">
@@ -505,7 +507,7 @@ export interface CommandEntry {
  * command palette lists its own after a `>`. The host keeps the focus and forwards its keys through
  * `handleRef`. It opens on the best match, so Enter takes it, unless `preselect` is off.
  */
-export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, preselect = true, onPick, handleRef, elementRef }: {
+export function CommandMentionList<T extends CommandEntry>({ query, source, anchor, className, preselect = true, onPick, handleRef, elementRef, onActiveDescendant }: {
     query: string;
     /** The entries for a query, looked up as soon as it changes, with no debounce. */
     source(query: string): Promise<T[]>;
@@ -517,6 +519,8 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
     onPick(entry: T): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
+    /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
+    onActiveDescendant?(id: string | null): void;
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
@@ -524,7 +528,7 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-    useForwardedKeys(autocomplete, handleRef);
+    useForwardedKeys(autocomplete, handleRef, onActiveDescendant);
 
     return autocomplete.isShown && (
         <NoteSuggestionPopup anchor={anchor} elementRef={elementRef} className={className}>
@@ -557,6 +561,8 @@ export interface HostedListProps {
     anchor: ReferenceElement;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef(element: HTMLElement | null): void;
+    /** Points the editor at the highlighted entry, through the state's `setActiveDescendant()`. */
+    onActiveDescendant(id: string | null): void;
 }
 
 /**
@@ -564,16 +570,19 @@ export interface HostedListProps {
  * `mention.hostedFeeds` or CodeMirror's `hostedMention()`. It renders what `draw` returns for each
  * query, at the caret, and forwards the editor's keys to it.
  */
-export function createHostedList<S extends { caretRect(): DOMRect; editable: HTMLElement | null }>(
+export function createHostedList<S extends { caretRect(): DOMRect; editable: HTMLElement | null; setActiveDescendant(id: string | null): void }>(
     draw: (state: S, list: HostedListProps) => VNode
 ) {
     const container = document.createElement("div");
     const handleRef: { current: AutocompleteListHandle | null } = { current: null };
     let element: HTMLElement | null = null;
     const elementRef = (el: HTMLElement | null) => { element = el; };
+    let shown: S | null = null;
+    const onActiveDescendant = (id: string | null) => shown?.setActiveDescendant(id);
     const unmount = () => {
         render(null, container);
         element = null;
+        shown = null;
     };
 
     return {
@@ -581,7 +590,8 @@ export function createHostedList<S extends { caretRect(): DOMRect; editable: HTM
             // A new anchor each time, so the list is placed again at the caret. Its `contextElement`
             // places it again as the containers around the editor scroll.
             const anchor = { getBoundingClientRect: state.caretRect, contextElement: state.editable ?? undefined };
-            render(draw(state, { anchor, handleRef, elementRef }), container);
+            shown = state;
+            render(draw(state, { anchor, handleRef, elementRef, onActiveDescendant }), container);
         },
         hide: unmount,
         handleKeyDown: (e: KeyboardEvent) => handleRef.current?.handleKeyDown(e) ?? false,

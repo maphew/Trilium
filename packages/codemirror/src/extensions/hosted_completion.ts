@@ -16,6 +16,11 @@ export interface HostedCompletionState<M extends HostedCompletionMatch> {
     editable: HTMLElement;
     /** Replaces what stands between the match's `from` and the caret with `text`, as a pick does. */
     commit(text: string): void;
+    /**
+     * Points the editor at the list's highlighted entry through `aria-activedescendant`, by the id
+     * of the entry's element, or at none for `null`. Once the list closes, it points at none.
+     */
+    setActiveDescendant(id: string | null): void;
 }
 
 /** A host's list for {@link hostedCompletion}. */
@@ -110,6 +115,7 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
         }
 
         destroy() {
+            this.setActiveDescendant(null);
             this.list.hide();
             this.list.destroy?.();
         }
@@ -144,7 +150,12 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
                         match: found.match,
                         caretRect: () => (showing ? measured : caretRect(this.view)),
                         editable: this.view.dom,
-                        commit: (text) => this.commit(found.from, text)
+                        commit: (text) => this.commit(found.from, text),
+                        setActiveDescendant: (id) => {
+                            if (this.from === found.from) {
+                                this.setActiveDescendant(id);
+                            }
+                        }
                     });
                     showing = false;
                 }
@@ -172,7 +183,17 @@ export function hostedCompletion<M extends HostedCompletionMatch>({ match, list 
 
             this.from = -1;
             this.before = "";
+            this.setActiveDescendant(null);
             this.list.hide();
+        }
+
+        /** Set on `contentDOM` directly: CodeMirror removes only the attributes it set itself. */
+        private setActiveDescendant(id: string | null) {
+            if (id) {
+                this.view.contentDOM.setAttribute("aria-activedescendant", id);
+            } else {
+                this.view.contentDOM.removeAttribute("aria-activedescendant");
+            }
         }
     }, {
         eventHandlers: {

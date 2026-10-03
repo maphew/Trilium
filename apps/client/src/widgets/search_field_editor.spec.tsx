@@ -64,12 +64,18 @@ describe("createSearchFieldEditor", () => {
 
         await press("Enter");
         expect(onEnter).toHaveBeenCalledOnce();
+        expect(activeDescendant()).toBe(null);
 
         await press("ArrowDown");
         await press("ArrowDown");
+        // The field points assistive technology at the row the arrows reached.
+        const active = document.querySelector(".form-autocomplete-dropdown [aria-selected=true]");
+        expect(active?.textContent).toBe("bookmark");
+        await vi.waitFor(() => expect(activeDescendant()).toBe(active?.id));
         await press("Enter");
         await vi.waitFor(() => expect(text()).toBe("#bookmark"));
         expect(onEnter).toHaveBeenCalledOnce();
+        expect(activeDescendant()).toBe(null);
     });
 
     it("lists the rest of the syntax as the command palette lists its commands, and opens on what a pick leaves to complete", async () => {
@@ -109,6 +115,10 @@ describe("createSearchFieldEditor", () => {
 
     function text() {
         return editor?.state.doc.toString();
+    }
+
+    function activeDescendant() {
+        return editor?.contentDOM.getAttribute("aria-activedescendant") ?? null;
     }
 });
 

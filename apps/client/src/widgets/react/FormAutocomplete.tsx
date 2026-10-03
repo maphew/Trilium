@@ -192,7 +192,7 @@ const CARET_LIST_MIN_WIDTH = 220;
  * a text editor, which keeps the focus and forwards its keys through `handleRef`. It opens with
  * nothing highlighted, so Enter stays with the host until an entry is arrowed to.
  */
-export function AutocompleteList({ query, source, anchor, renderItem, onPick, handleRef, elementRef }: {
+export function AutocompleteList({ query, source, anchor, renderItem, onPick, handleRef, elementRef, onActiveDescendant }: {
     query: string;
     source(query: string): Promise<string[]>;
     anchor: DropdownAnchor;
@@ -200,6 +200,8 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
     onPick(item: string): void;
     handleRef: MutableRef<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
+    /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
+    onActiveDescendant?(id: string | null): void;
 }) {
     // The focus stays where the query is typed, so there is no field to return it to.
     const inputRef = useRef<HTMLInputElement>(null);
@@ -207,7 +209,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
 
     // The host shows the list by mounting it and closes it by unmounting it.
     useEffect(() => autocomplete.open(), []);
-    useForwardedKeys(autocomplete, handleRef);
+    useForwardedKeys(autocomplete, handleRef, onActiveDescendant);
 
     return (
         <AutocompleteDropdown
@@ -223,9 +225,22 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
 
 /**
  * Takes the keys forwarded from where a list's query is typed. Tab takes the highlighted entry, as
- * Enter does, where a field leaves Tab to move the focus.
+ * Enter does, where a field leaves Tab to move the focus. Reports the highlighted entry's element id
+ * to `onActiveDescendant`, for the host to point its `aria-activedescendant` at, as a field's
+ * `comboboxProps` do.
  */
-export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocomplete<T>>, handleRef: MutableRef<AutocompleteListHandle | null>) {
+export function useForwardedKeys<T>(
+    autocomplete: ReturnType<typeof useAutocomplete<T>>,
+    handleRef: MutableRef<AutocompleteListHandle | null>,
+    onActiveDescendant?: (id: string | null) => void
+) {
+    const { isShown, activeIndex, itemId } = autocomplete;
+    const activeId = isShown && activeIndex >= 0 ? itemId(activeIndex) : null;
+    const onActiveDescendantRef = useRef(onActiveDescendant);
+    onActiveDescendantRef.current = onActiveDescendant;
+    useEffect(() => onActiveDescendantRef.current?.(activeId), [ activeId ]);
+    useEffect(() => () => onActiveDescendantRef.current?.(null), []);
+
     useLayoutEffect(() => {
         handleRef.current = {
             handleKeyDown(e) {
