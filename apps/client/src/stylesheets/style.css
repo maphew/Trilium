@@ -1291,27 +1291,6 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     width: auto;
 }
 
-.ck-mentions .ck-button {
-    font-size: var(--detail-font-size) !important;
-    padding: var(--suggestion-item-padding-block) var(--suggestion-item-padding-inline);
-}
-
-.ck-mentions .ck-button b {
-    font-size: var(--detail-font-size) !important;
-}
-
-.ck-mentions {
-    --ck-color-list-button-on-background: var(--suggestion-active-background-color);
-    --ck-color-list-button-on-background-focus: var(--ck-color-list-button-on-background);
-    --ck-color-list-button-on-text: var(--suggestion-active-text-color);
-}
-
-.ck-mentions .ck-button b {
-    font-weight: bold !important;
-    color: inherit !important;
-    vertical-align: baseline !important;
-}
-
 .side-checkbox {
     display: flex;
     align-items: end;
@@ -1913,52 +1892,17 @@ body.desktop .dropdown-submenu > .dropdown-menu {
     display: none !important;
 }
 
-.ck.ck-mentions > .ck-list__item {
-    max-width: 700px;
-}
+/* Snippet form */
 
-.ck.ck-mentions > .ck-list__item .ck-button {
-    /* wrap text for very long note path title */
-    white-space: normal !important;
-}
-
-/*
- * A note suggestion is an icon beside a note path. Laid out as a row so the two are centred against
- * each other: left inline, the icon aligns on the text baseline, and `vertical-align: middle` only
- * gets it as far as the x-height — about a pixel below where the capitals it sits beside read as
- * centred. The icon carries its own font, so no baseline rule can line the two up in general.
- */
-.ck.ck-mentions .ck-button.note-mention-suggestion {
-    display: flex;
-    align-items: center;
-    gap: 0.4em;
-    text-align: start;
-}
-
-/* Its own box, so the row centres the glyph itself rather than the line box around it. */
-.ck.ck-mentions .ck-button.note-mention-suggestion > .bx {
-    line-height: 1;
-    flex-shrink: 0;
-}
-
-/* Slash commands */
-
-.ck.ck-slash-command-button {
-    padding: 0.5em 1em !important;
-}
-
-.ck.ck-slash-command-button__text-part,
 .ck.ck-template-form__text-part {
     margin-inline-start: 0.5em;
     line-height: 1.2em !important;
 }
 
-.ck.ck-slash-command-button__text-part > span,
 .ck.ck-template-form__text-part > span {
     line-height: inherit !important;
 }
 
-.ck.ck-slash-command-button__text-part .ck.ck-slash-command-button__description,
 .ck.ck-template-form__text-part .ck-template-form__description {
     display: block;
     opacity: 0.8;

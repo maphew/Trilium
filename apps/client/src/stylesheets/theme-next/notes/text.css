@@ -239,11 +239,6 @@ body.background-effects .ck.ck-balloon-panel.ck-dropdown-menu__nested-menu__pane
     color: var(--menu-item-icon-color);
 }
 
-/* Slash commands */
-.ck.ck-slash-command-button__text-part .ck.ck-button__label {
-    font-weight: bold;
-}
-
 /* Separator */
 :root .ck .ck-list__separator {
     flex-shrink: 0;
@@ -546,18 +541,6 @@ div.ck-template-form .ck-search__info span:nth-child(2) {
 
 .ck-find-and-replace-form .ck-find-and-replace-form__inputs button {
     margin-top: var(--ck-input-label-height);
-}
-
-/* Mention list (the autocompletion list for emojis, labels and relations)  */
-
-:root .ck-mentions {
-    --ck-color-list-button-hover-background: var(--ck-editor-toolbar-dropdown-button-open-background);
-    --ck-focus-ring: 1px solid transparent;
-}
-
-/* "Keep on typing to see the emoji" placeholder */
-#mention-list-item-id\:__EMOJI_HINT {
-    background: transparent;
 }
 
 /*

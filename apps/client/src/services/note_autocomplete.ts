@@ -1,4 +1,3 @@
-import type { MentionFeedObjectItem } from "@triliumnext/ckeditor5";
 import type { AutocompleteResult, InboxTargetResponse } from "@triliumnext/commons";
 
 import appContext from "../components/app_context.js";
@@ -42,30 +41,6 @@ export interface Options {
     isCommandPalette?: boolean;
 }
 
-/**
- * Feeds a CKEditor mention. Creation entries are offered only where the editor's host component
- * implements `createNoteForReferenceLink`, which is what `MentionCustomization` calls to act on
- * them.
- */
-async function autocompleteSourceForCKEditor(queryText: string, allowCreatingNotes = true): Promise<MentionFeedObjectItem[]> {
-    const rows = await getNoteSuggestions(queryText, { allowCreatingNotes });
-    // The creation rows go first here: the mention list renders only the first
-    // `mention.dropdownLimit` items, which a long result list would push them past.
-    const isCreation = (row: Suggestion) => row.action === "create-note" || row.action === "create-child-note";
-    rows.sort((a, b) => Number(isCreation(b)) - Number(isCreation(a)));
-
-    return rows.map((row) => ({
-        action: row.action,
-        noteTitle: row.noteTitle,
-        id: `@${row.notePathTitle}`,
-        name: row.notePathTitle || "",
-        link: `#${row.notePath}`,
-        notePath: row.notePath,
-        highlightedNotePathTitle: row.highlightedNotePathTitle,
-        icon: row.icon
-    }));
-}
-
 export interface NoteSuggestionOptions {
     /** Adds the two note-creation rows last, after the notes and the search row, for a non-blank term. */
     allowCreatingNotes?: boolean;
@@ -75,20 +50,22 @@ export interface NoteSuggestionOptions {
     allowExternalLinks?: boolean;
     /** Searches the titles only, as autocompletion does, or the content as well. */
     fastSearch?: boolean;
+    /** Lists at most this many notes, which the server then stops at. The action rows come on top. */
+    limit?: number;
 }
 
 /**
  * Returns the notes matching `term`, or the recently visited notes when `term` is blank, with the
  * action rows the options ask for.
  */
-export async function getNoteSuggestions(term: string, { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fastSearch = true }: NoteSuggestionOptions = {}): Promise<Suggestion[]> {
+export async function getNoteSuggestions(term: string, { allowCreatingNotes, allowJumpToSearchNotes, allowExternalLinks, fastSearch = true, limit }: NoteSuggestionOptions = {}): Promise<Suggestion[]> {
     const activeNoteId = appContext.tabManager.getActiveContextNoteId();
     const hasTerm = term.trim().length >= 1;
 
     // Runs concurrently with the search, so naming the destination costs a request but no wait.
     const pendingInboxTarget = hasTerm && allowCreatingNotes ? getInboxTarget() : null;
 
-    const results: Suggestion[] = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}`);
+    const results: Suggestion[] = await server.get<AutocompleteResult[]>(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}&fastSearch=${fastSearch}${limit ? `&limit=${limit}` : ""}`);
     const before: Suggestion[] = [];
     const after: Suggestion[] = [];
 
@@ -127,10 +104,14 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
 
 /**
  * Creates the note a creation row offers, under the parent the user picks in the type chooser, or
- * else in the inbox (`create-note`) or under the row's parent (`create-child-note`). Returns the
- * new note's path, or nothing when the chooser is canceled or no parent is found.
+ * else in the inbox (`create-note`) or under `childParentNotePath` or the row's parent
+ * (`create-child-note`). Returns the new note's path, or nothing when the chooser is canceled or no
+ * parent is found.
+ *
+ * @param childParentNotePath the note a host is editing, which the row's parent, the active note,
+ * need not be.
  */
-export async function createNoteFromSuggestion(suggestion: Suggestion) {
+export async function createNoteFromSuggestion(suggestion: Suggestion, childParentNotePath?: string | null) {
     const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
     if (!success) {
         return;
@@ -138,7 +119,7 @@ export async function createNoteFromSuggestion(suggestion: Suggestion) {
 
     const parentNotePath = notePath ?? (suggestion.action === "create-note"
         ? await dateNoteService.getInboxNotePath()
-        : suggestion.parentNoteId);
+        : childParentNotePath ?? suggestion.parentNoteId);
     if (!parentNotePath) {
         return;
     }
@@ -287,7 +268,3 @@ function buildCreateNoteTitle(term: string, target: InboxTargetResponse | null) 
 
     return t("note_autocomplete.create-note-into", { term: escapeHtml(term), parentTitle: escapeHtml(target.title) });
 }
-
-export default {
-    autocompleteSourceForCKEditor
-};

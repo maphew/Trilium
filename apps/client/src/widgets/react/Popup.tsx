@@ -13,8 +13,11 @@ import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from "preac
  */
 export interface PopupProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | "className" | "role" | "style" | "tabIndex"
         | "onClick" | "onPointerMove" | "onContextMenu" | "aria-labelledby"> {
-    /** What it stands beside: an element, or a point in the viewport such as where a right-click landed. */
-    anchor: HTMLElement | { x: number, y: number };
+    /**
+     * What it stands beside: an element, a point in the viewport such as where a right-click landed,
+     * or a rect that is no element, such as a text editor's caret.
+     */
+    anchor: HTMLElement | { x: number, y: number } | ReferenceElement;
     /**
      * The side of the anchor it prefers, flipped to the other side where that one has no room.
      * Below the anchor, lined up with its start, by default.
@@ -113,11 +116,13 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             reportPlaced();
             return;
         }
-        const reference = anchor instanceof HTMLElement ? anchor : pointAt(anchor.x, anchor.y);
+        const reference = "x" in anchor ? pointAt(anchor.x, anchor.y) : anchor;
         // A placement settles after the fact, by which time it can have closed.
         let closed = false;
         // Places it now, and again whenever its anchor moves or the viewport or it changes size.
-        const options = { placement, offset: gap, capHeight, shiftAcross: !(anchor instanceof HTMLElement) };
+        // Only a menu at a point moves over it. A rect, such as a caret, marks text the popup must not
+        // cover, so the popup keeps to one side and its height is capped to the room there.
+        const options = { placement, offset: gap, capHeight, shiftAcross: "x" in anchor };
         const stopUpdating = autoUpdate(reference, popup, () => void placeFloating(popup, reference, options).then(() => {
             if (!closed) reportPlaced();
             // Resolved after the stylesheet took over, so what it wrote goes again.
@@ -127,7 +132,7 @@ export default function Popup({ anchor, placement = "bottom-start", offset: gap 
             closed = true;
             stopUpdating();
         };
-    }, [ anchor instanceof HTMLElement ? anchor : undefined, anchorX, anchorY, placement, gap, capHeight, placedByStylesheet ]);
+    }, [ "x" in anchor ? undefined : anchor, anchorX, anchorY, placement, gap, capHeight, placedByStylesheet ]);
 
     const dismiss = useRef(onDismiss);
     dismiss.current = onDismiss;

@@ -3,7 +3,7 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getNoteSuggestions, getCommandSuggestions, createNoteFromSuggestion } = vi.hoisted(() => ({
-    createNoteFromSuggestion: vi.fn<(suggestion: Suggestion) => Promise<string | undefined>>(),
+    createNoteFromSuggestion: vi.fn<(suggestion: Suggestion, childParentNotePath?: string | null) => Promise<string | undefined>>(),
     getNoteSuggestions: vi.fn<(term: string, options?: NoteSuggestionOptions) => Promise<Suggestion[]>>(async () => []),
     getCommandSuggestions: vi.fn<(term: string) => Suggestion[]>(() => [])
 }));
@@ -21,7 +21,8 @@ import type { NoteSuggestionOptions, Suggestion } from "../../services/note_auto
 import { collectShortcutHints } from "../../services/shortcut_hints";
 import { buildNote } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
-import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, renderNoteSuggestion } from "./NoteAutocomplete";
+import type { AutocompleteListHandle } from "./FormAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle, type NoteAutocompleteProps, NoteMentionList, renderNoteSuggestion } from "./NoteAutocomplete";
 import { ParentComponent } from "./react_utils";
 
 async function render(props: NoteAutocompleteProps = {}) {
@@ -1106,5 +1107,190 @@ describe("NoteAutocomplete's suggestion list", () => {
         const readOnly = await mount({ readOnly: true });
         await press(readOnly, "ArrowDown");
         expect(rows()).toHaveLength(0);
+    });
+});
+
+describe("NoteMentionList", () => {
+    const notes: Suggestion[] = [
+        { notePath: "root/a", noteTitle: "Alpha", notePathTitle: "Alpha", highlightedNotePathTitle: "<b>Al</b>pha", icon: "bx bx-file" },
+        { notePath: "root/b", noteTitle: "Beta", notePathTitle: "Beta", highlightedNotePathTitle: "Beta" }
+    ];
+    const createRow: Suggestion = { action: "create-note", noteTitle: "al", highlightedNotePathTitle: "Create note" };
+    const anchor = { getBoundingClientRect: () => new DOMRect(10, 10, 1, 16) };
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        getNoteSuggestions.mockReset();
+        getNoteSuggestions.mockResolvedValue(notes);
+        createNoteFromSuggestion.mockReset();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    /** Shows the list for `query` where nothing has the focus, as a text editor's caret does. */
+    async function show(query: string, props: Partial<Parameters<typeof NoteMentionList>[0]> = {}) {
+        const onPick = vi.fn();
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
+        const host = document.createElement("div");
+        const draw = async (text: string) => {
+            await act(async () => {
+                preactRender(<NoteMentionList query={text} anchor={anchor} onPick={onPick} handleRef={handleRef} {...props} />, host);
+            });
+            await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        };
+        await draw(query);
+        const press = async (key: string) => {
+            const event = new KeyboardEvent("keydown", { key, cancelable: true });
+            let taken = false;
+            await act(async () => { taken = handleRef.current?.handleKeyDown(event) ?? false; });
+            await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+            return taken;
+        };
+        return { onPick, draw, press, unmount: () => act(() => preactRender(null, host)) };
+    }
+
+    const rows = () => [ ...document.querySelectorAll<HTMLElement>(".note-autocomplete-menu > .tn-menu-scroll > .dropdown-item") ];
+
+    it("lists the notes for the query as the field does, and again as the query changes", async () => {
+        const { draw, unmount } = await show("al", { allowCreatingNotes: true });
+
+        // At most ten notes, which the server stops at.
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("al", { allowCreatingNotes: true, limit: 10 });
+        expect(rows().map((row) => row.querySelector(".search-result-title")?.innerHTML)).toEqual([ "<b>Al</b>pha", "Beta" ]);
+        expect(rows()[0].querySelector(".tn-icon")?.className).toContain("bx-file");
+        // Capped in width by its own class, as it has no field to take a width from.
+        expect(rows()[0].closest(".tn-popup")?.classList.contains("note-mention-menu")).toBe(true);
+
+        await draw("alp");
+        expect(getNoteSuggestions).toHaveBeenLastCalledWith("alp", { allowCreatingNotes: true, limit: 10 });
+        expect(rows()).toHaveLength(2);
+        await unmount();
+    });
+
+    it("runs no search held back for a query once the list is closed, and lets go of its keys", async () => {
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
+        const host = document.createElement("div");
+        const draw = (text: string) => act(async () => {
+            preactRender(<NoteMentionList query={text} anchor={anchor} onPick={() => {}} handleRef={handleRef} />, host);
+        });
+
+        await draw("al");
+        // Typed within the scheduler's window, so its search waits.
+        await draw("alp");
+        await act(() => preactRender(null, host));
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+        expect(getNoteSuggestions).not.toHaveBeenCalledWith("alp", expect.anything());
+        expect(handleRef.current).toBeNull();
+    });
+
+    it("takes the highlighted note on Tab as on Enter", async () => {
+        const { onPick, press, unmount } = await show("al");
+
+        expect(await press("Tab")).toBe(true);
+        expect(onPick).toHaveBeenCalledExactlyOnceWith("root/a");
+        await unmount();
+    });
+
+    it("holds Tab and Enter pressed on a refined query until its notes arrive, and takes from those", async () => {
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
+        const host = document.createElement("div");
+        const onPick = vi.fn();
+        const draw = (text: string) => preactRender(<NoteMentionList query={text} anchor={anchor} onPick={onPick} handleRef={handleRef} />, host);
+        const press = (key: string) => handleRef.current?.handleKeyDown(new KeyboardEvent("keydown", { key, cancelable: true })) ?? false;
+
+        for (const key of [ "Tab", "Enter" ]) {
+            getNoteSuggestions.mockResolvedValue(notes);
+            await act(async () => draw("al"));
+            await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+            expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+
+            // Pressed as soon as the host shows the newer query, before the list has looked it up.
+            getNoteSuggestions.mockResolvedValue([ notes[1] ]);
+            draw("be");
+            expect(press(key)).toBe(true);
+            expect(onPick).not.toHaveBeenCalled();
+
+            await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+            expect(onPick).toHaveBeenCalledExactlyOnceWith("root/b");
+            onPick.mockClear();
+            await act(async () => preactRender(null, host));
+        }
+    });
+
+    it("drops a held key once the host's query changes again, and leaves a composing Tab alone", async () => {
+        const handleRef = createRef<AutocompleteListHandle>() as { current: AutocompleteListHandle | null };
+        const host = document.createElement("div");
+        const onPick = vi.fn();
+        const draw = (text: string) => preactRender(<NoteMentionList query={text} anchor={anchor} onPick={onPick} handleRef={handleRef} />, host);
+        const press = (key: string, init: KeyboardEventInit = {}) =>
+            handleRef.current?.handleKeyDown(new KeyboardEvent("keydown", { key, cancelable: true, ...init })) ?? false;
+
+        await act(async () => draw("al"));
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        // An input method's Tab, while it composes, is the editor's.
+        expect(press("Tab", { isComposing: true })).toBe(false);
+
+        draw("be");
+        expect(press("Tab")).toBe(true);
+        // Typed on before the notes for "be" arrive, so the Tab confirmed text that is gone.
+        draw("bet");
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        expect(rows().length).toBeGreaterThan(0);
+        expect(onPick).not.toHaveBeenCalled();
+        await act(async () => preactRender(null, host));
+    });
+
+    it("takes the keys while it shows notes, and reports the path of the one Enter or a click picks", async () => {
+        const { onPick, press, unmount } = await show("al");
+
+        expect(rows()[0].classList.contains("tn-menu-active")).toBe(true);
+        expect(await press("ArrowDown")).toBe(true);
+        expect(rows()[1].classList.contains("tn-menu-active")).toBe(true);
+        expect(await press("Enter")).toBe(true);
+        expect(onPick).toHaveBeenCalledExactlyOnceWith("root/b");
+        // Picked, the list is closed and the keys are the editor's again.
+        expect(rows()).toHaveLength(0);
+        expect(await press("ArrowDown")).toBe(false);
+        await unmount();
+
+        const clicked = await show("al");
+        await act(async () => rows()[0].click());
+        expect(clicked.onPick).toHaveBeenCalledExactlyOnceWith("root/a");
+        await clicked.unmount();
+    });
+
+    it("leaves Enter to the editor with nothing highlighted where it opens without a preselection", async () => {
+        const { onPick, press, unmount } = await show("al", { preselect: false });
+
+        expect(rows().some((row) => row.classList.contains("tn-menu-active"))).toBe(false);
+        expect(await press("Enter")).toBe(false);
+        expect(onPick).not.toHaveBeenCalled();
+        await unmount();
+    });
+
+    it("creates the note of a creation row, and reports its path once created", async () => {
+        getNoteSuggestions.mockResolvedValue([ createRow ]);
+        createNoteFromSuggestion.mockResolvedValueOnce("root/inbox/created");
+        const { onPick, press, unmount } = await show("al", { allowCreatingNotes: true });
+
+        // With no note to open, the list opens on the creation row.
+        expect(await press("Enter")).toBe(true);
+        expect(createNoteFromSuggestion).toHaveBeenCalledWith(createRow, undefined);
+        expect(await onPick.mock.calls[0]?.[0]).toBe("root/inbox/created");
+        await unmount();
+    });
+
+    it("creates a child note under the note the host edits", async () => {
+        const childRow: Suggestion = { action: "create-child-note", noteTitle: "al", parentNoteId: "active", highlightedNotePathTitle: "Create child note" };
+        getNoteSuggestions.mockResolvedValue([ childRow ]);
+        createNoteFromSuggestion.mockResolvedValueOnce("root/edited/created");
+        const { press, unmount } = await show("al", { allowCreatingNotes: true, parentNotePath: "root/edited" });
+
+        expect(await press("Enter")).toBe(true);
+        expect(createNoteFromSuggestion).toHaveBeenCalledExactlyOnceWith(childRow, "root/edited");
+        await unmount();
     });
 });

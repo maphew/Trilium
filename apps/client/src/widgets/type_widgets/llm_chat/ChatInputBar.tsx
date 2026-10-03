@@ -1,13 +1,12 @@
 import "./ChatInputBar.css";
 
-import type { AttributeEditor as CKEditorAttributeEditor, CKTextEditor, MentionFeed } from "@triliumnext/ckeditor5";
+import type { AttributeEditor as CKEditorAttributeEditor, CKTextEditor, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import type { DISPLAYABLE_LOCALE_IDS, LlmReasoningEffort } from "@triliumnext/commons";
 import { Fragment } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
-import note_autocomplete, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
 import ActionButton from "../../react/ActionButton.js";
 import Button from "../../react/Button.js";
@@ -19,6 +18,7 @@ import LightboxLink from "../../react/LightboxLink.js";
 import MaskedIcon from "../../react/MaskedIcon.js";
 import AddProviderModal, { type LlmProviderConfig, type ProviderStep } from "../options/llm/AddProviderModal.js";
 import { providerIconUrl } from "../options/llm/provider_icons.js";
+import { createNoteMentionList } from "../text/mention_list_view.js";
 import { computeContextUsage } from "./chat_context_usage.js";
 import { insertNewBlock as insertNewBlockCommand, isSelectionInCodeBlock, outdentListItemAtStart } from "./chat_input_editing.js";
 import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
@@ -31,27 +31,13 @@ import { type AttachmentBlock, type UseLlmChatReturn } from "./useLlmChat.js";
 
 const READ_ONLY_LOCK = "llm-chat-streaming";
 
-const mentionFeeds: MentionFeed[] = [
+const hostedMentions: MentionHostedFeed[] = [
     {
         marker: "@",
-        feed: (queryText) => note_autocomplete.autocompleteSourceForCKEditor(queryText, false),
-        itemRenderer: (rawItem) => {
-            const item = rawItem as Suggestion;
-            const itemElement = document.createElement("button");
-
-            const iconElement = document.createElement("span");
-            iconElement.className = item.icon ?? "bx bx-note";
-
-            itemElement.append(iconElement, document.createTextNode(" "));
-            const titleContainer = document.createElement("span");
-            titleContainer.innerHTML = item.highlightedNotePathTitle ?? "";
-            itemElement.append(...titleContainer.childNodes, document.createTextNode(" "));
-
-            return itemElement;
-        },
         minimumCharacters: 0,
         // Note titles contain spaces, so the query must be allowed to as well.
-        allowSpaces: true
+        allowSpaces: true,
+        list: () => createNoteMentionList()
     }
 ];
 
@@ -325,7 +311,7 @@ export default function ChatInputBar({
                             extraPlugins: ckEditor.plugins,
                             toolbar: { items: [] },
                             placeholder: t("llm_chat.placeholder"),
-                            mention: { feeds: mentionFeeds },
+                            mention: { feeds: [], hostedFeeds: hostedMentions },
                             licenseKey: "GPL"
                         }}
                         // The strings the box shows of its own — the link balloon it raises on Ctrl+K —

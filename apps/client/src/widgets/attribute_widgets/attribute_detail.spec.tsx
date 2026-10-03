@@ -145,6 +145,33 @@ describe("attribute detail popup positioning", () => {
 });
 
 describe("attribute detail popup naming", () => {
+    it("lists a name behind its kind icon, with the cog on a name Trilium reads for itself", async () => {
+        const { AttributeNameSuggestion } = await import("./attribute_detail");
+        const row = (type: "label" | "relation", name: string) => {
+            const host = document.createElement("div");
+            render(<AttributeNameSuggestion type={type} name={name} />, host);
+            const kind = host.querySelector(".attr-name-suggestion > .attribute-kind");
+            if (!kind) throw new Error("no kind icon rendered");
+            return { kind, host };
+        };
+
+        const builtin = row("label", "archived");
+        expect(builtin.kind.querySelector(".bx-hash")).not.toBeNull();
+        expect(builtin.kind.classList.contains("marker-system")).toBe(true);
+        expect(builtin.kind.getAttribute("title")).toBe("attribute_list_panel.system_hint");
+        expect(builtin.host.querySelector(".attribute-kind + .attr-name-suggestion-name")?.textContent).toBe("archived");
+        expect(builtin.host.querySelector(".ext-badge")).toBeNull();
+
+        const invented = row("label", "myOwnLabel");
+        expect(invented.kind.classList.contains("marker-system")).toBe(false);
+        expect(invented.kind.hasAttribute("title")).toBe(false);
+
+        // A name that is a built-in of the other type is not one here.
+        const relation = row("relation", "archived");
+        expect(relation.kind.querySelector(".bx-transfer")).not.toBeNull();
+        expect(relation.kind.classList.contains("marker-system")).toBe(false);
+    });
+
     it("edits a definition under its bare name and stores it back under its prefix", async () => {
         const { addDefinitionPrefix, stripDefinitionPrefix } = await import("./attribute_detail");
 

@@ -1,7 +1,8 @@
 import "./attribute_detail.css";
-import "./attribute_name_suggestion.css";
+import "./attribute_kind.css";
 
 import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
+import clsx from "clsx";
 import { ComponentChildren, ComponentProps } from "preact";
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -26,13 +27,14 @@ import FormDropdownList from "../react/FormDropdownList.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
+import Icon from "../react/Icon.jsx";
 import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
-import { DEFINITION_TYPE_ICONS, RELATION_DEFINITION_TYPE } from "./attribute_types.js";
+import { attributeKindIcon, DEFINITION_TYPE_ICONS, RELATION_DEFINITION_TYPE } from "./attribute_types.js";
 import LabelValueInput, { getTypedInputForLabel, useLabelValueSuggestions } from "./label_value_input.js";
 import ValuesInput from "./values_input.jsx";
 
@@ -779,18 +781,25 @@ function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEnt
 }
 
 /**
- * One row of an attribute name completion, marking the names Trilium itself attaches a meaning to.
- * The mark answers what a list of bare names cannot: whether picking one buys behaviour, or is only
- * a name. The inline editor's `#`/`~` completion lists the same names and marks them the same way.
+ * One row of an attribute name completion: the name behind the kind icon the attributes panel gives
+ * it, with the cog that panel marks the names Trilium itself attaches a meaning to. The mark answers
+ * what a list of bare names cannot: whether picking one buys behaviour, or is only a name.
  *
  * Exported, with {@link fetchAttributeNames}, for whatever else completes an attribute name — the
  * attribute panel's in-row creation — so every name box offers the same list the same way.
  */
 export function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+    const isSystem = isBuiltinAttribute(type, name);
+
     return (
         <span class="attr-name-suggestion">
+            <span
+                class={clsx("attribute-kind", isSystem && "marker-system")}
+                title={isSystem ? t("attribute_list_panel.system_hint") : undefined}
+            >
+                <Icon icon={attributeKindIcon(type, name, "")} />
+            </span>
             <span class="attr-name-suggestion-name">{name}</span>
-            {isBuiltinAttribute(type, name) && <Badge outline text={t("attribute_names.system")} />}
         </span>
     );
 }

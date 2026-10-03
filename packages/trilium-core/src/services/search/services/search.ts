@@ -820,7 +820,8 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
 // response, so the limit follows what a dropdown shows rather than what the query matched.
 const AUTOCOMPLETE_RESULT_LIMIT = 25;
 
-function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
+/** Searches for the notes a dropdown lists, the first `limit` of them, at most {@link AUTOCOMPLETE_RESULT_LIMIT}. */
+function searchNotesForAutocomplete(query: string, fastSearch: boolean = true, limit = AUTOCOMPLETE_RESULT_LIMIT) {
     const searchContext = new SearchContext({
         fastSearch,
         includeArchivedNotes: false,
@@ -836,7 +837,7 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
         rankInTwoPasses: true
     });
 
-    const trimmed = findResultsWithQuery(query, searchContext).slice(0, AUTOCOMPLETE_RESULT_LIMIT);
+    const trimmed = findResultsWithQuery(query, searchContext).slice(0, Math.min(limit, AUTOCOMPLETE_RESULT_LIMIT));
 
     return buildSearchResultDetails(trimmed, searchContext);
 }

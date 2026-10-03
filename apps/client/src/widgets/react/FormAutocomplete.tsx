@@ -1,22 +1,22 @@
 import "./FormAutocomplete.css";
 
+import type { ReferenceElement } from "@floating-ui/dom";
 import type { ComponentChildren, RefObject } from "preact";
-import { createPortal, type CSSProperties } from "preact/compat";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { type MutableRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
 import { useUniqueName } from "./hooks";
+import Popup, { type PopupProps } from "./Popup";
 
 /** Marks the dropdown, which is portalled to the body: popups checking for outside clicks must ignore it. */
 export const AUTOCOMPLETE_DROPDOWN_SELECTOR = ".form-autocomplete-dropdown";
 
 const DEBOUNCE_MS = 150;
-const MAX_DROPDOWN_HEIGHT = 300;
-/** Below this the space under the input is considered unusable, and the dropdown flips above it. */
-const MIN_DROPDOWN_HEIGHT = 120;
-const VIEWPORT_MARGIN = 8;
 
 type FormTextBoxProps = Parameters<typeof FormTextBox>[0];
+
+/** What the dropdown is placed under: an element, or a rect such as a caret's. */
+type DropdownAnchor = HTMLElement | ReferenceElement;
 
 interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     currentValue: string;
@@ -70,8 +70,8 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
      * Content rendered inside the field, after the input. Use it for a button that commits what the
      * input holds, as {@link FormAutocompleteProps.leading} carries the chips that precede it.
      *
-     * Passing either prop wraps the input in a `tn-field` element, which
-     * {@link computeDropdownPosition} then measures the dropdown against.
+     * Passing either prop wraps the input in a `tn-field` element, which the dropdown is then placed
+     * under and spans.
      */
     trailing?: ComponentChildren;
     /**
@@ -106,7 +106,6 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const fieldRef = useRef<HTMLDivElement>(null);
-    const [ position, setPosition ] = useState<CSSProperties>();
     const isDisabled = !!(restProps.readOnly || restProps.disabled);
 
     const autocomplete = useAutocomplete({
@@ -121,31 +120,6 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         autoActivate,
         isHeading
     });
-    const { isOpen, items, activeIndex, itemId, pick } = autocomplete;
-
-    // Keep the dropdown glued to the input.
-    useLayoutEffect(() => {
-        if (!isOpen || !items.length) {
-            return;
-        }
-
-        const reposition = () => {
-            // The wrapper where there is one, so a field carrying chips is spanned whole.
-            const anchor = fieldRef.current ?? inputEl.current;
-            if (anchor) {
-                setPosition(computeDropdownPosition(anchor, dropdownMinWidth));
-            }
-        };
-
-        reposition();
-        window.addEventListener("resize", reposition);
-        // Capture: the input may live inside a scrolling container rather than the document.
-        window.addEventListener("scroll", reposition, true);
-        return () => {
-            window.removeEventListener("resize", reposition);
-            window.removeEventListener("scroll", reposition, true);
-        };
-    }, [ isOpen, items.length, inputEl, dropdownMinWidth ]);
 
     const field = (
         <FormTextBox
@@ -190,35 +164,132 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                 ? <div ref={fieldRef} className="tn-field form-autocomplete-field">{leading}{field}{trailing}</div>
                 : field}
 
-            {isOpen && items.length > 0 && position && createPortal(
-                <ul
-                    className="form-autocomplete-dropdown"
-                    role="listbox"
-                    style={position}
-                    // Keeps the input focused, so the blur handler does not close the dropdown
-                    // before the click lands on an item.
-                    onMouseDown={(e) => e.preventDefault()}
-                >
-                    {items.map((item, index) => (
-                        isHeading?.(item)
-                            ? <li key={item} className="form-autocomplete-heading" role="presentation">
-                                {renderItem ? renderItem(item) : item}
-                            </li>
-                            : <li
-                                key={item}
-                                id={itemId(index)}
-                                className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
-                                role="option"
-                                aria-selected={index === activeIndex}
-                                onMouseMove={(e) => autocomplete.hover(index, e)}
-                                onClick={() => pick(item)}
-                            >
-                                {renderItem ? renderItem(item) : item}
-                            </li>
-                    ))}
-                </ul>,
-                document.body)}
+            <AutocompleteDropdown
+                autocomplete={autocomplete}
+                // The wrapper where there is one, so a field carrying chips is spanned whole.
+                anchor={fieldRef.current ?? inputEl.current}
+                minWidth={dropdownMinWidth}
+                renderItem={renderItem}
+                isHeading={isHeading}
+            />
         </>
+    );
+}
+
+/** Drives an {@link AutocompleteList} from where its query is typed. */
+export interface AutocompleteListHandle {
+    /** Handles a key pressed where the query is typed, and returns whether the list took it. */
+    handleKeyDown(e: KeyboardEvent): boolean;
+}
+
+/**
+ * The dropdown of a {@link FormAutocomplete} for a query typed somewhere else, such as after a `#` in
+ * a text editor, which keeps the focus and forwards its keys through `handleRef`. It opens with
+ * nothing highlighted, so Enter stays with the host until an entry is arrowed to.
+ */
+export function AutocompleteList({ query, source, anchor, minWidth, renderItem, onPick, handleRef, elementRef }: {
+    query: string;
+    source(query: string): Promise<string[]>;
+    anchor: DropdownAnchor;
+    /** See {@link FormAutocompleteProps.dropdownMinWidth}. */
+    minWidth?: number;
+    renderItem?(item: string): ComponentChildren;
+    onPick(item: string): void;
+    handleRef: MutableRef<AutocompleteListHandle | null>;
+    elementRef?: PopupProps["elementRef"];
+}) {
+    // The focus stays where the query is typed, so there is no field to return it to.
+    const inputRef = useRef<HTMLInputElement>(null);
+    const autocomplete = useAutocomplete({ query, source, onPick, inputRef });
+
+    // The host shows the list by mounting it and closes it by unmounting it.
+    useEffect(() => autocomplete.open(), []);
+    useForwardedKeys(autocomplete, handleRef);
+
+    return (
+        <AutocompleteDropdown
+            autocomplete={autocomplete}
+            anchor={anchor}
+            minWidth={minWidth}
+            renderItem={renderItem}
+            elementRef={elementRef}
+        />
+    );
+}
+
+/**
+ * Takes the keys forwarded from where a list's query is typed. Tab takes the highlighted entry, as
+ * Enter does, where a field leaves Tab to move the focus.
+ */
+export function useForwardedKeys<T>(autocomplete: ReturnType<typeof useAutocomplete<T>>, handleRef: MutableRef<AutocompleteListHandle | null>) {
+    useLayoutEffect(() => {
+        handleRef.current = {
+            handleKeyDown(e) {
+                if (!autocomplete.isShown) return false;
+                if (e.key === "Tab" && !e.isComposing && autocomplete.takeHighlighted(e)) return true;
+                autocomplete.handleKeyDown(e);
+                return e.defaultPrevented;
+            }
+        };
+        // Lets go of the list, so a host that outlives it holds none of its entries.
+        return () => {
+            handleRef.current = null;
+        };
+    });
+}
+
+/**
+ * The list of a {@link useAutocomplete}, in a {@link Popup} under `anchor`, which places it again as
+ * the list or the anchor changes size or moves.
+ */
+function AutocompleteDropdown({ autocomplete, anchor, minWidth = 0, renderItem, isHeading, elementRef }: {
+    autocomplete: ReturnType<typeof useAutocomplete<string>>;
+    anchor: DropdownAnchor | null;
+    minWidth?: number;
+    renderItem?(item: string): ComponentChildren;
+    isHeading?(item: string): boolean;
+    elementRef?: PopupProps["elementRef"];
+}) {
+    const { isShown, items, activeIndex, itemId, pick } = autocomplete;
+
+    if (!isShown || !anchor) {
+        return null;
+    }
+
+    return (
+        <Popup
+            anchor={anchor}
+            className="form-autocomplete-dropdown"
+            elementRef={elementRef}
+            // As wide as the field, or as `minWidth` where that is more.
+            style={{ width: `${Math.max(anchor.getBoundingClientRect().width, minWidth)}px` }}
+        >
+            <ul
+                className="form-autocomplete-list"
+                role="listbox"
+                // Keeps the focus where the query is typed, so its blur does not close the dropdown
+                // before the click lands on an item.
+                onMouseDown={(e) => e.preventDefault()}
+            >
+                {items.map((item, index) => (
+                    isHeading?.(item)
+                        ? <li key={item} className="form-autocomplete-heading" role="presentation">
+                            {renderItem ? renderItem(item) : item}
+                        </li>
+                        : <li
+                            key={item}
+                            id={itemId(index)}
+                            className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
+                            role="option"
+                            aria-selected={index === activeIndex}
+                            onMouseMove={(e) => autocomplete.hover(index, e)}
+                            onClick={() => pick(item)}
+                        >
+                            {renderItem ? renderItem(item) : item}
+                        </li>
+                ))}
+            </ul>
+        </Popup>
     );
 }
 
@@ -283,10 +354,22 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     // next render: a second Enter in the same task then reaches the host's form (issue #5669).
     const pickedSinceRender = useRef(false);
     pickedSinceRender.current = false;
-    // Whether the entries on show answer an older query than the field's text. An Enter pressed then
-    // is held in `enterHeld` and picks from the newer query's entries once they arrive.
+    // Whether the entries on show answer an older query than the field's text. An Enter (or a
+    // forwarded Tab) pressed then is held in `keyHeld` and picks from the newer query's entries once
+    // they arrive.
     const isStale = useRef(false);
-    const enterHeld = useRef(false);
+    const keyHeld = useRef(false);
+    // A host that forwards its keys changes `query` without `handleInput`, and a key can arrive
+    // before the lookup effect runs. A key held before such a change confirmed the text it replaced.
+    // After `handleInput`, a key held before this render confirmed the text it renders.
+    const renderedQuery = useRef(query);
+    const inputSinceRender = useRef(false);
+    if (renderedQuery.current !== query) {
+        renderedQuery.current = query;
+        isStale.current = true;
+        if (!inputSinceRender.current) keyHeld.current = false;
+    }
+    inputSinceRender.current = false;
     const pickLatest = useRef(pick);
     pickLatest.current = pick;
     // Set when the keyboard or a new list moves the highlight, which the effect below scrolls into view.
@@ -309,10 +392,16 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
         latestQuery.current++;
         isStale.current = false;
-        enterHeld.current = false;
+        keyHeld.current = false;
         setIsOpen(false);
         setActiveIndex(-1);
         setItems([]);
+    }, []);
+
+    // A lookup a scheduler still holds supersedes nothing once the list is gone, so it is dropped
+    // rather than run for a list no longer there.
+    useEffect(() => () => {
+        latestQuery.current++;
     }, []);
 
     // Fetch suggestions for the current query, debounced. The previous items stay visible while
@@ -337,8 +426,8 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 setItems(suggestions);
                 scrollToActive.current = true;
                 setActiveIndex(index);
-                if (enterHeld.current) {
-                    enterHeld.current = false;
+                if (keyHeld.current) {
+                    keyHeld.current = false;
                     if (index >= 0) pickLatest.current(suggestions[index]);
                 }
             }
@@ -380,6 +469,27 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         inputRef.current?.focus();
     }
 
+    /**
+     * Picks the highlighted entry for a key that confirms it, or holds the key until the entries for
+     * a newer query arrive. Returns whether the key was taken.
+     */
+    function takeHighlighted(e: KeyboardEvent) {
+        // Without `autoActivate` the newer entries open with nothing highlighted, so a key pressed
+        // before they arrive belongs to the host.
+        if (!isShown || activeIndex < 0 || pickedSinceRender.current || (!autoActivate && isStale.current)) {
+            return false;
+        }
+        // Consume the key so it does not also reach the surrounding form or dialog.
+        e.preventDefault();
+        e.stopPropagation();
+        if (isStale.current) {
+            keyHeld.current = true;
+        } else {
+            pick(items[activeIndex]);
+        }
+        return true;
+    }
+
     function handleKeyDown(e: KeyboardEvent) {
         // The keys belong to the input method, such as the Enter that commits a candidate.
         if (e.isComposing) return;
@@ -398,19 +508,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
                 break;
 
             case "Enter":
-                // Without `autoActivate` the newer entries open with nothing highlighted, so an Enter
-                // pressed before they arrive belongs to the host.
-                if (isShown && activeIndex >= 0 && !pickedSinceRender.current
-                    && (autoActivate || !isStale.current)) {
-                    // Consume the key so it does not also reach the surrounding form or dialog.
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (isStale.current) {
-                        enterHeld.current = true;
-                    } else {
-                        pick(items[activeIndex]);
-                    }
-                } else if (openOnEnter) {
+                if (!takeHighlighted(e) && openOnEnter) {
                     open();
                 }
                 break;
@@ -451,8 +549,9 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
         handleInput() {
             // The lookup effect runs after the next render, and a key can arrive before it.
             isStale.current = true;
-            // A held Enter confirms the text it was pressed on, not text typed after it.
-            enterHeld.current = false;
+            // A held key confirms the text it was pressed on, not text typed after it.
+            keyHeld.current = false;
+            inputSinceRender.current = true;
             open();
         },
         handleFocus() {
@@ -466,6 +565,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
             setIsComposing(false);
         },
         handleKeyDown,
+        takeHighlighted,
         /** The field's combobox attributes. */
         comboboxProps: {
             role: "combobox",
@@ -512,38 +612,4 @@ export function stepOver<T>(items: T[], from: number, delta: number, isHeading?:
     }
 
     return -1;
-}
-
-/**
- * Places the dropdown under the input, flipping above it only when the space below is too small to
- * be useful. Preferring below matters for inputs sitting in a panel docked to the bottom of the
- * screen: the room under them is limited but ample, while flipping would cover the panel itself.
- *
- * As wide as the field, or as wide as `minWidth` asks where that is more, and never wider than the
- * viewport. A list grown past the far edge is pulled back onto the screen rather than left running
- * off it, since it is placed from the field's leading edge.
- *
- * Exported for its own tests: everything it reads is measured from the layout, which is what a
- * component test in a headless DOM has none of.
- */
-export function computeDropdownPosition(input: HTMLElement, minWidth = 0): CSSProperties {
-    const rect = input.getBoundingClientRect();
-    const viewportHeight = document.documentElement.clientHeight;
-    const viewportWidth = document.documentElement.clientWidth;
-    const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN;
-    const spaceAbove = rect.top - VIEWPORT_MARGIN;
-    const flipAbove = spaceBelow < MIN_DROPDOWN_HEIGHT && spaceAbove > spaceBelow;
-    const available = flipAbove ? spaceAbove : spaceBelow;
-    const maxHeight = Math.min(MAX_DROPDOWN_HEIGHT, Math.max(available, 0));
-
-    const room = Math.max(viewportWidth - 2 * VIEWPORT_MARGIN, 0);
-    const width = Math.min(Math.max(rect.width, minWidth), room);
-    const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.left, viewportWidth - VIEWPORT_MARGIN - width));
-
-    return {
-        left: `${left}px`,
-        top: `${flipAbove ? rect.top - maxHeight : rect.bottom}px`,
-        width: `${width}px`,
-        maxHeight: `${maxHeight}px`
-    };
 }

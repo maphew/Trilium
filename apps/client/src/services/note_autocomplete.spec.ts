@@ -54,7 +54,7 @@ vi.mock("./ws.js", () => ({
 }));
 
 import type { CommandDefinition } from "./command_registry.js";
-import noteAutocomplete, { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, recentNoteGroup, type Suggestion } from "./note_autocomplete.js";
+import { createNoteFromSuggestion, createSearchScheduler, getCommandSuggestions, getNoteSuggestions, recentNoteGroup, type Suggestion } from "./note_autocomplete.js";
 import server from "./server.js";
 
 beforeEach(() => {
@@ -73,6 +73,9 @@ describe("getNoteSuggestions", () => {
 
         await getNoteSuggestions("a", { fastSearch: false });
         expect(server.get).toHaveBeenLastCalledWith(expect.stringContaining("fastSearch=false"));
+        // A limit is passed on for the server to stop at; left out, none is sent.
+        await getNoteSuggestions("a", { limit: 10 });
+        expect(server.get).toHaveBeenLastCalledWith("autocomplete?query=a&activeNoteId=activeNote&fastSearch=true&limit=10");
         expect(getInboxTarget).not.toHaveBeenCalled();
     });
 
@@ -155,42 +158,6 @@ describe("getNoteSuggestions", () => {
         expect((await getNoteSuggestions("   ", all)).map((r) => r.action)).toEqual([ undefined ]);
         // And only when asked for.
         expect((await getNoteSuggestions("https://example.com/x")).map((r) => r.action)).toEqual([ undefined ]);
-    });
-});
-
-describe("autocompleteSourceForCKEditor", () => {
-    it("maps the rows into mention feed items, creation rows first", async () => {
-        server.get = vi.fn(async () => [ {
-            noteTitle: "Foo",
-            notePathTitle: "Root / Foo",
-            notePath: "root/abc",
-            highlightedNotePathTitle: "<b>Foo</b>",
-            icon: "bx bx-note"
-        } ]) as typeof server.get;
-
-        const items = await noteAutocomplete.autocompleteSourceForCKEditor("Foo");
-        expect(items.map((item) => (item as Suggestion).action)).toEqual([ "create-note", "create-child-note", undefined ]);
-        expect(items[2]).toEqual({
-            action: undefined,
-            noteTitle: "Foo",
-            id: "@Root / Foo",
-            name: "Root / Foo",
-            link: "#root/abc",
-            notePath: "root/abc",
-            highlightedNotePathTitle: "<b>Foo</b>",
-            icon: "bx bx-note"
-        });
-        // A creation row has no path title of its own.
-        expect(items[0]).toMatchObject({ id: "@undefined", name: "" });
-    });
-
-    it("omits the creation rows when the host cannot act on them", async () => {
-        server.get = vi.fn(async () => [
-            { noteTitle: "Foo", notePathTitle: "Root / Foo", notePath: "root/abc" }
-        ]) as typeof server.get;
-
-        const items = await noteAutocomplete.autocompleteSourceForCKEditor("Foo", false);
-        expect(items.map((item) => (item as Suggestion).action)).toEqual([ undefined ]);
     });
 });
 
@@ -332,6 +299,15 @@ describe("createNoteFromSuggestion", () => {
         await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "Child", parentNoteId: "parent" });
         expect(createNote).toHaveBeenLastCalledWith("parent", expect.objectContaining({ title: "Child" }));
         expect(getInboxNotePath).toHaveBeenCalledTimes(1);
+    });
+
+    it("puts a child note under the parent the host gives, over the row's own", async () => {
+        await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "Child", parentNoteId: "active" }, "root/edited");
+        expect(createNote).toHaveBeenLastCalledWith("root/edited", expect.objectContaining({ title: "Child" }));
+
+        // The host's parent is for a child note only; the other row still goes to the inbox.
+        await createNoteFromSuggestion({ action: "create-note", noteTitle: "Inboxed" }, "root/edited");
+        expect(createNote).toHaveBeenLastCalledWith("root/inbox", expect.objectContaining({ title: "Inboxed" }));
     });
 
     it("puts the note where the type chooser says, over the row's own parent", async () => {

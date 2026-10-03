@@ -51,6 +51,14 @@
     max-width: calc(100vw - 10px);
 }
 
+/*
+ * The list after an `@` has no field to take its width from, so it grows with its rows. Past this,
+ * a long path or a row of attributes wraps.
+ */
+.note-autocomplete-menu.note-mention-menu {
+    max-width: min(600px, calc(100vw - 10px));
+}
+
 .note-autocomplete-menu .dropdown-item {
     /* Outranks Bootstrap's `nowrap`, so a long note path wraps within the list's width. */
     white-space: normal;
@@ -126,6 +134,22 @@
         display: block;
         font-size: small;
         color: var(--muted-text-color);
+    }
+
+    /* A character drawn as the icon, such as an emoji, at a glyph's size. */
+    .note-suggestion-text-icon {
+        justify-content: center;
+        width: 1em;
+    }
+
+    /* An icon drawn as SVG markup, sized and coloured as a font icon's glyph. */
+    .note-suggestion-svg-icon > svg {
+        width: 1em;
+        height: 1em;
+
+        & *:not([fill]) {
+            fill: currentColor;
+        }
     }
 
     .note-suggestion-attributes {
