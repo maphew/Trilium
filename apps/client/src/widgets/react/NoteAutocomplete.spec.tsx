@@ -481,7 +481,8 @@ describe("NoteAutocomplete's suggestion list", () => {
         expect(described.querySelector(".tn-icon")?.className).toBe("bx bx-cog tn-icon");
         expect(described.querySelector(".search-result-title")?.textContent).toBe("Cmd One");
         expect(described.querySelector(".search-result-attributes")?.textContent).toBe("Does a thing");
-        expect(described.querySelector("kbd")?.textContent).toBe("Ctrl+1");
+        // One key each, drawn as a search row's are.
+        expect(described.querySelectorAll(".note-suggestion-shortcut > kbd")).toHaveLength(2);
         expect(bare.querySelector(".tn-icon")?.className).toBe("bx bx-terminal tn-icon");
         expect(bare.querySelector(".search-result-attributes, kbd")).toBeNull();
         host.remove();

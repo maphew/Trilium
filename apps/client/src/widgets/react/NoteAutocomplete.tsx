@@ -498,15 +498,11 @@ function suggestionIcon(suggestion: Suggestion) {
 }
 
 /**
- * The keys that act on a row from the field without picking it from the list, drawn as a button's
- * shortcut is. A command keeps its own, already formatted.
+ * The keys of a row, drawn as a button's shortcut is: a command's own, or the keys that act on a
+ * search row from the field without picking it from the list.
  */
 function SuggestionShortcut({ suggestion }: { suggestion: Suggestion }) {
-    if (suggestion.action === "command") {
-        return suggestion.commandShortcut ? <kbd>{suggestion.commandShortcut}</kbd> : null;
-    }
-
-    const shortcut = searchRowShortcut(suggestion);
+    const shortcut = suggestion.action === "command" ? suggestion.commandShortcut : searchRowShortcut(suggestion);
     if (!shortcut || cachedIsMobile) return null;
     return <span className="note-suggestion-shortcut">{renderShortcutKbds(shortcut)}</span>;
 }

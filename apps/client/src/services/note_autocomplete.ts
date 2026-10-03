@@ -25,6 +25,7 @@ export interface Suggestion extends Partial<AutocompleteResult> {
     parentNoteId?: string;
     commandId?: string;
     commandDescription?: string;
+    /** The command's keyboard shortcut as stored, which `renderShortcutKbds()` formats. */
     commandShortcut?: string;
 }
 
