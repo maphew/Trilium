@@ -8,6 +8,7 @@ import {
     WidgetToolbarRepository
 } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cdp, userEvent } from "vitest/browser";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
 import { TestBoxPlugin } from "../../../test/fixture-plugins.js";
@@ -130,6 +131,51 @@ describe("ResizableWidgets", () => {
             expect(getHandles()).toEqual(handles);
         }
         expect(getBox().classList.contains("ck-widget_resizable")).toBe(true);
+    });
+
+    it("shows the handles of a selected widget in a focused editor only", async () => {
+        await createEditor();
+        editor.setData("<p>text</p><div class=\"test-box\"></div>");
+        const handles = getBox().querySelector(".ck-widget__resize-handles");
+        const box = editor.model.document.getRoot()?.getChild(1);
+        if (!handles || !box) {
+            throw new Error("Expected the handles of a box.");
+        }
+        const getDisplay = () => getComputedStyle(handles).display;
+        const getGrip = (name: string) => getComputedStyle(getHandle(name), "::after").content;
+
+        await userEvent.hover(getBox());
+        expect(getDisplay()).toBe("none");
+
+        editor.model.change((writer) => writer.setSelection(box, "on"));
+        expect(getBox().classList.contains("ck-widget_selected")).toBe(true);
+        expect(getDisplay()).toBe("none");
+
+        editor.editing.view.focus();
+        await expect.poll(getDisplay).toBe("block");
+        expect([ getGrip("width"), getGrip("height"), getGrip("corner") ])
+            .toEqual([ "none", "none", "\"\"" ]);
+
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        await expect.poll(getDisplay).toBe("none");
+    });
+
+    it("shows grips on the edges too on a touch screen", async () => {
+        const session = cdp() as { send(method: string, params: object): Promise<unknown> };
+        await session.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+        registerTestCleanup(async () => {
+            await session.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+        });
+        expect(matchMedia("(pointer: coarse)").matches).toBe(true);
+
+        await createEditor();
+        editor.setData("<div class=\"test-box\"></div>");
+        const getGrip = (name: string) => getComputedStyle(getHandle(name), "::after").content;
+
+        expect([ getGrip("width"), getGrip("height"), getGrip("corner") ])
+            .toEqual([ "\"\"", "\"\"", "\"\"" ]);
     });
 
     it("marks a widget resizable while isResizable allows it", async () => {

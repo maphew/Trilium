@@ -33,12 +33,12 @@ The dialog that includes a note selects that size once the note is picked, and y
 
 A _Small_, _Medium_ or _Expandable_ include can be resized to any width and height. A _Tiny_ or _Full_ include always fits its content.
 
-*   To resize an include, select it and drag one of its handles: the handle on its right edge changes the width, the handle on its bottom edge changes the height, and the handle in its bottom-right corner changes both. In right-to-left text, the width handle is on the left edge. With a mouse, the handles also show while the pointer is over the include.
-*   The handles work with a mouse, a pen or a finger. On a touch screen, tap the include first to show them.
+*   To resize an include, select it and drag the handle in its bottom-right corner. To change only the width or only the height, drag the middle of its right or bottom edge instead, where a touch screen shows a handle too. In right-to-left text, the handle is in the bottom-left corner and the width changes from the left edge.
+*   Resizing works with a mouse, a pen or a finger.
 *   While the height changes, moving the handle near the top or the bottom of the note scrolls the note.
 *   An include narrower than the note is centered, so changing its width moves both of its sides. Making it as wide as the note returns it to the full width.
 *   To cancel a resize, press <kbd>Esc</kbd> before releasing the handle.
-*   To reset the size, double-click a handle, or double-tap it on a touch screen. The corner handle resets both the width and the height.
+*   To reset the size, double-click the corner handle, or double-tap it on a touch screen. Double-clicking the right or bottom edge resets only the width or the height.
 *   Choosing a box size resets the height. Choosing _Tiny_ or _Full_ resets the width too.
 *   While an _Expandable_ include is collapsed, only its width can be changed.
 

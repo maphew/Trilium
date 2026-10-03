@@ -1,8 +1,9 @@
 :where(:root) {
     --ck-resize-handle-color: var(--ck-color-focus-border);
     --ck-resize-handle-hit-size: 12px;
-    --ck-resize-handle-length: 32px;
-    --ck-resize-handle-thickness: 4px;
+    --ck-resize-handle-grip-size: 8px;
+    --ck-resize-handle-grip-length: 32px;
+    --ck-resize-handle-grip-thickness: 4px;
 }
 
 @media (pointer: coarse) {
@@ -18,12 +19,10 @@
     pointer-events: none;
 }
 
-.ck .ck-widget_resizable:is(.ck-widget_selected, .ck-widget_resizing) > .ck-widget__resize-handles {
-    display: block;
-}
-
-@media (hover: hover) {
-    .ck .ck-widget_resizable:hover > .ck-widget__resize-handles {
+/* A widget stays selected while the editor is blurred. */
+.ck.ck-editor__editable.ck-focused .ck-widget_resizable.ck-widget_selected,
+.ck .ck-widget_resizable.ck-widget_resizing {
+    > .ck-widget__resize-handles {
         display: block;
     }
 }
@@ -40,12 +39,18 @@
     touch-action: none;
 
     &::after {
-        content: "";
         position: absolute;
         inset: 50% auto auto 50%;
-        border-radius: var(--ck-resize-handle-thickness);
+        border-radius: var(--ck-resize-handle-grip-thickness);
         background-color: var(--ck-resize-handle-color);
         translate: -50% -50%;
+    }
+
+    /* The edges show a grip on a touch screen only. */
+    @media (pointer: coarse) {
+        &::after {
+            content: "";
+        }
     }
 
     /* Edge handles cover the middle half of the edge, away from the type-around buttons. */
@@ -56,8 +61,8 @@
         cursor: ew-resize;
 
         &::after {
-            width: var(--ck-resize-handle-thickness);
-            height: min(var(--ck-resize-handle-length), 100%);
+            width: var(--ck-resize-handle-grip-thickness);
+            height: min(var(--ck-resize-handle-grip-length), 100%);
         }
     }
 
@@ -68,8 +73,8 @@
         cursor: ns-resize;
 
         &::after {
-            width: min(var(--ck-resize-handle-length), 100%);
-            height: var(--ck-resize-handle-thickness);
+            width: min(var(--ck-resize-handle-grip-length), 100%);
+            height: var(--ck-resize-handle-grip-thickness);
         }
     }
 
@@ -85,8 +90,10 @@
         }
 
         &::after {
-            width: calc(var(--ck-resize-handle-thickness) * 2);
-            height: calc(var(--ck-resize-handle-thickness) * 2);
+            content: "";
+            border-radius: 50%;
+            width: var(--ck-resize-handle-grip-size);
+            height: var(--ck-resize-handle-grip-size);
         }
     }
 }
