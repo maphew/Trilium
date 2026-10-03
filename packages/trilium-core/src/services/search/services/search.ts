@@ -761,7 +761,8 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
             if (hasMatch) {
                 matchingAttributes.push({
                     name: attr.name || "",
-                    value: attr.value || "",
+                    // One line per attribute: the lines are joined with newlines, which become `<br>`.
+                    value: (attr.value || "").replace(/\s*[\r\n]+\s*/g, " "),
                     type: attrType
                 });
             }

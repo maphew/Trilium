@@ -113,8 +113,8 @@ export interface AttributeSnippetLine {
  * Reads a line of `highlightedAttributeSnippet` as `extractAttributeSnippet()` writes it, `#name`,
  * `#name="value"` or `~name="target title"`, escaped, so its quotes arrive as `&quot;`. The icon is
  * the attributes panel's; a definition (`#label:name="promoted,…"`) is shown by its bare name, the
- * icon standing for the field it sets up. Returns `null` for a line in no such shape, such as one the
- * server cut short.
+ * icon standing for the field it sets up, and its options only where the search matched them. Returns
+ * `null` for a line in no such shape, such as one the server cut short.
  */
 export function parseAttributeSnippetLine(line: string): AttributeSnippetLine | null {
     const match = /^([#~])(.+?)(?:=&quot;(.*)&quot;)?$/s.exec(line);
@@ -131,7 +131,8 @@ export function parseAttributeSnippetLine(line: string): AttributeSnippetLine | 
         const bareName = name.startsWith(definitionPrefix)
             ? name.substring(definitionPrefix.length)
             : escapeHtml(plainName.substring(definitionPrefix.length));
-        return { icon, name: bareName };
+        // Its options are no value of the note's, unless the search matched them.
+        return { icon, name: bareName, ...(value?.includes("<b") ? { value } : {}) };
     }
 
     return { icon, name, ...(value ? { value } : {}) };

@@ -12,11 +12,14 @@ describe("parseAttributeSnippetLine", () => {
             .toEqual({ icon: "bx bx-transfer", name: "author", value: "J. R. R. &quot;Tolkien&quot;" });
     });
 
-    it("gives a definition its field's icon and its bare name, its options being no value", () => {
+    it("gives a definition its field's icon and its bare name, its options only where matched", () => {
         expect(parseAttributeSnippetLine("#label:<b>due</b>=&quot;promoted,single,date&quot;"))
             .toEqual({ icon: "bx bx-calendar", name: "<b>due</b>" });
         expect(parseAttributeSnippetLine("#relation:author=&quot;promoted&quot;"))
             .toEqual({ icon: "bx bx-transfer", name: "author" });
+        // Options the search matched stay, as the reason the note is listed.
+        expect(parseAttributeSnippetLine("#label:due=&quot;promoted,single,<b>date</b>&quot;"))
+            .toEqual({ icon: "bx bx-calendar", name: "due", value: "promoted,single,<b>date</b>" });
         // A highlight across the prefix leaves the name as text.
         expect(parseAttributeSnippetLine("#<b>label:due</b>=&quot;promoted&quot;"))
             .toEqual({ icon: "bx bx-text", name: "due" });
