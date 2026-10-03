@@ -31,6 +31,11 @@ export interface ContentEmbedToolProvider {
     subscribe(callback: () => void): () => void;
     /** The items of the embed toolbar to hide. The menu of the embed still offers them. */
     hiddenToolbarItems?: readonly ContentEmbedToolbarItem[];
+    /**
+     * Whether the content has an editable mode, which the toolbar and the menu of the embed then
+     * turn on and off. The embed carries `data-editable="true"` while it is on.
+     */
+    hasEditableFlag?: boolean;
 }
 
 const providers = new Map<HTMLElement, ContentEmbedToolProvider>();

@@ -3064,7 +3064,8 @@
     "convert_embed_to_link": "Convert to link",
     "include_size": "Size",
     "show_title": "Show title",
-    "show_caption": "Show caption"
+    "show_caption": "Show caption",
+    "editable": "Editable"
   },
   "electron_integration": {
     "desktop-application": "Desktop Application",
@@ -4416,7 +4417,8 @@
       "tiny": "Tiny",
       "show-title": "Show title",
       "more-actions": "More actions",
-      "insert-drawing-canvas": "Insert drawing canvas"
+      "insert-drawing-canvas": "Insert drawing canvas",
+      "editable": "Editable"
     },
     "task-state-dropped-title": "Invalid task states",
     "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",

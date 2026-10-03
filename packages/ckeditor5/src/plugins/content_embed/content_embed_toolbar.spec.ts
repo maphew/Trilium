@@ -8,6 +8,7 @@ import ContentEmbed, {
     CONVERT_EMBED_TO_LINK_COMMAND,
     CONTENT_EMBED_MENU,
     TOGGLE_CAPTION_COMMAND_NAME,
+    TOGGLE_EDITABLE_COMMAND_NAME,
     TOGGLE_TITLE_COMMAND_NAME
 } from "./content_embed.js";
 import ContentEmbedBoxSizeDropdown from "./content_embed_box_size_dropdown.js";
@@ -101,12 +102,13 @@ describe("ContentEmbedToolbar", () => {
         expect(requires).toContain(ContentEmbedTools);
     });
 
-    it("offers the content's tools, the box size, the title, the caption, the link conversion and the menu", () => {
+    it("offers the Editable toggle, the content's tools, then the embed's own items", () => {
         const repository = editor.plugins.get(WidgetToolbarRepository) as unknown as {
             _toolbarDefinitions: Map<string, { itemsConfig: string[] }>;
         };
 
         expect(repository._toolbarDefinitions.get("contentEmbed")?.itemsConfig).toEqual([
+            TOGGLE_EDITABLE_COMMAND_NAME,
             CONTENT_EMBED_TOOLS,
             "contentEmbedBoxSizeDropdown",
             TOGGLE_TITLE_COMMAND_NAME,

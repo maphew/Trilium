@@ -506,6 +506,27 @@ describe("openContextMenu", () => {
             expect(execute).not.toHaveBeenCalled();
         });
 
+        it("offers Editable above the size, for content that has an editable mode", async () => {
+            state = { ...state, isEditable: true, isEditableToggleable: true };
+            const items = await openOn(editable.querySelector("a"));
+
+            expect(items.slice(6, 9)).toMatchObject([
+                { kind: "separator" },
+                {
+                    title: "link_context_menu.editable",
+                    uiIcon: "bx bx-edit-alt",
+                    trailingIcon: CHECK
+                },
+                { title: "link_context_menu.include_size" }
+            ]);
+            expect(items).toHaveLength(14);
+            expect(pick(items[7])).toEqual([ [ "toggleContentEmbedEditable", undefined ] ]);
+
+            state = { ...state, isEditable: false };
+            expect((await openOn(editable.querySelector("a")))[7])
+                .toMatchObject({ title: "link_context_menu.editable", trailingIcon: undefined });
+        });
+
         it("appends the commands of an embedded note, its conversion in a group of its own", async () => {
             embed().removeAttribute("data-attachment-id");
             embed().setAttribute("data-note-id", "n1");
