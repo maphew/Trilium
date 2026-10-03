@@ -361,7 +361,8 @@
     "box_size_medium": "중형(~30줄)",
     "box_size_full": "전체(상자에 전체 텍스트가 표시됨)",
     "box_size_expandable": "확장 가능(기본적으로 축소됨)",
-    "button_include": "노트 포함"
+    "button_include": "노트 포함",
+    "box_size_tiny": "작게 (제목과 작업만 한 줄로 표시)"
   },
   "info": {
     "modalTitle": "정보 메시지",
@@ -2873,7 +2874,12 @@
     "open_note_in_new_window": "새 창에서 노트 열기",
     "open_note_in_popup": "빠른 편집",
     "open_note": "노트 열기",
-    "convert_link_to_embed": "링크를 임베드로 변환"
+    "convert_link_to_embed": "링크를 임베드로 변환",
+    "convert_link_to_included_note": "링크를 포함된 노트로 변환",
+    "convert_embed_to_link": "링크로 변환",
+    "include_size": "크기",
+    "show_title": "제목 표시",
+    "show_caption": "캡션 표시"
   },
   "electron_integration": {
     "desktop-application": "데스크톱 애플리케이션",
@@ -3956,7 +3962,9 @@
     "save": "저장",
     "cancel": "취소",
     "fullscreen": "전체 화면",
-    "exit_fullscreen": "전체 화면 종료"
+    "exit_fullscreen": "전체 화면 종료",
+    "open_in_new_tab": "새 탭에서 열기",
+    "more_actions": "추가 작업"
   },
   "spreadsheet": {
     "read-only": "이 노트는 읽기 전용입니다.",
@@ -4154,7 +4162,12 @@
       "attach-file-as-a-link": "파일을 링크로 첨부",
       "convert-to-link": "링크로 변환",
       "upload-files-as-attachments-and-insert-embeds": "파일을 첨부 파일로 업로드하고 임베드를 삽입합니다.",
-      "upload-files-as-attachments-and-insert-links": "파일을 첨부 파일로 업로드하고 링크를 삽입합니다."
+      "upload-files-as-attachments-and-insert-links": "파일을 첨부 파일로 업로드하고 링크를 삽입합니다.",
+      "caption-for-the-included-note": "포함된 노트의 캡션",
+      "enter-caption": "캡션 입력",
+      "tiny": "작게",
+      "show-title": "제목 표시",
+      "more-actions": "추가 작업"
     },
     "toolbar-groups": {
       "text-formatting": "텍스트 서식",
