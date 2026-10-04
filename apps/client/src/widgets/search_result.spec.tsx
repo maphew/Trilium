@@ -168,6 +168,25 @@ describe("running a saved search when it is shown", () => {
         expect(container.textContent).toContain("Auto result");
     });
 
+    it("keeps showing progress for a search when an earlier one in the same tab finishes first", async () => {
+        const first = buildNote({ id: "firstSearch", title: "First", type: "search", "#searchString": "#a" });
+        const second = buildNote({ id: "secondSearch", title: "Second", type: "search", "#searchString": "#b" });
+        const answers: Record<string, () => void> = {};
+        vi.spyOn(froca, "loadSearchNote").mockImplementation((noteId) =>
+            new Promise((resolve) => { answers[noteId] = () => resolve(undefined); }));
+
+        shownNote.current = first;
+        await mount();
+        await settle(() => {
+            shownNote.current = second;
+            shownNote.notify();
+        });
+        await settle(() => answers.firstSearch());
+
+        expect(container.querySelector(".no-items .bx-loader-alt")).not.toBeNull();
+        expect(container.querySelector("button")).toBeNull();
+    });
+
     it("waits for a background tab to be shown before running its saved search", async () => {
         const savedSearch = buildNote({ id: "backgroundSearch", title: "Background", type: "search", "#searchString": "#book" });
         const loadSearchNote = vi.spyOn(froca, "loadSearchNote").mockResolvedValue(undefined);

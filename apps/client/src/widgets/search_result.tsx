@@ -117,7 +117,8 @@ function useSavedSearchRun(
                 toast.showError(result.error);
             }
         } finally {
-            setRunningNoteId(undefined);
+            // Another search can have started in this tab meanwhile, and it keeps its progress.
+            setRunningNoteId((current) => (current === noteId ? undefined : current));
         }
     }
 
