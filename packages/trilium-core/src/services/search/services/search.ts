@@ -379,7 +379,15 @@ function performSearch(expression: Expression, searchContext: SearchContext, ena
     let ranked = searchResults;
 
     if (twoPass) {
-        ranked = searchResults.sort((a, b) => b.score - a.score).slice(0, RANK_SHORTLIST);
+        // An equal score goes to the shallower note, as in the final sort, so the shortlist does not
+        // depend on the order of the scan.
+        ranked = searchResults.sort((a, b) => {
+            if (a.score !== b.score) {
+                return b.score - a.score;
+            }
+
+            return a.notePathArray.length - b.notePathArray.length;
+        }).slice(0, RANK_SHORTLIST);
 
         for (const res of ranked) {
             res.computeScore(searchContext.fulltextQuery, searchContext.highlightedTokens, enableFuzzyMatching, searchContext.contentMatches.get(res.noteId), scoringTerms);
