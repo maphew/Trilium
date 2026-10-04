@@ -143,6 +143,8 @@ describe("GoogleProvider tool handling", () => {
         expect(googleSearchMock).toHaveBeenCalledOnce();
         const opts = streamTextMock.mock.calls[0][0] as any;
         expect(opts.tools.google_search).toEqual({ kind: "google_search" });
+        // The built-in search reads pages its own way.
+        expect(opts.tools.read_web_page).toBeUndefined();
         expect(opts.toolChoice).toBe("auto");
     });
 
@@ -174,6 +176,7 @@ describe("GoogleProvider tool handling", () => {
         const opts = streamTextMock.mock.calls[0][0] as any;
         expect(opts.tools.google_search).toBeUndefined();
         expect(opts.tools.web_search).toBeDefined();
+        expect(opts.tools.read_web_page).toBeDefined();
         expect(opts.tools.search_notes).toBeDefined();
         expect(opts.system).not.toContain("web search is unavailable in this turn");
     });

@@ -95,6 +95,8 @@ Whether web search is on is kept per chat; the search source is shared by all ch
 
 In the chat, a search run through a search provider shows that provider's logo at the start of its line instead of the <span class="tn-icon bx bx-search"></span> magnifier; hover the logo to see the provider's name.
 
+With a search provider, the model can also read the pages it finds, or a link you give it, as text: Trilium fetches the page itself and hands the model up to its first 20,000 characters. Addresses on your own machine or network are refused. In the browser version most sites don't allow being read this way, so reading a page there usually fails.
+
 ### Thinking
 
 Some models reason before they answer. While the model is thinking, its reasoning is shown in full under a spinner; once it is done, it folds into a collapsible _Thought process_ line above the reply.

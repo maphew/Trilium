@@ -13,7 +13,7 @@ import { buildNoteHint } from "../note_hint.js";
 import { buildSystemPrompt as composeSystemPrompt } from "../system_prompt.js";
 import { allToolRegistries } from "../tools/index.js";
 import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamResult } from "../types.js";
-import { createWebSearchTool } from "../web_search.js";
+import { createReadWebPageTool, createWebSearchTool } from "../web_search.js";
 import MODEL_PRICES_JSON from "./model_prices.json" with { type: "json" };
 
 const DEFAULT_MAX_TOKENS = 8096;
@@ -409,6 +409,7 @@ export abstract class BaseProvider implements LlmProvider {
         if (config.enableWebSearch) {
             if (config.webSearch) {
                 tools.web_search = createWebSearchTool(config.webSearch);
+                tools.read_web_page = createReadWebPageTool();
             } else {
                 this.addWebSearchTool(tools);
             }

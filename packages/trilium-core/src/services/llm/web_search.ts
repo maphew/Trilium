@@ -1,12 +1,16 @@
 /**
  * Web search through a search provider the user configured (`kind: "search"` in the
  * `llmProviders` option), offered to the model as a `web_search` tool in place of the model's
- * built-in search.
+ * built-in search, with a `read_web_page` tool to read what it finds.
  */
 
 import { tool } from "ai";
+import { parse as parseHtml } from "node-html-parser";
 import { z } from "zod";
 
+import markdownExport from "../export/markdown.js";
+import request, { validateFetchableUrl } from "../request.js";
+import { decodeUtf8 } from "../utils/binary.js";
 import { llmFetch } from "./providers/fetch.js";
 
 /** A configured search provider, as stored in the `llmProviders` option. */
@@ -97,6 +101,74 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
         default:
             throw new Error(`Unknown search provider type: ${setup.provider}`);
     }
+}
+
+const MAX_PAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PAGE_CHARS = 20_000;
+const HTML_TYPES = new Set([ "text/html", "application/xhtml+xml" ]);
+const TEXT_TYPES = new Set([ "text/plain", "text/markdown" ]);
+/** Elements that are page furniture rather than content. */
+const NON_CONTENT = "script, style, noscript, template, svg, iframe, nav, header, footer, aside, form";
+
+/**
+ * The `read_web_page` tool. Its result is the page as Markdown, which the chat previews under the
+ * tool's line; a failure is returned as `{ error }` so the model can tell the user about it.
+ */
+export function createReadWebPageTool() {
+    return tool({
+        description: "Read a web page, such as a web search result or a link the user gave, as Markdown. Long pages are cut off.",
+        inputSchema: z.object({
+            url: z.string().describe("The http(s) URL of the page")
+        }),
+        execute: async ({ url }) => {
+            try {
+                return await readWebPage(url);
+            } catch (e) {
+                return { error: e instanceof Error ? e.message : String(e) };
+            }
+        }
+    });
+}
+
+/**
+ * The page at `url` as Markdown, cut off at {@link MAX_PAGE_CHARS}.
+ *
+ * The URL is the model's to choose, and a note or a search result can steer it, so the page is
+ * fetched with `fetchResource()`: the policy for addresses that arrive in content, which refuses
+ * private networks, vets each redirect and caps the body.
+ */
+export async function readWebPage(url: string): Promise<string> {
+    const response = await request.fetchResource(validateFetchableUrl(url).toString(), {
+        maxBytes: MAX_PAGE_BYTES,
+        headers: { "Accept": "text/html, application/xhtml+xml, text/plain;q=0.9" }
+    });
+    if (!response.ok) {
+        throw new Error(`The page answered HTTP ${response.status}.`);
+    }
+    const contentType = response.contentType || "text/html";
+    let content: string;
+    if (HTML_TYPES.has(contentType)) {
+        content = htmlToMarkdown(decodeUtf8(response.bytes));
+    } else if (TEXT_TYPES.has(contentType)) {
+        content = decodeUtf8(response.bytes).trim();
+    } else {
+        throw new Error(`The page is ${contentType}, which can't be read as text.`);
+    }
+    return content.length > MAX_PAGE_CHARS
+        ? `${content.slice(0, MAX_PAGE_CHARS)}\n\n[The page continues; only its first ${MAX_PAGE_CHARS} characters are shown.]`
+        : content;
+}
+
+/** The content of a page as Markdown, headed by its title: its `main` or `article` where it has one. */
+function htmlToMarkdown(html: string): string {
+    const root = parseHtml(html);
+    const title = root.querySelector("title")?.textContent.trim();
+    for (const element of root.querySelectorAll(NON_CONTENT)) {
+        element.remove();
+    }
+    const content = root.querySelector("main, article, [role=main]") ?? root.querySelector("body") ?? root;
+    const markdown = markdownExport.toMarkdown(content.innerHTML, { headerlessTables: "emptyHeader" }).trim();
+    return title ? `# ${title}\n\n${markdown}` : markdown;
 }
 
 async function requestJson(url: string, init: RequestInit): Promise<unknown> {

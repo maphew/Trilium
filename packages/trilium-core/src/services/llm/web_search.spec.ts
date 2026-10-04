@@ -3,7 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const fetchMock = vi.hoisted(() => vi.fn());
 vi.mock("./providers/fetch.js", () => ({ llmFetch: fetchMock }));
 
-import { createWebSearchTool, searchWeb } from "./web_search.js";
+const fetchResourceMock = vi.hoisted(() => vi.fn());
+vi.mock("../request.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../request.js")>();
+    return { ...actual, default: { ...actual.default, fetchResource: fetchResourceMock } };
+});
+
+import { createReadWebPageTool, createWebSearchTool, readWebPage, searchWeb } from "./web_search.js";
 
 function respond(body: unknown, status = 200) {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(body), { status }));
@@ -20,6 +26,7 @@ const PAGE = { title: "Trilium", url: "https://triliumnotes.org" };
 
 afterEach(() => {
     fetchMock.mockReset();
+    fetchResourceMock.mockReset();
 });
 
 describe("searchWeb", () => {
@@ -92,5 +99,50 @@ describe("createWebSearchTool", () => {
 
         respond({}, 403);
         expect(await run(tool, "trilium")).toEqual({ error: expect.stringContaining("HTTP 403") });
+    });
+});
+
+describe("readWebPage", () => {
+    function serve(body: string, contentType = "text/html", status = 200) {
+        fetchResourceMock.mockResolvedValueOnce({ status, ok: status < 400, contentType, bytes: new TextEncoder().encode(body) });
+    }
+
+    it("reads a page's main content as Markdown, headed by its title, without its furniture", async () => {
+        serve(`<html><head><title>Trilium</title><script>alert(1)</script></head><body>
+            <nav><a href="/">Home</a></nav>
+            <main><h2>Notes</h2><p>A <a href="https://triliumnotes.org/docs">hierarchical</a> note app.</p><style>p{}</style></main>
+            <footer>Copyright</footer>
+        </body></html>`);
+        const page = await readWebPage("https://triliumnotes.org");
+
+        // Fetched under the policy for addresses from content, with a ceiling on the body.
+        expect(fetchResourceMock).toHaveBeenCalledExactlyOnceWith("https://triliumnotes.org/", expect.objectContaining({ maxBytes: 5 * 1024 * 1024 }));
+        expect(page).toBe("# Trilium\n\n## Notes\n\nA [hierarchical](https://triliumnotes.org/docs) note app.");
+    });
+
+    it("passes plain text through, and cuts a long page off with a note saying so", async () => {
+        serve("  just text  ", "text/plain");
+        expect(await readWebPage("https://a.example/t.txt")).toBe("just text");
+
+        serve("x".repeat(25_000), "text/plain");
+        const long = await readWebPage("https://a.example/long.txt");
+        expect(long.startsWith("x".repeat(20_000) + "\n\n[The page continues")).toBe(true);
+    });
+
+    it("refuses what isn't a web page: another scheme, an error status, a binary type", async () => {
+        await expect(readWebPage("file:///etc/passwd")).rejects.toThrow();
+        expect(fetchResourceMock).not.toHaveBeenCalled();
+
+        serve("Not found", "text/html", 404);
+        await expect(readWebPage("https://a.example/missing")).rejects.toThrow("HTTP 404");
+        serve("%PDF", "application/pdf");
+        await expect(readWebPage("https://a.example/doc.pdf")).rejects.toThrow("application/pdf");
+    });
+
+    it("hands the model a refused address as an error to report", async () => {
+        fetchResourceMock.mockRejectedValueOnce(new Error("URLs pointing to private/internal networks are not allowed"));
+        const tool = createReadWebPageTool();
+        expect(await tool.execute?.({ url: "http://169.254.169.254/" }, { toolCallId: "1", messages: [], context: {} }))
+            .toEqual({ error: "URLs pointing to private/internal networks are not allowed" });
     });
 });
