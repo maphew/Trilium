@@ -725,7 +725,8 @@ export default function Column({
                 className={`${isEditing ? "editing" : ""}`}
                 // A collapsed header opens the column, so it is announced as a button. Open, it
                 // is a heading, and Space collapses it as a board shortcut like F2.
-                role={(isCollapsed ? "button" : undefined) as "heading" | undefined}
+                // @ts-expect-error Preact allows no `button` role on a heading element.
+                role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
                 aria-keyshortcuts="Space"
                 onContextMenu={openMenu}
