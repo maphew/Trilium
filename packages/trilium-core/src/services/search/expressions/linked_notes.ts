@@ -59,7 +59,11 @@ export default class LinkedNotesExp extends Expression {
 const LINK_RELATIONS = new Set([ "internalLink", "imageLink", "includeNoteLink", "relationMapLink" ]);
 const BUILTIN_RELATIONS = new Set(BUILTIN_ATTRIBUTES.filter((attr) => attr.type === "relation").map((attr) => attr.name));
 
-/** A relation the user created, or one of `LINK_RELATIONS`; other built-in relations configure the note. */
+/**
+ * A relation the user created, or one of `LINK_RELATIONS`; other built-in relations configure the
+ * note. A built-in relation disabled by safe import keeps its name behind a `disabled:` prefix.
+ */
 export function isLink(relation: BAttribute) {
-    return LINK_RELATIONS.has(relation.name) || !BUILTIN_RELATIONS.has(relation.name);
+    const name = relation.name.replace(/^disabled:/, "");
+    return LINK_RELATIONS.has(name) || !BUILTIN_RELATIONS.has(name);
 }

@@ -567,7 +567,8 @@ describe("Search", () => {
         const book = note("The Hobbit").relation("author", tolkien.note);
         const fromTemplate = note("Created from Tolkien").relation("template", tolkien.note);
         const savedSearch = note("Search under Tolkien", { type: "search" }).relation("ancestor", tolkien.note);
-        rootNote.child(tolkien).child(essay).child(book).child(fromTemplate).child(savedSearch);
+        const imported = note("Imported widget").relation("disabled:widget", tolkien.note);
+        rootNote.child(tolkien).child(essay).child(book).child(fromTemplate).child(savedSearch).child(imported);
 
         const titles = (query: string) => searchService.findResultsWithQuery(query, new SearchContext())
             .map((result) => becca.notes[result.noteId].title)
