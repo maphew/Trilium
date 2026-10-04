@@ -106,7 +106,7 @@ function useSavedSearchRun(
     { noteContext, ntxId, parentComponent }: SearchRunContext
 ) {
     const hasTabBeenShown = useHasTabBeenShown(noteContext);
-    // A note runs at most once at a time, so a finished run removes only its own note.
+    // Tracks in-flight searches started by this hook by note ID.
     const [ runningNoteIds, setRunningNoteIds ] = useState<ReadonlySet<string>>(new Set());
     const autoRunNoteId = useRef<string | undefined>(undefined);
 
