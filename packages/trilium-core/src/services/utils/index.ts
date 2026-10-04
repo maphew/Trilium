@@ -120,6 +120,20 @@ export function normalizePreservingLength(str: string) {
 }
 
 /**
+ * Removes every trailing `/` from `str`.
+ *
+ * Written as an index scan rather than `replace(/\/+$/, "")`: that pattern backtracks
+ * polynomially on a value with many slashes (CodeQL js/polynomial-redos).
+ */
+export function trimTrailingSlashes(str: string) {
+    let end = str.length;
+    while (end > 0 && str.charAt(end - 1) === "/") {
+        end--;
+    }
+    return str.slice(0, end);
+}
+
+/**
  * Normalizes URL by removing trailing slashes and fixing double slashes.
  * Preserves the protocol (http://, https://) but removes trailing slashes from the rest.
  *

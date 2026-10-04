@@ -3,7 +3,8 @@ import { RefObject } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { streamChatCompletion } from "../../../services/llm_chat.js";
-import { type ModelOption, type ModelProviderGroup, readSelectedModels, resolveSelectedModel, unreadableAttachments } from "../../../services/llm_providers.js";
+import { type ModelOption, type ModelProviderGroup, readSearchProviders, readSelectedModels, resolveSelectedModel, resolveWebSearch, unreadableAttachments } from "../../../services/llm_providers.js";
+import optionService from "../../../services/options.js";
 import { randomString } from "../../../services/utils.js";
 import { useTriliumEvent } from "../../react/hooks.js";
 import { estimateTokens, quantizeDraftTokens } from "./chat_context_usage.js";
@@ -603,13 +604,21 @@ export function useLlmChat(
         const matchedModel = availableModels.find(m =>
             m.id === selectedModel && (!selectedProvider || m.provider === selectedProvider));
         const selectedModelProvider = selectedProvider ?? matchedModel?.provider;
+        const webSearch = resolveWebSearch({
+            modelProvider: selectedModelProvider,
+            enableWebSearch,
+            enableNoteTools,
+            searchProviderId: optionService.get("llmWebSearchProvider") ?? "",
+            searchProviders: readSearchProviders()
+        });
         const streamOptions: Parameters<typeof streamChatCompletion>[1] = {
             model: selectedModel || undefined,
             provider: selectedModelProvider,
             // The config id pins the exact provider instance when several of the
             // same type are configured (e.g. OpenAI + self-hosted Ollama).
             providerId: selectedProviderId ?? matchedModel?.providerId,
-            enableWebSearch,
+            enableWebSearch: webSearch.enableWebSearch,
+            webSearchProviderId: webSearch.webSearchProviderId,
             enableNoteTools,
             contextNoteId,
             chatNoteId: chatNoteIdRef.current

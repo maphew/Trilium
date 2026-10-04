@@ -767,6 +767,21 @@ describe("#normalizeUrl", () => {
     });
 });
 
+describe("#trimTrailingSlashes", () => {
+    it("removes every trailing slash and nothing else", () => {
+        expect(utils.trimTrailingSlashes("http://localhost:8888///")).toBe("http://localhost:8888");
+        expect(utils.trimTrailingSlashes("https://example.com/a//b")).toBe("https://example.com/a//b");
+        expect(utils.trimTrailingSlashes("///")).toBe("");
+        expect(utils.trimTrailingSlashes("")).toBe("");
+    });
+
+    it("stays linear on a long run of slashes", () => {
+        const start = performance.now();
+        utils.trimTrailingSlashes(`${"/".repeat(100_000)}x`);
+        expect(performance.now() - start).toBeLessThan(100);
+    });
+});
+
 describe("#normalizeCustomHandlerPattern", () => {
     const testCases: TestCase<typeof utils.normalizeCustomHandlerPattern>[] = [
         [ "should handle pattern without ending - add both versions", [ "foo" ], [ "foo", "foo/" ] ],
