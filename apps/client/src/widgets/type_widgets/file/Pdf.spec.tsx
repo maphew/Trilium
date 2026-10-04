@@ -73,7 +73,7 @@ beforeEach(() => {
     container = document.createElement("div");
     document.body.append(container);
     // Effects, which install the message listener, only run once Preact flushes them.
-    act(() => render(<PdfPreview note={NOTE} noteContext={noteContext} blob={null} componentId="cmp" />, container));
+    act(() => render(<PdfPreview note={NOTE} noteContext={noteContext} blob={null} componentId="cmp" isVisible />, container));
 });
 
 afterEach(() => {
@@ -188,6 +188,42 @@ describe("PdfPreview", () => {
             { type: "trilium-scroll-to-annotation", annotationId: undefined, pageNumber: 3 }, window.location.origin);
     });
 
+    it("publishes its data again when the pane returns to it, and follows a link from there", () => {
+        // `NoteDetail` keeps the viewer mounted, hidden, while the pane shows another note, and
+        // `NoteContext.setNote()` clears the context data. The viewer has loaded already, so it
+        // does not send the outline or the annotations again.
+        const posted = recordPostsToViewer();
+        const annotations = [ { id: "5R", type: "highlight", pageNumber: 1 } ];
+        fromThisViewer({ type: "pdfjs-viewer-toc", data: null });
+        fromThisViewer({ type: "pdfjs-viewer-page-info", totalPages: 12, currentPage: 3 });
+        fromThisViewer({ type: "pdfjs-viewer-annotations", annotations });
+
+        function show(isVisible: boolean) {
+            act(() => render(
+                <PdfPreview note={NOTE} noteContext={noteContext} blob={null} componentId="cmp" isVisible={isVisible} />,
+                container));
+        }
+
+        show(false);
+        contextData = {};
+        vi.mocked(noteContext.setContextData).mockClear();
+        // Neither reaches the note the pane shows now; the page change is kept for the return.
+        fromThisViewer({ type: "pdfjs-viewer-current-page", currentPage: 7 });
+        noteContext.viewScope = { page: "4" };
+        eventHandlers.get("noteSwitched")?.({ noteContext: { ntxId: "ntx-1", note: NOTE } });
+        expect(noteContext.setContextData).not.toHaveBeenCalled();
+        expect(posted).not.toHaveBeenCalled();
+
+        show(true);
+        expect(contextData).toMatchObject({
+            toc: { headings: [] },
+            pdfPages: { totalPages: 12, currentPage: 7 },
+            pdfAnnotations: { annotations }
+        });
+        expect(posted).toHaveBeenCalledExactlyOnceWith(
+            { type: "trilium-scroll-to-annotation", annotationId: undefined, pageNumber: 4 }, window.location.origin);
+    });
+
     it("copies a reference to a page, or to an annotation the document already holds", () => {
         fromThisViewer({ type: "pdfjs-viewer-page-info", totalPages: 12, currentPage: 1 });
         (contextData.pdfPages as any).copyReference(7);
@@ -223,7 +259,7 @@ describe("PdfPreview", () => {
 
         vi.clearAllMocks();
         readOnly.current = true;
-        act(() => render(<PdfPreview note={NOTE} noteContext={noteContext} blob={null} componentId="cmp" />, container));
+        act(() => render(<PdfPreview note={NOTE} noteContext={noteContext} blob={null} componentId="cmp" isVisible />, container));
         fromThisViewer({ type: "pdfjs-viewer-document-modified" });
         expect(spacedUpdate.scheduleUpdate).not.toHaveBeenCalled();
     });
