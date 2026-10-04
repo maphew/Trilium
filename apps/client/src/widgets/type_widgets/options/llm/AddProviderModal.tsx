@@ -285,7 +285,7 @@ export default function AddProviderModal({ show, onHidden, onSave, existingProvi
         ? <span className="text-danger">{t("llm.base_url_invalid")}</span>
         : providerType?.setupHintKey
             ? <Trans i18nKey={providerType.setupHintKey} components={{ Code: <code /> }} />
-            : t("llm.base_url_description");
+            : isSearch ? t("llm.search_base_url_description") : t("llm.base_url_description");
 
     // Rendered in one of two slots: ahead of the key for self-hosted providers
     // (the endpoint is their primary connection detail) or after it for vendor

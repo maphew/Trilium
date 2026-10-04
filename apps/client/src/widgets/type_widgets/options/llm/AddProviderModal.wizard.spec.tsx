@@ -275,6 +275,15 @@ describe("what gets saved", () => {
         expect(saved).not.toHaveProperty("selectedModels");
     });
 
+    it("explains a search API's endpoint override without pointing at model runtimes", () => {
+        open(undefined, "search");
+        act(() => providerCard("Brave Search")?.click());
+
+        const step = document.querySelector(".wizard-step")?.textContent;
+        expect(step).toContain("llm.search_base_url_description");
+        expect(step).not.toContain("llm.base_url_description");
+    });
+
     it("keeps the kind of the search provider being edited", () => {
         open({ id: "brave_1", name: "Brave Search", provider: "brave", kind: "search", apiKey: "old" });
         type(textBoxes()[0], "new");
