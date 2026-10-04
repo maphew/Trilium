@@ -84,6 +84,11 @@ State these plainly in a report when the author or a bot leans on them:
    helper with one caller, a new module beside one that does the job, a regex where a parser
    exists, a third mechanism next to two. "Too complicated. Extract to a function with simple `if`s
    and `return`s" is a verdict this project gives.
+   **A near-copy of an existing function is a finding whatever its size**, never "acceptable" or
+   "optional": the two drift (#11665's "Search now" handler copied the ribbon's
+   `refreshResults()` and already reported the query error differently). Grep for the calls the new
+   code makes, name the shared helper in the verdict, and list the extraction under *You finish*
+   or *Fixes before merge*.
 5. **Robustness.** Bad input ("Always validate user data"), a database with 100 000 notes ("my
    Trilium board has 581 tasks"), other themes and platforms (Windows paths, the flatpak), sync
    peers on an older version, a hidden loss of an existing capability (the sort dialog that lost
