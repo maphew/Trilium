@@ -24,6 +24,7 @@ import lmStudioIcon from "./icons/lmstudio.svg?url";
 import ollamaIcon from "./icons/ollama.svg?url";
 import openaiIcon from "./icons/openai.svg?url";
 import openAiCompatibleIcon from "./icons/robot.svg?url";
+import searchIcon from "./icons/search.svg?url";
 import searxngIcon from "./icons/searxng.svg?url";
 import tavilyIcon from "./icons/tavily.svg?url";
 
@@ -42,6 +43,7 @@ export const PROVIDER_ICONS: Record<string, string> = {
     openai: openaiIcon,
     "openai-compatible": openAiCompatibleIcon,
     searxng: searxngIcon,
+    serper: searchIcon,
     tavily: tavilyIcon
 };
 

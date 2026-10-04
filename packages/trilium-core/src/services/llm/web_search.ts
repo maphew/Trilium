@@ -88,6 +88,14 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
             }) as { results?: unknown[] };
             return toSources(payload.results, "text");
         }
+        case "serper": {
+            const payload = await requestJson(`${setup.baseURL ?? "https://google.serper.dev"}/search`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-API-KEY": setup.apiKey },
+                body: JSON.stringify({ q: query, num: MAX_RESULTS })
+            }) as { organic?: unknown[] };
+            return toSources(payload.organic, "snippet", "link");
+        }
         case "searxng": {
             if (!setup.baseURL) {
                 throw new Error("The SearXNG search provider has no address.");
@@ -182,11 +190,11 @@ async function requestJson(url: string, init: RequestInit): Promise<unknown> {
     return await response.json();
 }
 
-/** The results that carry a web URL, with the excerpt read from `snippetField`. */
-function toSources(results: unknown[] | undefined, snippetField: string): WebSearchSource[] {
+/** The results that carry a web URL, read from `urlField`, with the excerpt read from `snippetField`. */
+function toSources(results: unknown[] | undefined, snippetField: string, urlField = "url"): WebSearchSource[] {
     const sources: WebSearchSource[] = [];
     for (const result of results ?? []) {
-        const { title, url, [snippetField]: snippet } = (result ?? {}) as Record<string, unknown>;
+        const { title, [urlField]: url, [snippetField]: snippet } = (result ?? {}) as Record<string, unknown>;
         if (typeof url === "string" && /^https?:\/\//i.test(url)) {
             sources.push({
                 title: typeof title === "string" ? title : url,

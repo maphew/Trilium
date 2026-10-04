@@ -59,6 +59,21 @@ describe("searchWeb", () => {
         expect(exa.body).toMatchObject({ query: "q", numResults: 8 });
     });
 
+    it("posts to Serper with its key and reads Google's organic results by their link", async () => {
+        respond({
+            answerBox: { title: "Ignored" },
+            organic: [ { title: PAGE.title, link: PAGE.url, snippet: "From Google", position: 1 } ]
+        });
+        const sources = await searchWeb({ provider: "serper", apiKey: "sk" }, "q");
+
+        const { url, init, headers, body } = request();
+        expect(url).toBe("https://google.serper.dev/search");
+        expect(init.method).toBe("POST");
+        expect(headers["X-API-KEY"]).toBe("sk");
+        expect(body).toEqual({ q: "q", num: 8 });
+        expect(sources).toEqual([ { ...PAGE, snippet: "From Google" } ]);
+    });
+
     it("asks SearXNG for JSON, sends a key only when there is one, and keeps web URLs only", async () => {
         respond({ results: [ { ...PAGE, content: "Hit" }, { title: "Local", url: "file:///etc/passwd" }, { url: "https://untitled.example" } ] });
         const sources = await searchWeb({ provider: "searxng", apiKey: "", baseURL: "http://localhost:8888/" }, "q");

@@ -167,6 +167,7 @@ export const SEARCH_PROVIDER_TYPES: ProviderType[] = [
     { id: "brave", name: "Brave Search", group: "search-cloud", defaultBaseUrl: "https://api.search.brave.com/res/v1", iconUrl: PROVIDER_ICONS.brave },
     { id: "tavily", name: "Tavily", group: "search-cloud", defaultBaseUrl: "https://api.tavily.com", iconUrl: PROVIDER_ICONS.tavily },
     { id: "exa", name: "Exa", group: "search-cloud", defaultBaseUrl: "https://api.exa.ai", iconUrl: PROVIDER_ICONS.exa },
+    { id: "serper", name: "Serper", group: "search-cloud", defaultBaseUrl: "https://google.serper.dev", iconUrl: PROVIDER_ICONS.serper },
     {
         id: "searxng", name: "SearXNG", group: "search-local", defaultBaseUrl: "http://localhost:8888", prefillBaseUrl: true,
         iconUrl: PROVIDER_ICONS.searxng,
