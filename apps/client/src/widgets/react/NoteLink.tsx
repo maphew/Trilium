@@ -1,3 +1,6 @@
+import "./NoteLink.css";
+
+import type { HighlightedTokenInfo } from "@triliumnext/commons";
 import clsx from "clsx";
 import { HTMLAttributes } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -16,7 +19,7 @@ interface NoteLinkOpts {
     style?: Record<string, string | number>;
     noPreview?: boolean;
     noTnLink?: boolean;
-    highlightedTokens?: string[] | null | undefined;
+    highlightedTokens?: (string | HighlightedTokenInfo)[] | null | undefined;
     // Override the text of the link, otherwise the note title is used.
     title?: string;
     /** Inline text appended right after the link title (before the note path). */
@@ -91,7 +94,7 @@ export default function NoteLink({ className, containerClassName, notePath, show
     return <span className={containerClassName} ref={ref} />;
 }
 
-interface NewNoteLinkProps extends Pick<HTMLAttributes<HTMLAnchorElement>, "onContextMenu"> {
+interface NewNoteLinkProps extends Pick<HTMLAttributes<HTMLAnchorElement>, "onContextMenu" | "onClick" | "onDblClick"> {
     className?: string;
     notePath: string;
     viewScope?: ViewScope;
@@ -120,7 +123,7 @@ export function NewNoteLink({ notePath, viewScope, noContextMenu, showNoteIcon, 
             data-no-context-menu={noContextMenu}
             {...linkProps}
         >
-            {icon && <><Icon icon={icon} />&nbsp;</>}
+            {icon && <Icon icon={icon} className="note-link-icon" />}
             {title}
         </a>
     );
