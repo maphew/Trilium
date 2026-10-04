@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import Component from "../components/component.js";
 import { buildNote } from "../test/easy-froca";
+import froca from "./froca.js";
 import searchService from "./search.js";
 import server from "./server.js";
+import toast from "./toast.js";
 
 describe("search service", () => {
     beforeEach(() => {
@@ -50,5 +53,24 @@ describe("search service", () => {
         const notes = await searchService.searchForNotes("nothing");
 
         expect(notes).toEqual([]);
+    });
+
+    it("runSearchNote returns the query's error, toasts a failed request and refreshes the tab", async () => {
+        const component = new Component();
+        const triggerEvent = vi.spyOn(component, "triggerEvent");
+        const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
+        const loadSearchNote = vi.spyOn(froca, "loadSearchNote");
+
+        loadSearchNote.mockResolvedValueOnce({ error: "Bad query" });
+        expect(await searchService.runSearchNote(component, "search1", "ntx1")).toBe("Bad query");
+        expect(loadSearchNote).toHaveBeenCalledWith("search1");
+        expect(showError).not.toHaveBeenCalled();
+
+        loadSearchNote.mockRejectedValueOnce(new Error("Network down"));
+        expect(await searchService.runSearchNote(component, "search1", "ntx1")).toBeUndefined();
+        expect(showError).toHaveBeenCalledWith("Network down");
+
+        expect(triggerEvent).toHaveBeenCalledTimes(2);
+        expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", { ntxId: "ntx1" });
     });
 });

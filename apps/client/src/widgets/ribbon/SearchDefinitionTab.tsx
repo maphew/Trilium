@@ -8,12 +8,11 @@ import appContext from "../../components/app_context";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
 import bulk_action, { ACTION_GROUPS } from "../../services/bulk_action";
-import froca from "../../services/froca";
 import { t } from "../../services/i18n";
+import search from "../../services/search";
 import server from "../../services/server";
 import toast from "../../services/toast";
 import tree from "../../services/tree";
-import { getErrorMessage } from "../../services/utils";
 import ws from "../../services/ws";
 import RenameNoteBulkAction from "../bulk_actions/note/rename_note";
 import Button, { SplitButton } from "../react/Button";
@@ -55,18 +54,8 @@ export default function SearchDefinitionTab({ note, ntxId, hidden }: Pick<TabCon
             return;
         }
 
-        try {
-            const result = await froca.loadSearchNote(noteId);
-            if (result?.error) {
-                setError({ message: result?.error});
-            } else {
-                setError(undefined);
-            }
-        } catch (e: unknown) {
-            toast.showError(getErrorMessage(e));
-        }
-
-        parentComponent?.triggerEvent("searchRefreshed", { ntxId });
+        const error = await search.runSearchNote(parentComponent, noteId, ntxId);
+        setError(error ? { message: error } : undefined);
     }
 
     // Refresh the list of available and active options.

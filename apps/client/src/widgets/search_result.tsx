@@ -5,10 +5,9 @@ import clsx from "clsx";
 import { useState } from "preact/hooks";
 
 import type FNote from "../entities/fnote";
-import froca from "../services/froca";
 import { t } from "../services/i18n";
+import search from "../services/search";
 import toast from "../services/toast";
-import { getErrorMessage } from "../services/utils";
 import { SearchNoteList, useNoteViewType } from "./collections/NoteList";
 import SearchResultsList from "./collections/search/SearchResultsList";
 import Button from "./react/Button";
@@ -37,15 +36,11 @@ export default function SearchResult() {
         if (!note?.noteId) {
             return;
         }
-        try {
-            const result = await froca.loadSearchNote(note.noteId);
-            if (result?.error) {
-                toast.showError(result.error);
-            }
-        } catch (e: unknown) {
-            toast.showError(getErrorMessage(e));
+
+        const error = await search.runSearchNote(parentComponent, note.noteId, ntxId);
+        if (error) {
+            toast.showError(error);
         }
-        parentComponent?.triggerEvent("searchRefreshed", { ntxId });
     }
 
     useTriliumEvent("searchRefreshed", ({ ntxId: eventNtxId }) => {
