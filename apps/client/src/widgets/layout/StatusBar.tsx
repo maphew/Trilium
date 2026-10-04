@@ -276,7 +276,7 @@ export function NoteInfoBadge(context: NoteInfoContext) {
 }
 
 export function NoteInfoContent({ note, noteType, dropdownRef, setSimilarNotesShown }: Pick<NoteInfoContext, "note" | "setSimilarNotesShown"> & {
-    dropdownRef?: RefObject<DropdownHandle>;
+    dropdownRef?: RefObject<DropdownHandle | null>;
     noteType: NoteType;
 }) {
     const { metadata, ...sizeProps } = useNoteMetadata(note);

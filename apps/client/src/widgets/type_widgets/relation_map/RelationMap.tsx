@@ -198,7 +198,7 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
  */
 function usePanZoom({ ntxId, containerRef, options, transformData, onTransform }: {
     ntxId: string | null | undefined;
-    containerRef: RefObject<HTMLDivElement>;
+    containerRef: RefObject<HTMLDivElement | null>;
     options: PanZoomOptions;
     transformData: MapData["transform"] | undefined;
     onTransform: (pzInstance: PanZoom) => void
@@ -248,7 +248,7 @@ function usePanZoom({ ntxId, containerRef, options, transformData, onTransform }
     return panZoom;
 }
 
-async function useRelationData(noteId: string, mapData: MapData | undefined, mapApiRef: RefObject<RelationMapApi>, jsPlumbRef: RefObject<jsPlumbInstance>) {
+async function useRelationData(noteId: string, mapData: MapData | undefined, mapApiRef: RefObject<RelationMapApi | null>, jsPlumbRef: RefObject<jsPlumbInstance | null>) {
     const noteIds = mapData?.notes.map((note) => note.noteId);
     const [ relations, setRelations ] = useState<ClientRelation[]>();
     const [ inverseRelations, setInverseRelations ] = useState<RelationMapPostResponse["inverseRelations"]>();
@@ -336,8 +336,8 @@ async function useRelationData(noteId: string, mapData: MapData | undefined, map
 function useNoteCreation({ ntxId, note, containerRef, mapApiRef }: {
     ntxId: string | null | undefined;
     note: FNote;
-    containerRef: RefObject<HTMLDivElement>;
-    mapApiRef: RefObject<RelationMapApi>;
+    containerRef: RefObject<HTMLDivElement | null>;
+    mapApiRef: RefObject<RelationMapApi | null>;
 }) {
     const clipboardRef = useRef<Clipboard>(null);
     useTriliumEvent("relationMapCreateChildNote", async ({ ntxId: eventNtxId }) => {
@@ -375,8 +375,8 @@ function useNoteCreation({ ntxId, note, containerRef, mapApiRef }: {
 }
 
 function useNoteDragging({ containerRef, mapApiRef }: {
-    containerRef: RefObject<HTMLDivElement>;
-    mapApiRef: RefObject<RelationMapApi>;
+    containerRef: RefObject<HTMLDivElement | null>;
+    mapApiRef: RefObject<RelationMapApi | null>;
 }): Pick<HTMLProps<HTMLDivElement>, "onDrop" | "onDragOver"> {
     const dragProps = useMemo(() => ({
         onDrop(ev: DragEvent) {
@@ -415,8 +415,8 @@ function useNoteDragging({ containerRef, mapApiRef }: {
 }
 
 function useRelationCreation({ mapApiRef, jsPlumbApiRef, askRelationName }: {
-    mapApiRef: RefObject<RelationMapApi>,
-    jsPlumbApiRef: RefObject<jsPlumbInstance>,
+    mapApiRef: RefObject<RelationMapApi | null>,
+    jsPlumbApiRef: RefObject<jsPlumbInstance | null>,
     askRelationName: AskRelationName
 }) {
     const connectionCallback = useCallback(async (info: OnConnectionBindInfo, originalEvent: Event) => {

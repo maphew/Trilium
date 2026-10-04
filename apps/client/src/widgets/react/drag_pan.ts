@@ -39,7 +39,7 @@ export interface DragPanState {
  * @param ref the scrolling container.
  * @param options which presses start a pan, and whether to offer it at all.
  */
-export function useDragPan(ref: RefObject<HTMLElement>, options: DragPanOptions = {}): DragPanState {
+export function useDragPan(ref: RefObject<HTMLElement | null>, options: DragPanOptions = {}): DragPanState {
     const { canStart, disabled } = options;
     const [ isPannable, setPannable ] = useState(false);
     const [ isPanning, setPanning ] = useState(false);

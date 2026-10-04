@@ -322,7 +322,7 @@ interface UseAutocompleteOptions<T> {
     /** Called with the entry picked by click or Enter. */
     onPick(item: T): void;
     /** The field, which keeps the focus once an entry is picked. */
-    inputRef: RefObject<HTMLInputElement>;
+    inputRef: RefObject<HTMLInputElement | null>;
     /** Keeps the list closed, for a read-only or disabled field. */
     disabled?: boolean;
     /** See {@link FormAutocompleteProps.openOnFocus}. */

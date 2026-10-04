@@ -122,10 +122,10 @@ export interface UseLlmChatReturn {
     lastCompletionTokens: number;
     /** Coarse estimate of the unsent draft, quantized so typing rarely re-renders. */
     draftTokens: number;
-    messagesEndRef: RefObject<HTMLDivElement>;
-    scrollContainerRef: RefObject<HTMLDivElement>;
+    messagesEndRef: RefObject<HTMLDivElement | null>;
+    scrollContainerRef: RefObject<HTMLDivElement | null>;
     /** Trailing spacer below the last message; sized so the active turn can park near the top. */
-    bottomSpacerRef: RefObject<HTMLDivElement>;
+    bottomSpacerRef: RefObject<HTMLDivElement | null>;
     /** Whether the timeline is scrolled away from the bottom (drives the jump-to-bottom button). */
     showScrollToBottom: boolean;
     /** Jump the timeline to the latest content. */

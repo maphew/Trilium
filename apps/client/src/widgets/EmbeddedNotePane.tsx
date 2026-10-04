@@ -155,7 +155,7 @@ export function SelectTitleOnFirstOpen() {
  * the document-level handler every link click otherwise lands in (see the delegated listeners in
  * link.ts) — and of the editor's.
  */
-export function useFollowLinksWithin(paneRef: RefObject<HTMLElement>, onFollowLink: (noteId: string) => boolean) {
+export function useFollowLinksWithin(paneRef: RefObject<HTMLElement | null>, onFollowLink: (noteId: string) => boolean) {
     useEffect(() => {
         const pane = paneRef.current;
         if (!pane) return;

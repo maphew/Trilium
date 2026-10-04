@@ -166,8 +166,8 @@ function DetailDrawing({ attachment, note, noteContext, editor }: DetailDrawingP
  * whether the drawing is hidden for it: from the start of the change until it is drawn centered.
  */
 function useRecenteringOnFullscreen(
-    rootRef: RefObject<HTMLElement>,
-    apiRef: RefObject<ExcalidrawImperativeAPI>
+    rootRef: RefObject<HTMLElement | null>,
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>
 ) {
     const [ isRecentering, setIsRecentering ] = useState(false);
     const frameRef = useRef(0);
@@ -195,7 +195,7 @@ function useRecenteringOnFullscreen(
  * Moves the focus into Excalidraw when the embed box around the drawing holds it. Excalidraw
  * renders its container only once its language loads, which can be after the box took the focus.
  */
-function useFocusFromEmbedBox(rootRef: RefObject<HTMLElement>) {
+function useFocusFromEmbedBox(rootRef: RefObject<HTMLElement | null>) {
     useEffect(() => {
         const root = rootRef.current;
         if (!root) return;
@@ -224,7 +224,7 @@ function useFocusFromEmbedBox(rootRef: RefObject<HTMLElement>) {
  * Whether Excalidraw's toolbar reaches over the column of the properties panel, which then starts
  * below the toolbar instead of at the top of the canvas.
  */
-export function useIsToolbarOverPanel(rootRef: RefObject<HTMLElement>) {
+export function useIsToolbarOverPanel(rootRef: RefObject<HTMLElement | null>) {
     const [ isOver, setIsOver ] = useState(false);
 
     useEffect(() => {
@@ -276,7 +276,7 @@ type Side = "left" | "right";
  * focus, in the top layer so that no clip or stacking of the note covers them. A panel there has
  * `data-side-panel`, and its position in `--side-panel-*`.
  */
-export function useSidePanels(rootRef: RefObject<HTMLElement>, isEnabled: boolean) {
+export function useSidePanels(rootRef: RefObject<HTMLElement | null>, isEnabled: boolean) {
     useEffect(() => {
         const root = rootRef.current;
         const viewport = root?.closest<HTMLElement>(".scrolling-container");
@@ -494,8 +494,8 @@ export const FITTED_MENU_STYLES = [
  * in the window instead of the drawing. Closes it when the note scrolls.
  */
 export function useTopLayerContextMenu(
-    rootRef: RefObject<HTMLElement>,
-    apiRef: RefObject<ExcalidrawImperativeAPI>
+    rootRef: RefObject<HTMLElement | null>,
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>
 ) {
     useEffect(() => {
         const root = rootRef.current;

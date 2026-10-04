@@ -35,7 +35,7 @@ const MENTION_NOTE_LIMIT = 10;
 
 export interface NoteAutocompleteProps {
     id?: string;
-    inputRef?: RefObject<HTMLInputElement>;
+    inputRef?: RefObject<HTMLInputElement | null>;
     text?: string;
     placeholder?: string;
     container?: RefObject<HTMLElement | null | undefined>;
@@ -54,7 +54,7 @@ export interface NoteAutocompleteProps {
     /** Receives the functions that drive the field from outside it. */
     handleRef?: MutableRef<NoteAutocompleteHandle | null>;
     /** The element the list hangs from and spans, in place of the field, for a host that frames it. */
-    anchorRef?: RefObject<HTMLElement>;
+    anchorRef?: RefObject<HTMLElement | null>;
     /**
      * Offers the searches in a footer under a list in the host's container, with the shortcut hints
      * button, rather than as rows: for a host that scrolls the list in a box of its own, as Jump to

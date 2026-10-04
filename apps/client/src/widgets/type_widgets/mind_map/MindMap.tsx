@@ -68,7 +68,7 @@ function sanitizeMindMapNode(value: unknown): void {
 }
 
 interface MindElixirProps {
-    apiRef?: RefObject<MindElixirInstance>;
+    apiRef?: RefObject<MindElixirInstance | null>;
     /**
      * Rendered in an overlay on top of the map, outside of the DOM managed by Mind Elixir, and given
      * the instance it stands over. Asked for rather than handed in, the instance being built after
@@ -77,7 +77,7 @@ interface MindElixirProps {
      */
     children?: (mind: MindElixirInstance) => ComponentChildren;
     containerProps?: Omit<HTMLAttributes<HTMLDivElement>, "ref">;
-    containerRef?: RefObject<HTMLDivElement>;
+    containerRef?: RefObject<HTMLDivElement | null>;
     editable: boolean;
     onChange?: () => void;
     onSelectionChange?: (selectedNodes: NodeObj[]) => void;

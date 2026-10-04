@@ -5,7 +5,7 @@ import { useUniqueName } from "./hooks";
 
 interface FormGroupProps {
     name: string;
-    labelRef?: RefObject<HTMLLabelElement>;
+    labelRef?: RefObject<HTMLLabelElement | null>;
     label?: string;
     title?: string;
     className?: string;

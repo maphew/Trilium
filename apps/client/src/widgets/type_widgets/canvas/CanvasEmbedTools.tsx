@@ -90,8 +90,8 @@ const ICONS: Partial<Record<Tool | typeof LOCK, string>> = {
 
 interface CanvasEmbedToolsProps {
     /** The element of the drawing, inside the embed whose toolbar shows the tools. */
-    rootRef: RefObject<HTMLElement>;
-    apiRef: RefObject<ExcalidrawImperativeAPI>;
+    rootRef: RefObject<HTMLElement | null>;
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>;
     /** Whether the Editable toggle of the embed is on. A read-only drawing offers the zoom only. */
     isEditable: boolean;
 }
@@ -146,7 +146,7 @@ export class CanvasTools implements ContentEmbedToolProvider {
     /** The tools as last notified, to notify the listeners only when they change. */
     private shownTools = "";
 
-    constructor(private readonly rootRef: RefObject<HTMLElement>) {}
+    constructor(private readonly rootRef: RefObject<HTMLElement | null>) {}
 
     /** Follows `api` and its undo and redo buttons, until the returned function is called. */
     connect(api: ExcalidrawImperativeAPI) {

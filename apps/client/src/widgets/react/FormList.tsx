@@ -151,7 +151,7 @@ export interface FormListItemOpts {
     className?: string;
     rtl?: boolean;
     postContent?: ComponentChildren;
-    itemRef?: RefObject<HTMLLIElement>;
+    itemRef?: RefObject<HTMLLIElement | null>;
     /**
      * Makes the row one that is checked or not, which a menu tells assistive technology;
      * {@link checked} says which.

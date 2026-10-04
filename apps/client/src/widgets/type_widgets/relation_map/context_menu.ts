@@ -12,7 +12,7 @@ import server from "../../../services/server";
 import RelationMapApi from "./api";
 import type { AskRelationName } from "./RelationNamePopover";
 
-export function buildNoteContextMenuHandler(note: FNote | null | undefined, mapApiRef: RefObject<RelationMapApi>) {
+export function buildNoteContextMenuHandler(note: FNote | null | undefined, mapApiRef: RefObject<RelationMapApi | null>) {
     return (e: MouseEvent) => {
         if (!note) return;
         e.preventDefault();
@@ -69,7 +69,7 @@ export function buildNoteContextMenuHandler(note: FNote | null | undefined, mapA
     };
 }
 
-export function buildRelationContextMenuHandler(connection: Connection, mapApiRef: RefObject<RelationMapApi>, askRelationName: AskRelationName) {
+export function buildRelationContextMenuHandler(connection: Connection, mapApiRef: RefObject<RelationMapApi | null>, askRelationName: AskRelationName) {
     return (_, event: MouseEvent) => {
         if (connection.getType().includes("link")) {
             // don't create context menu if it's a link since there's nothing to do with link from relation map

@@ -11,7 +11,7 @@ import Component from "../../../components/component.js";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker.jsx";
 import { RefObject } from "preact";
 
-export function useContextMenu(parentNote: FNote, parentComponent: Component | null | undefined, tabulator: RefObject<Tabulator>): Partial<EventCallBackMethods> {
+export function useContextMenu(parentNote: FNote, parentComponent: Component | null | undefined, tabulator: RefObject<Tabulator | null>): Partial<EventCallBackMethods> {
     const events: Partial<EventCallBackMethods> = {};
     if (!tabulator || !parentComponent) return events;
 

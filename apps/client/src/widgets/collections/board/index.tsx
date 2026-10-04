@@ -274,7 +274,8 @@ export const BoardHighlightTokensContext = createContext<HighlightedTokenInfo[] 
 export const BoardKeptCardsContext = createContext<Set<string>>(new Set());
 
 /** The board's own element, which what a card floats over the board is portaled into. */
-export const BoardOverlayHostContext = createContext<RefObject<HTMLElement>>({ current: null });
+export const BoardOverlayHostContext =
+    createContext<RefObject<HTMLElement | null>>({ current: null });
 
 /** Whether a tap picks a card out instead of opening it, which the mobile header switches on. */
 export const BoardSelectionModeContext = createContext(false);
@@ -1859,7 +1860,7 @@ export function TitleEditor({
      * whose editor was opened by an insert passes its own element, so closing does not focus the
      * card the insert was made from.
      */
-    returnFocusTo?: RefObject<HTMLElement>;
+    returnFocusTo?: RefObject<HTMLElement | null>;
     /**
      * Whether opening the editor selects the text already in it, which is what a rename wants. An
      * editor opened part-typed puts the caret after the text instead, so the next key continues it.

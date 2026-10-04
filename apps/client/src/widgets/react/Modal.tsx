@@ -60,11 +60,11 @@ export interface ModalProps {
      * Gives access to the underlying modal element. This is useful for manipulating the modal directly
      * or for attaching event listeners.
      */
-    modalRef?: RefObject<HTMLDivElement>;
+    modalRef?: RefObject<HTMLDivElement | null>;
     /**
      * Gives access to the underlying form element of the modal. This is only set if `onSubmit` is provided.
      */
-    formRef?: RefObject<HTMLFormElement>;
+    formRef?: RefObject<HTMLFormElement | null>;
     bodyStyle?: CSSProperties;
     /**
      * Controls whether the modal is shown. Setting it to `true` will trigger the modal to be displayed to the user, whereas setting it to `false` will hide the modal.

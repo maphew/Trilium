@@ -3,14 +3,14 @@ import { ComponentChildren, createContext, RefObject } from "preact";
 import { HTMLProps } from "preact/compat";
 import { useContext, useEffect, useRef } from "preact/hooks";
 
-const JsPlumbInstance = createContext<RefObject<jsPlumbInstance> | undefined>(undefined);
+const JsPlumbInstance = createContext<RefObject<jsPlumbInstance | null> | undefined>(undefined);
 
 export function JsPlumb({ className, props, children, containerRef: externalContainerRef, apiRef, onInstanceCreated, onConnection }: {
     className?: string;
     props: Omit<Defaults, "container">;
     children: ComponentChildren;
-    containerRef?: RefObject<HTMLElement>;
-    apiRef?: RefObject<jsPlumbInstance>;
+    containerRef?: RefObject<HTMLElement | null>;
+    apiRef?: RefObject<jsPlumbInstance | null>;
     onInstanceCreated?: (jsPlumbInstance: jsPlumbInstance) => void;
     onConnection?: (info: OnConnectionBindInfo, originalEvent: Event) => void;
 }) {

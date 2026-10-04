@@ -5,7 +5,7 @@ export interface FormTextBoxProps extends Omit<InputHTMLAttributes<HTMLInputElem
     currentValue?: string;
     onChange?(newValue: string, validity: ValidityState): void;
     onBlur?(newValue: string): void;
-    inputRef?: RefObject<HTMLInputElement>;
+    inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export default function FormTextBox({ inputRef, className, type, currentValue, onChange, onBlur, autoFocus, ...rest}: FormTextBoxProps) {

@@ -48,7 +48,7 @@ export interface ScrollFade {
  * @param ref the scroll container.
  * @param options which way it scrolls, how far each fade reaches and how long it takes.
  */
-export function useScrollFade(ref: RefObject<HTMLElement>, options: ScrollFadeOptions = {}): ScrollFade {
+export function useScrollFade(ref: RefObject<HTMLElement | null>, options: ScrollFadeOptions = {}): ScrollFade {
     const {
         direction = "vertical", size, duration, minOverflow = size ?? DEFAULT_FADE_SIZE
     } = options;

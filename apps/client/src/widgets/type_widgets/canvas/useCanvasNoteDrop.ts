@@ -23,7 +23,7 @@ const STACK_OFFSET = 24;
  * payload is readable: a recognized note payload is handled here and kept from Excalidraw, while any
  * other `text/plain` drop falls through to Excalidraw's own handling.
  */
-export default function useCanvasNoteDrop(apiRef: RefObject<ExcalidrawImperativeAPI>, isReadOnly: boolean) {
+export default function useCanvasNoteDrop(apiRef: RefObject<ExcalidrawImperativeAPI | null>, isReadOnly: boolean) {
     const onDragOverCapture = useCallback((e: JSX.TargetedDragEvent<HTMLElement>) => {
         if (isReadOnly || !e.dataTransfer?.types.includes("text/plain")) {
             return;

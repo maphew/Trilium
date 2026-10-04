@@ -52,7 +52,7 @@ export const MapStyleLoaded = createContext(false);
 
 interface MapProps {
     apiRef?: RefObject<MapLibreGLMap | null>;
-    containerRef?: RefObject<HTMLDivElement>;
+    containerRef?: RefObject<HTMLDivElement | null>;
     coordinates: { lat: number; lng: number } | [number, number];
     zoom: number;
     layerData: MapLayer;

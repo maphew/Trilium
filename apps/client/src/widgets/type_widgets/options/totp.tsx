@@ -324,7 +324,7 @@ function TotpVerifyStep({ secret, secretUrl, code, setCode, codeRejected, codeRe
     code: string,
     setCode: (value: string) => void,
     codeRejected: boolean,
-    codeRef: RefObject<HTMLInputElement>
+    codeRef: RefObject<HTMLInputElement | null>
 }) {
     return (
         <>

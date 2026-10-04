@@ -948,7 +948,7 @@ export function useLegacyWidget<T extends BasicWidget>(widgetFactory: () => T, {
  * @param ref a ref to a {@link HTMLElement} to determine the size and observe the changes in size.
  * @returns the size of the element, reacting to changes.
  */
-export function useElementSize(ref: RefObject<HTMLElement>) {
+export function useElementSize(ref: RefObject<HTMLElement | null>) {
     const [ size, setSize ] = useState<DOMRect | undefined>(ref.current?.getBoundingClientRect());
 
     useEffect(() => {
@@ -993,7 +993,7 @@ export function useElementSize(ref: RefObject<HTMLElement>) {
  * Watched only while `enabled`, and true whenever it is not: an element that is not being watched
  * is taken as on screen, and watching starts from that until the observer says otherwise.
  */
-export function useIsOnScreen(ref: RefObject<Element>, enabled: boolean) {
+export function useIsOnScreen(ref: RefObject<Element | null>, enabled: boolean) {
     const [ isOnScreen, setIsOnScreen ] = useState(true);
 
     useEffect(() => {
@@ -1016,7 +1016,7 @@ export function useIsOnScreen(ref: RefObject<Element>, enabled: boolean) {
  * Whether the focus is in the element, including in an `<iframe>` or a `<webview>` inside it,
  * which the document reports as its `activeElement`. Switching to another window keeps the value.
  */
-export function useFocusWithin(ref: RefObject<HTMLElement>) {
+export function useFocusWithin(ref: RefObject<HTMLElement | null>) {
     const [ isFocusWithin, setIsFocusWithin ] = useState(false);
 
     useEffect(() => {
@@ -1154,7 +1154,11 @@ TooltipProto.dispose = function () {
  *                to put in front of the user — see {@link Dropdown}, which silences its toggle's title
  *                for as long as the menu that title opened is on screen.
  */
-export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Tooltip.Options>, enabled = true) {
+export function useTooltip(
+    elRef: RefObject<HTMLElement | null>,
+    config: Partial<Tooltip.Options>,
+    enabled = true
+) {
     const tooltipRef = useRef<Tooltip | null>(null);
 
     useEffect(() => {
@@ -1240,7 +1244,10 @@ const tooltips = new Set<Tooltip>();
  * @param elRef the element to bind the tooltip to.
  * @param config optionally, the tooltip configuration.
  */
-export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Tooltip.Options>) {
+export function useStaticTooltip(
+    elRef: RefObject<Element | null>,
+    config?: Partial<Tooltip.Options>
+) {
     useEffect(() => {
         const hasTooltip = config?.title || elRef.current?.getAttribute("title");
         if (!elRef?.current || !hasTooltip) return;
@@ -1364,7 +1371,12 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
     }, [ elRef, config ]);
 }
 
-export function useStaticTooltipWithKeyboardShortcut(elRef: RefObject<Element>, title: string, actionName: KeyboardActionNames | undefined, opts?: Omit<Partial<Tooltip.Options>, "title">) {
+export function useStaticTooltipWithKeyboardShortcut(
+    elRef: RefObject<Element | null>,
+    title: string,
+    actionName: KeyboardActionNames | undefined,
+    opts?: Omit<Partial<Tooltip.Options>, "title">
+) {
     const [ keyboardShortcut, setKeyboardShortcut ] = useState<string[]>();
     useStaticTooltip(elRef, {
         title: keyboardShortcut?.length ? `${title} (${keyboardShortcut?.join(",")})` : title,
@@ -1402,7 +1414,7 @@ export function useLegacyImperativeHandlers(handlers: Record<string, Function>) 
  * marks its own element (see `BasicWidget.render`), and a React tree mounted under one answers to
  * that same widget, so the two already agree everywhere else.
  */
-export function useLegacyComponentElement(elRef: RefObject<HTMLElement>) {
+export function useLegacyComponentElement(elRef: RefObject<HTMLElement | null>) {
     const parentComponent = useContext(ParentComponent);
 
     useEffect(() => {
@@ -1488,7 +1500,7 @@ export function useContextualShortcutHints(hints: ShortcutHintDefinition | (() =
  * hears the element arrive. Containers drawn only once their content has loaded are the ordinary
  * case for that.
  */
-export function useTrackedElement<T extends HTMLElement>(ref: RefObject<T>): T | null {
+export function useTrackedElement<T extends HTMLElement>(ref: RefObject<T | null>): T | null {
     const [ element, setElement ] = useState<T | null>(null);
 
     // Every render, and set only where it changed, so this settles in one further pass.
@@ -1501,7 +1513,10 @@ export function useTrackedElement<T extends HTMLElement>(ref: RefObject<T>): T |
     return element;
 }
 
-export function useSyncedRef<T>(externalRef?: Ref<T>, initialValue: T | null = null): RefObject<T> {
+export function useSyncedRef<T>(
+    externalRef?: Ref<T>,
+    initialValue: T | null = null
+): RefObject<T | null> {
     const ref = useRef<T>(initialValue);
 
     useEffect(() => {
@@ -1758,7 +1773,7 @@ export function useLongPressContextMenu(handler: (e: MouseEvent) => void, holdMs
     };
 }
 
-export function useResizeObserver(ref: RefObject<HTMLElement>, callback: () => void) {
+export function useResizeObserver(ref: RefObject<HTMLElement | null>, callback: () => void) {
     const resizeObserver = useRef<ResizeObserver>(null);
     useEffect(() => {
         resizeObserver.current?.disconnect();
@@ -1773,7 +1788,12 @@ export function useResizeObserver(ref: RefObject<HTMLElement>, callback: () => v
     }, [ callback, ref ]);
 }
 
-export function useKeyboardShortcuts(scope: "code-detail" | "text-detail", containerRef: RefObject<HTMLElement>, parentComponent: Component | undefined, ntxId: string | null | undefined) {
+export function useKeyboardShortcuts(
+    scope: "code-detail" | "text-detail",
+    containerRef: RefObject<HTMLElement | null>,
+    parentComponent: Component | undefined,
+    ntxId: string | null | undefined
+) {
     useEffect(() => {
         if (!parentComponent) return;
         const $container = refToJQuerySelector(containerRef);
@@ -2241,7 +2261,7 @@ export function useColorScheme() {
  * @param containerRef - Ref to the container element that may contain math elements
  * @param deps - Dependencies that trigger re-rendering (e.g., text content)
  */
-export function useMathRendering(containerRef: RefObject<HTMLElement>, deps: unknown[]) {
+export function useMathRendering(containerRef: RefObject<HTMLElement | null>, deps: unknown[]) {
     useEffect(() => {
         if (!containerRef.current) return;
         const mathElements = containerRef.current.querySelectorAll(".math-tex");
@@ -2295,7 +2315,7 @@ export function useMathRendering(containerRef: RefObject<HTMLElement>, deps: unk
  * runs first) can opt out entirely via a `data-no-contained-navigation` attribute.
  */
 export function useContainedLinkNavigation(
-    containerRef: RefObject<HTMLElement>,
+    containerRef: RefObject<HTMLElement | null>,
     onNavigate: (notePath: string, viewScope: ViewScope | undefined) => void
 ) {
     useEffect(() => {

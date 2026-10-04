@@ -18,7 +18,7 @@ const cachedIsMobile = isMobile();
 export interface ButtonProps {
     name?: string;
     /** Reference to the button element. Mostly useful for requesting focus. */
-    buttonRef?: RefObject<HTMLButtonElement>;
+    buttonRef?: RefObject<HTMLButtonElement | null>;
     text: string | ComponentChildren;
     className?: string;
     icon?: string;

@@ -27,7 +27,7 @@ export interface CanvasContent {
 /** Subset of the app state that should be persisted whenever they change. This explicitly excludes transient state like the current selection or zoom level. */
 type ImportantAppState = Pick<AppState, "gridModeEnabled" | "viewBackgroundColor">;
 
-export default function useCanvasPersistence(note: FNote, noteContext: NoteContext | null | undefined, apiRef: RefObject<ExcalidrawImperativeAPI>, theme: AppState["theme"], isReadOnly: boolean): Partial<ExcalidrawProps> {
+export default function useCanvasPersistence(note: FNote, noteContext: NoteContext | null | undefined, apiRef: RefObject<ExcalidrawImperativeAPI | null>, theme: AppState["theme"], isReadOnly: boolean): Partial<ExcalidrawProps> {
     const libraryChanged = useRef(false);
 
     /**
@@ -350,7 +350,7 @@ export default function useCanvasPersistence(note: FNote, noteContext: NoteConte
 export function useCanvasDrawingPersistence(
     attachment: FAttachment,
     editor: AttachmentEditor | undefined,
-    apiRef: RefObject<ExcalidrawImperativeAPI>,
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>,
     theme: AppState["theme"]
 ): Partial<ExcalidrawProps> {
     const currentSceneVersion = useRef(0);
@@ -445,7 +445,7 @@ export function parseContent(newContent: string, entity: FNote | FAttachment): C
     return content;
 }
 
-async function getData(api: ExcalidrawImperativeAPI, appStateToCompare: RefObject<Partial<ImportantAppState>>) {
+async function getData(api: ExcalidrawImperativeAPI, appStateToCompare: RefObject<Partial<ImportantAppState> | null>) {
     const elements = api.getSceneElements();
     const appState = api.getAppState();
 

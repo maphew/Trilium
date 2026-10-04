@@ -130,7 +130,7 @@ export default function NoteTypeChooserDialogComponent() {
  * Focuses the first note type so Enter creates a text note, until the user moves focus themselves.
  * Both the arrival of the types and `onShown` apply it, since either can be the one that comes last.
  */
-function useFirstNoteTypeFocus(modalRef: RefObject<HTMLDivElement>, shown: boolean, noteTypeCount: number) {
+function useFirstNoteTypeFocus(modalRef: RefObject<HTMLDivElement | null>, shown: boolean, noteTypeCount: number) {
     const userMovedFocus = useRef(false);
 
     const tryFocusFirstNoteType = useCallback(() => {

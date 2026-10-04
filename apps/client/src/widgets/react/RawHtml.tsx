@@ -14,11 +14,11 @@ interface RawHtmlProps extends Pick<HTMLProps<HTMLElement>, "tabindex" | "dir"> 
     onClick?: (e: MouseEvent) => void;
 }
 
-export default function RawHtml({containerRef, ...props}: RawHtmlProps & { containerRef?: RefObject<HTMLSpanElement>}) {
+export default function RawHtml({containerRef, ...props}: RawHtmlProps & { containerRef?: RefObject<HTMLSpanElement | null>}) {
     return <span ref={containerRef} {...getProps(props)} />;
 }
 
-export function RawHtmlBlock({containerRef, ...props}: RawHtmlProps & { containerRef?: RefObject<HTMLDivElement>}) {
+export function RawHtmlBlock({containerRef, ...props}: RawHtmlProps & { containerRef?: RefObject<HTMLDivElement | null>}) {
     return <div ref={containerRef} {...getProps(props)} />;
 }
 

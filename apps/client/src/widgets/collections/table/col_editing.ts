@@ -12,7 +12,7 @@ import dialog from "../../../services/dialog";
 import { t } from "i18next";
 import { executeBulkActions } from "../../../services/bulk_action";
 
-export default function useColTableEditing(api: RefObject<Tabulator>, attributeDetailWidget: AttributeDetailWidget, parentNote: FNote) {
+export default function useColTableEditing(api: RefObject<Tabulator | null>, attributeDetailWidget: AttributeDetailWidget, parentNote: FNote) {
 
     const existingAttributeToEdit = useRef<Attribute>();
     const newAttribute = useRef<Attribute>();

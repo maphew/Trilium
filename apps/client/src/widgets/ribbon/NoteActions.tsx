@@ -71,7 +71,7 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
     noteContext?: NoteContext,
     itemsAtStart?: ComponentChildren;
     itemsNearNoteSettings?: ComponentChildren;
-    dropdownRef?: RefObject<DropdownHandle>;
+    dropdownRef?: RefObject<DropdownHandle | null>;
 }) {
     const dropdownRef = useSyncedRef<DropdownHandle>(externalDropdownRef, null);
     const parentComponent = useContext(ParentComponent);
@@ -242,7 +242,7 @@ function CodeProperties({ note }: { note: FNote }) {
 
 function NoteBasicProperties({ note, focus }: {
     note: FNote;
-    focus: RefObject<ItemToFocus>;
+    focus: RefObject<ItemToFocus | null>;
 }) {
     const itemToFocusRef = useRef<HTMLLIElement>(null);
     const [ isBookmarked, setIsBookmarked ] = useNoteBookmarkState(note);

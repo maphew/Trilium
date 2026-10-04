@@ -84,7 +84,7 @@ function useDashboardNotes(noteIds: string[]) {
 
 /** Whether the dashboard is narrow enough to collapse to a single column, where dragging and
  *  resizing are disabled (the derived single-column layout isn't persisted). */
-function useIsCollapsed(containerRef: RefObject<HTMLElement>) {
+function useIsCollapsed(containerRef: RefObject<HTMLElement | null>) {
     const containerSize = useElementSize(containerRef);
     return (containerSize?.width ?? Number.POSITIVE_INFINITY) < SINGLE_COLUMN_BREAKPOINT;
 }
@@ -98,7 +98,7 @@ function useDashboardLayoutPersistence({ note, viewConfig, saveConfig, gridRef, 
     viewConfig: DashboardViewConfig | undefined;
     saveConfig: (config: DashboardViewConfig) => void;
     gridRef: MutableRef<GridStack | null>;
-    containerRef: RefObject<HTMLDivElement>;
+    containerRef: RefObject<HTMLDivElement | null>;
 }) {
     // Gridstack becomes the source of truth for geometry after init; capture the saved layout once
     // since the viewConfig prop changes identity after every save.
@@ -184,7 +184,7 @@ function useDashboardGrid({ note, notes, viewConfig, saveConfig, containerRef, g
     notes: FNote[];
     viewConfig: DashboardViewConfig | undefined;
     saveConfig: (config: DashboardViewConfig) => void;
-    containerRef: RefObject<HTMLDivElement>;
+    containerRef: RefObject<HTMLDivElement | null>;
     gridRef: MutableRef<GridStack | null>;
     dropPositionsRef: MutableRef<WidgetLayouts>;
     isCollapsed: boolean;
@@ -274,7 +274,7 @@ function useDashboardGrid({ note, notes, viewConfig, saveConfig, containerRef, g
  *  the dashboard and the first one is positioned under the cursor. Returns a ref holding the drop
  *  positions of the freshly cloned notes, which the reconcile effect consumes (once) when it
  *  promotes them to grid widgets — kept out of savedWidgetsRef so persistLayout still saves them. */
-function useNoteTreeDropToDashboard(note: FNote, includeArchived: boolean, dropAreaRef: RefObject<HTMLDivElement>, gridContainerRef: RefObject<HTMLDivElement>, gridRef: RefObject<GridStack | null>) {
+function useNoteTreeDropToDashboard(note: FNote, includeArchived: boolean, dropAreaRef: RefObject<HTMLDivElement | null>, gridContainerRef: RefObject<HTMLDivElement | null>, gridRef: RefObject<GridStack | null>) {
     const dropPositionsRef = useRef<WidgetLayouts>({});
 
     useCollectionTreeDrag(dropAreaRef, {

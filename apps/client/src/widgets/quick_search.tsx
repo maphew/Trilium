@@ -210,7 +210,7 @@ export default function QuickSearch() {
  * the field, and closes them on Escape. Captured at the window, as Bootstrap's handler for keys in
  * a `.dropdown-menu` crashes on one with no toggle beside it.
  */
-function useResultNavigation(popupRef: RefObject<HTMLElement>, open: boolean, callbacks: {
+function useResultNavigation(popupRef: RefObject<HTMLElement | null>, open: boolean, callbacks: {
     /** Runs for ArrowUp on the first result. */
     focusField(): void;
     /** Runs once the keys have moved focus to another result. */

@@ -26,7 +26,7 @@ const MAX_NOTES_THRESHOLD = 1_000;
 interface NoteMapProps {
     note: FNote;
     widgetMode: NoteMapWidgetMode;
-    parentRef: RefObject<HTMLElement>;
+    parentRef: RefObject<HTMLElement | null>;
 }
 
 export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {

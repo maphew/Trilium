@@ -5,7 +5,7 @@ interface FormTextAreaProps extends Omit<TextareaHTMLAttributes, "onBlur" | "onC
     currentValue: string;
     onChange?(newValue: string): void;
     onBlur?(newValue: string): void;
-    inputRef?: RefObject<HTMLTextAreaElement>
+    inputRef?: RefObject<HTMLTextAreaElement | null>
 }
 export default function FormTextArea({ inputRef, id, onBlur, onChange, currentValue, className, ...restProps }: FormTextAreaProps) {
     return (

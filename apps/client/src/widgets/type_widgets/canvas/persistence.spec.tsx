@@ -43,7 +43,10 @@ type PersistenceProps = ReturnType<typeof useCanvasPersistence>;
 
 let props: PersistenceProps | undefined;
 
-function Probe({ note, apiRef }: { note: FNote; apiRef: RefObject<ExcalidrawImperativeAPI> }) {
+function Probe({ note, apiRef }: {
+    note: FNote;
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>;
+}) {
     props = useCanvasPersistence(note, null, apiRef, "light", false);
     return null;
 }
@@ -104,7 +107,7 @@ describe("useCanvasPersistence content loading (#10279)", () => {
         vi.useRealTimers();
     });
 
-    async function mount(note: FNote, apiRef: RefObject<ExcalidrawImperativeAPI>) {
+    async function mount(note: FNote, apiRef: RefObject<ExcalidrawImperativeAPI | null>) {
         await act(async () => {
             render(<Probe note={note} apiRef={apiRef} />, container);
         });
@@ -116,7 +119,7 @@ describe("useCanvasPersistence content loading (#10279)", () => {
     it("routes the first content through initialData, never through updateScene", async () => {
         const { note } = buildCanvasNote([ "a1", "a2" ]);
         const { api, updateScene } = buildApi(() => []);
-        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI>;
+        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI | null>;
 
         await mount(note, apiRef);
 
@@ -130,7 +133,7 @@ describe("useCanvasPersistence content loading (#10279)", () => {
         const { note, elements } = buildCanvasNote([ "a1", "a2" ]);
         let sceneElements: FakeElement[] = [];
         const { api } = buildApi(() => sceneElements);
-        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI>;
+        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI | null>;
 
         await mount(note, apiRef);
         await resolvedInitialData();
@@ -168,7 +171,7 @@ describe("useCanvasPersistence content loading (#10279)", () => {
         const { note: noteA } = buildCanvasNote([ "a1" ]);
         const { note: noteB } = buildCanvasNote([ "b1" ]);
         const { api, updateScene } = buildApi(() => []);
-        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI>;
+        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI | null>;
 
         await mount(noteA, apiRef);
         await resolvedInitialData();
@@ -186,7 +189,7 @@ describe("useCanvasPersistence content loading (#10279)", () => {
         const { note: noteA } = buildCanvasNote([ "a1" ]);
         const { note: noteB } = buildCanvasNote([ "b1" ]);
         const { api, updateScene } = buildApi(() => []);
-        const apiRef = { current: null } as RefObject<ExcalidrawImperativeAPI>;
+        const apiRef = { current: null } as RefObject<ExcalidrawImperativeAPI | null>;
 
         await mount(noteA, apiRef);
         await resolvedInitialData();
@@ -215,7 +218,7 @@ describe("useCanvasDrawingPersistence", () => {
     function DrawingProbe({ attachment, editor, apiRef }: {
         attachment: FAttachment;
         editor: AttachmentEditor | undefined;
-        apiRef: RefObject<ExcalidrawImperativeAPI>;
+        apiRef: RefObject<ExcalidrawImperativeAPI | null>;
     }) {
         drawingProps = useCanvasDrawingPersistence(attachment, editor, apiRef, "light");
         return null;
@@ -257,7 +260,7 @@ describe("useCanvasDrawingPersistence", () => {
             getAppState: () => appState,
             getFiles: () => ({ f1: IMAGE, f2: UNUSED_IMAGE })
         } as unknown as ExcalidrawImperativeAPI;
-        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI>;
+        const apiRef = { current: api } as RefObject<ExcalidrawImperativeAPI | null>;
         await act(async () => {
             render(
                 <DrawingProbe attachment={attachment} editor={editor} apiRef={apiRef} />,

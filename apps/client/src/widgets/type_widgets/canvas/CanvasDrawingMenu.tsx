@@ -9,7 +9,7 @@ import { useExcalidrawTranslation } from "./CanvasEmbedTools";
 export const LIBRARY_SIDEBAR = "default";
 
 interface CanvasDrawingMenuProps {
-    apiRef: RefObject<ExcalidrawImperativeAPI>;
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>;
     isEditable: boolean;
 }
 
