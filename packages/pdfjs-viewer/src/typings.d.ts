@@ -27,6 +27,8 @@ declare global {
                 currentPageNumber: number;
                 /** Settles once every page has been sized. */
                 pagesPromise: Promise<void>;
+                /** Works out the visible pages and records the scroll position. */
+                update(): void;
                 /**
                  * pdf.js' own type, rather than a local restatement of it — the previous
                  * hand-written shape declared the config object directly and omitted the

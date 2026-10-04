@@ -380,7 +380,23 @@ describe("scrolling to an annotation", () => {
         await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
         // PDF y grows upwards, so y 425 on a 792-point page is 367 px from its top.
         expect(centreOfLastScroll()).toEqual({ x: 450, y: 1000 + 367 });
-        expect(viewer.scrollRequests).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+    });
+
+    it("has pdf.js record the new position at once, so a resize in the same frame keeps it", async () => {
+        // On a resize, pdf.js reapplies an "auto" zoom and scrolls back to the position it last
+        // recorded, which it otherwise records only on the next frame's scroll event.
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
+        await setupPdfAnnotations();
+        const app = window.PDFViewerApplication;
+
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "18R", pageNumber: 2 });
+        await vi.waitFor(() => expect(app?.pdfViewer.update).toHaveBeenCalledOnce());
+        expect(viewer.scrollRequests).toHaveBeenCalledWith(expect.objectContaining({ behavior: "instant" }));
+        expect(viewer.scrollRequests.mock.invocationCallOrder[0])
+            .toBeLessThan(vi.mocked(app?.pdfViewer.update as () => void).mock.invocationCallOrder[0]);
+
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", pageNumber: 1 });
+        await vi.waitFor(() => expect(app?.pdfViewer.update).toHaveBeenCalledTimes(2));
     });
 
     it("ignores a scroll request from another origin", async () => {

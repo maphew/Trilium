@@ -248,6 +248,10 @@ function sendAnnotations(annotations: PdfAnnotationInfo[]) {
  * Works from the annotation's rectangle in the document rather than from its rendered element:
  * pdf.js renders a page only once it nears the viewport, and while an annotation tool is active it
  * hides each editable annotation's element behind an editor.
+ *
+ * The scroll is instant and followed by `pdfViewer.update()`, which records the new position. On a
+ * resize, pdf.js reapplies an "auto" zoom and scrolls back to the position it last recorded, and a
+ * viewer shown again after being hidden resizes in the same frame as the scroll.
  */
 async function scrollToAnnotation(annotationId: string | undefined, pageNumber: number) {
     await initialViewApplied;
@@ -258,6 +262,7 @@ async function scrollToAnnotation(annotationId: string | undefined, pageNumber: 
     const pageView = app.pdfViewer.getPageView(pageNumber - 1);
     if (!rect || !pageView) {
         app.pdfViewer.currentPageNumber = pageNumber;
+        app.pdfViewer.update();
         return;
     }
 
@@ -270,8 +275,9 @@ async function scrollToAnnotation(annotationId: string | undefined, pageNumber: 
     container.scrollTo({
         left: div.offsetLeft + div.clientLeft + (x1 + x2 - container.clientWidth) / 2,
         top: div.offsetTop + div.clientTop + (y1 + y2 - container.clientHeight) / 2,
-        behavior: "smooth"
+        behavior: "instant"
     });
+    app.pdfViewer.update();
 }
 
 /**

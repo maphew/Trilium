@@ -110,6 +110,7 @@ export async function installViewerApp(data: Uint8Array, pageGeometry: Record<nu
         pdfViewer: {
             container,
             currentPageNumber: 1,
+            update: vi.fn(),
             optionalContentConfigPromise,
             getPageView: (pageIndex: number) => {
                 const geometry = pageGeometry[pageIndex];
