@@ -23,6 +23,7 @@ import { computeContextUsage } from "./chat_context_usage.js";
 import { insertNewBlock as insertNewBlockCommand, isSelectionInCodeBlock, outdentListItemAtStart } from "./chat_input_editing.js";
 import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
 import { shortModelName } from "./model_name.js";
+import ChatToolsDropdown from "./ChatToolsDropdown.js";
 import ReasoningEffortDropdown from "./ReasoningEffortDropdown.js";
 import { SafeImage } from "./retry_image.js";
 import { getAttachmentLightbox, getUnreadableReasons, useChatAttachments } from "./useChatAttachments.js";
@@ -460,24 +461,15 @@ export default function ChatInputBar({
                             />
                         ) : null}
                     </div>
-                    {/* What the model can reach this turn. Lifted out of the model dropdown so
-                        their state reads at a glance and flipping one is a single click — the
-                        system prompt currently has to tell the user where these live, which is
-                        a fair sign a menu was the wrong home. Grouped so they stay together. */}
+                    {/* What the model can reach this turn (the Tools menu) and how it answers
+                        (extended thinking), grouped so they stay together. */}
                     <div className="llm-chat-capabilities">
-                        <CapabilityToggle
-                            icon="bx bx-globe"
-                            label={t("llm_chat.web_search")}
-                            active={chat.enableWebSearch && !webSearchUnavailable}
-                            onToggle={handleWebSearchToggle}
-                            disabled={chat.isStreaming}
-                            unavailableReason={webSearchUnavailable ? t("llm_chat.web_search_unavailable_gemini") : undefined}
-                        />
-                        <CapabilityToggle
-                            icon="bx bx-note"
-                            label={t("llm_chat.note_tools")}
-                            active={chat.enableNoteTools}
-                            onToggle={handleNoteToolsToggle}
+                        <ChatToolsDropdown
+                            enableNoteTools={chat.enableNoteTools}
+                            enableWebSearch={chat.enableWebSearch}
+                            onNoteToolsChange={handleNoteToolsToggle}
+                            onWebSearchChange={handleWebSearchToggle}
+                            webSearchUnavailableReason={webSearchUnavailable ? t("llm_chat.web_search_unavailable_gemini") : undefined}
                             disabled={chat.isStreaming}
                         />
                         {!currentModel?.reasoningEfforts?.length && (
@@ -616,31 +608,22 @@ function AttachmentChipPreview({ att }: { att: AttachmentBlock }) {
  * One of the model's per-conversation capability switches, as an icon toggle whose state
  * reads without opening anything. The label is the tooltip.
  */
-function CapabilityToggle({ icon, label, active, onToggle, disabled, unavailableReason }: {
+function CapabilityToggle({ icon, label, active, onToggle, disabled }: {
     icon: string;
     label: string;
     active: boolean;
     onToggle: (newValue: boolean) => void;
     disabled?: boolean;
-    /** Why this capability can't be used with the current model, if it can't. */
-    unavailableReason?: string;
 }) {
-    const button = (
+    return (
         <ActionButton
             icon={icon}
-            text={unavailableReason ?? label}
+            text={label}
             active={active}
-            disabled={disabled || !!unavailableReason}
+            disabled={disabled}
             onClick={() => onToggle(!active)}
             className="llm-chat-capability"
         />
     );
-
-    // A disabled <button> receives no mouse events, so its own tooltip never fires — which is
-    // why the dropdown this replaced had to put the explanation on a separate info icon. The
-    // wrapper carries it instead, and only exists when there is something to explain.
-    return unavailableReason
-        ? <span className="llm-chat-capability-unavailable" title={unavailableReason}>{button}</span>
-        : button;
 }
 

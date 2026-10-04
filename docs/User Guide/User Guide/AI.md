@@ -85,7 +85,7 @@ Pricing information is displayed for known models. The pricing information (pric
 
 The AI can optionally search the web to find more information about a specific topic. 
 
-This feature is on by default but it can easily be disabled by clicking on the model selector at the bottom of the chat and unchecking _Web search_.
+This feature is on by default. To turn it off, press the <span class="tn-icon bx bx-shield-quarter"></span> _Tools_ button next to the model selector at the bottom of the chat and switch off _Web search_.
 
 > [!NOTE]
 > Currently only the search native to the LLM provider is used. External search providers (Brave Search, Tavily, Exa and SearXNG) can already be added in the _Search Providers_ section of the AI settings, but the chat does not use them yet.
@@ -96,7 +96,7 @@ Some models reason before they answer. While the model is thinking, its reasonin
 
 How much a model thinks is set per chat, in one of two ways depending on the model:
 
-*   Most models have an _Extended thinking_ switch, next to _Web search_.
+*   Most models have an <span class="tn-icon bx bx-brain"></span> _Extended thinking_ button, next to the <span class="tn-icon bx bx-shield-quarter"></span> _Tools_ button.
 *   Models that offer several levels of reasoning (DeepSeek V4, OpenAI Codex, Antigravity) have a <span class="tn-icon bx bx-brain"></span> reasoning effort dropdown next to the model selector instead. _None_, where offered, turns thinking off; higher levels give better answers to hard questions, but take longer and cost more.
 
 > [!NOTE]
@@ -106,7 +106,7 @@ How much a model thinks is set per chat, in one of two ways depending on the mod
 
 Tools allow the agentic AI to understand and operate on notes directly within your Trilium instance.
 
-This feature is on by default but it can easily be disabled by clicking on the model selector at the bottom of the chat and unchecking _Note access_.
+This feature is on by default. To turn it off, press the <span class="tn-icon bx bx-shield-quarter"></span> _Tools_ button next to the model selector at the bottom of the chat and switch off _Note access_. The _Tools_ button is highlighted while note access or web search is on.
 
 Here are a few tools that Trilium provides for the LLM:
 
@@ -142,7 +142,7 @@ When the reply stops moving for a couple of seconds while the AI is still at wor
 > Currently there is **no permission management** implemented for note tools, meaning that the LLM could potentially remove existing notes or clutter the tree with notes. Generally most actions are easily reversible (deleting the notes, restoring deleted notes, reverting modifications to a note), but there are some that are harder to revert (e.g. setting an attribute because there is no attribute history).
 
 > [!NOTE]
-> Gemini has a special case in which _Note access_ and _Web search_ can't be both enabled at the same time.
+> Gemini has a special case in which _Note access_ and _Web search_ can't be both enabled at the same time. While note access is on, the _Web search_ switch in the _Tools_ menu is disabled and says why.
 
 ### Attachments
 

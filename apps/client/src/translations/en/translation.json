@@ -2720,7 +2720,10 @@
     "attachment_model_cannot_read_image": "{{- model}} can't read images.",
     "attachment_model_cannot_read_file": "{{- model}} can't read PDFs.",
     "attachment_refused": "\"{{name}}\" wasn't attached. {{- reason}}",
-    "remove_unreadable_attachments": "Remove the attachments {{- model}} can't read"
+    "remove_unreadable_attachments": "Remove the attachments {{- model}} can't read",
+    "tools": "Tools",
+    "note_tools_description": "Search, read and edit your notes",
+    "web_search_description": "Search the internet for current information"
   },
   "sidebar_chat": {
     "title": "AI Chat",

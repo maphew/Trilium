@@ -53,9 +53,9 @@ The same applies to the <a class="reference-link" href="../Note%20Types/Text/In
 ## What you control
 
 *   **Which provider**: the single decision that determines whether anything leaves your machine at all.
-*   **Note access**: turn tools off from the model selector at the bottom of the chat, and the model can read nothing beyond what you type.
+*   **Note access**: turn it off in the <span class="tn-icon bx bx-shield-quarter"></span> _Tools_ menu at the bottom of the chat, and the model can read nothing beyond what you type.
 *   **The current note:** the file icon in the sidebar chat.
-*   **Web search:** also in the model selector.
+*   **Web search:** also in the _Tools_ menu.
 *   **The editor assistant**: it has no per-run toggles. What you control is whether you run it, what you select before you do and which model answers.
 
 With note access and note context both off, the provider receives only the words you typed.

@@ -235,10 +235,6 @@
     flex-shrink: 0;
 }
 
-.llm-chat-capability-unavailable {
-    display: inline-flex;
-}
-
 .llm-chat-input-form .llm-chat-capability.icon-action {
     --icon-button-size: 24px;
     --icon-button-icon-ratio: 0.65;

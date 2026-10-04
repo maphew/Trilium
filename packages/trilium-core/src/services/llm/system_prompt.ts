@@ -139,12 +139,12 @@ function buildTaskListHint(): string {
 }
 
 /**
- * Where the user turns a capability on: the icon toggles beside the model
- * selector in `ChatInputBar`. The icon classes must match the toggles' own.
+ * Where the user turns a capability on: a switch in the Tools menu beside the model selector in
+ * `ChatInputBar`. The icon class must match the toggle button of `ChatToolsDropdown`.
  */
-const NOTE_ACCESS_TOGGLE = describeToggle("bx bx-note", "Note access");
-const WEB_SEARCH_TOGGLE = describeToggle("bx bx-globe", "Web search");
+const NOTE_ACCESS_TOGGLE = describeToggle("Note access");
+const WEB_SEARCH_TOGGLE = describeToggle("Web search");
 
-function describeToggle(iconClass: string, label: string): string {
-    return `the <span class="tn-icon ${iconClass}"></span> "${label}" toggle next to the model selector, below the message box (include the icon exactly as written, so the user sees the same icon)`;
+function describeToggle(label: string): string {
+    return `the "${label}" switch in the <span class="tn-icon bx bx-shield-quarter"></span> "Tools" menu next to the model selector, below the message box (include the icon exactly as written, so the user sees the same icon)`;
 }
