@@ -30,14 +30,21 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string) => key
 }));
 
-vi.mock("../../react/hooks", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("../../react/hooks")>()),
-    useTriliumOption: (name: string) => [
-        mocks.stored[name] ?? "",
-        (value: string) => void mocks.saved.push([ name, value ])
-    ],
-    useTriliumOptionBool: (name: string) => [ mocks.stored[name] === "true", () => {} ]
-}));
+// Each call keeps its own copy of the value, as the real hook does until `entitiesReloaded` arrives.
+vi.mock("../../react/hooks", async (importOriginal) => {
+    const { useState } = await import("preact/hooks");
+    return {
+        ...(await importOriginal<typeof import("../../react/hooks")>()),
+        useTriliumOption: (name: string) => {
+            const [ value, setValue ] = useState(mocks.stored[name] ?? "");
+            return [ value, (newValue: string) => {
+                setValue(newValue);
+                mocks.saved.push([ name, newValue ]);
+            } ];
+        },
+        useTriliumOptionBool: (name: string) => [ mocks.stored[name] === "true", () => {} ]
+    };
+});
 
 vi.mock("../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
 
@@ -287,6 +294,29 @@ describe("the configured providers", () => {
         await act(async () => (remove as HTMLButtonElement).click());
         const written = mocks.saved.find(([ name ]) => name === "llmProviders");
         expect(JSON.parse(written?.[1] ?? "[]").map((provider: { id: string }) => provider.id)).toEqual([ "a" ]);
+    });
+
+    it("keeps an edit made in one card when the other card saves next", async () => {
+        withProviders([
+            { id: "a", name: "First", provider: "openai", apiKey: "sk" },
+            { id: "b", name: "Second", provider: "openai", apiKey: "sk" },
+            { id: "s", name: "Brave Search", provider: "brave", kind: "search", apiKey: "bk" }
+        ]);
+        open();
+
+        const removeButton = (name: string) => providers()
+            .find((option) => option.querySelector(".llm-provider-name")?.textContent === name)
+            ?.querySelectorAll(".tn-card-option-actions button")[1] as HTMLButtonElement | undefined;
+        const removeSearch = removeButton("Brave Search");
+        expect(removeSearch).toBeDefined();
+        await act(async () => removeSearch?.click());
+        const removeModel = removeButton("First");
+        expect(removeModel).toBeDefined();
+        await act(async () => removeModel?.click());
+
+        const writes = mocks.saved.filter(([ name ]) => name === "llmProviders");
+        expect(writes).toHaveLength(2);
+        expect(JSON.parse(writes[1][1]).map((provider: { id: string }) => provider.id)).toEqual([ "b" ]);
     });
 });
 

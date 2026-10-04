@@ -23,6 +23,19 @@ import AddProviderModal, { findProviderType, type LlmProviderConfig } from "./ll
 
 export default function LlmSettings() {
     const [aiEnabled, setAiEnabled] = useTriliumOptionBool("aiEnabled");
+    // Read once for both cards: each saves the whole list, so a card holding its own copy would
+    // write back the other card's providers as they were before its last edit.
+    const [providersJson, setProvidersJson] = useTriliumOption("llmProviders");
+    const allProviders = useMemo<LlmProviderConfig[]>(() => {
+        try {
+            return providersJson ? JSON.parse(providersJson) : [];
+        } catch {
+            return [];
+        }
+    }, [providersJson]);
+    const setAllProviders = useCallback((newProviders: LlmProviderConfig[]) => {
+        setProvidersJson(JSON.stringify(newProviders));
+    }, [setProvidersJson]);
 
     return (
         <>
@@ -44,8 +57,8 @@ export default function LlmSettings() {
 
             {aiEnabled && (
                 <>
-                    <ProviderSettings kind="llm" />
-                    <ProviderSettings kind="search" />
+                    <ProviderSettings kind="llm" allProviders={allProviders} setAllProviders={setAllProviders} />
+                    <ProviderSettings kind="search" allProviders={allProviders} setAllProviders={setAllProviders} />
                     <McpSettings />
                 </>
             )}
@@ -54,19 +67,13 @@ export default function LlmSettings() {
 }
 
 /** The configured providers of one kind. Both kinds are stored in the `llmProviders` option. */
-function ProviderSettings({ kind }: { kind: LlmProviderKind }) {
-    const [providersJson, setProvidersJson] = useTriliumOption("llmProviders");
-    const allProviders = useMemo<LlmProviderConfig[]>(() => {
-        try {
-            return providersJson ? JSON.parse(providersJson) : [];
-        } catch {
-            return [];
-        }
-    }, [providersJson]);
+function ProviderSettings({ kind, allProviders, setAllProviders }: {
+    kind: LlmProviderKind;
+    /** Every configured provider, of both kinds. */
+    allProviders: LlmProviderConfig[];
+    setAllProviders: (providers: LlmProviderConfig[]) => void;
+}) {
     const providers = useMemo(() => allProviders.filter(p => isProviderOfKind(p, kind)), [allProviders, kind]);
-    const setAllProviders = useCallback((newProviders: LlmProviderConfig[]) => {
-        setProvidersJson(JSON.stringify(newProviders));
-    }, [setProvidersJson]);
     // `undefined` while closed; the edited provider (or a fresh marker) while open.
     // The bumping token keys the modal so it re-initializes its wizard on every open.
     const [modalProvider, setModalProvider] = useState<LlmProviderConfig | undefined>();
