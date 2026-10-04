@@ -523,7 +523,7 @@ class SNote extends AbstractShacaEntity {
                 .map((attr) => attr.getPojo()),
             attachments: this.getAttachments().map((attachment) => attachment.getPojo()),
             parentNoteIds: this.parents.map((parentNote) => parentNote.noteId),
-            childNoteIds: this.children.map((child) => child.noteId)
+            childNoteIds: this.getVisibleChildNotes().map((child) => child.noteId)
         };
     }
 

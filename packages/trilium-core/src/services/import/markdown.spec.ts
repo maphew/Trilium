@@ -286,6 +286,12 @@ $$`;
             <pre><code class="language-text-x-trilium-auto">$$a+b$$</code></pre>`);
     });
 
+    it("imports dollar amounts as literal text (#5682)", () => {
+        const input = `Assembled Item A has an Avg cost of $15. A Raw Material has an Avg cost of $6.`;
+        const expected = /*html*/`<p>Assembled Item A has an Avg cost of $15. A Raw Material has an Avg cost of $6.</p>`;
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+    });
+
     it("converts specific inline math expression into Mathtex format", () => {
         const input = `This is a formula: $\\mathcal{L}_{task} + \\mathcal{L}_{od}$ inside a sentence.`;
         const expected = /*html*/`<p>This is a formula: <span class="math-tex">\\(\\mathcal{L}_{task} + \\mathcal{L}_{od}\\)</span> inside a sentence.</p>`;
@@ -440,6 +446,24 @@ $$`;
             `<span class="todo-list__label__description">${text}</span></label></li></ul>`;
         const original = `${todoList("Truc")}<p>&nbsp;</p>${todoList("Machin")}`;
         expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title")).toStrictEqual(original);
+    });
+
+    it("round-trips a list nested under a multi-digit ordered item through the Markdown exporter", () => {
+        for (const position of [ 9, 10, 100 ]) {
+            const siblings = Array.from({ length: position - 1 }, (_, index) => `<li>Item ${index + 1}</li>`).join("");
+            const original = `<ol>${siblings}<li>Parent<ol><li>First</li><li>Second</li></ol></li></ol>`;
+            expect(markdownService.renderToHtml(markdownExportService.toMarkdown(original), "Title"), `item ${position}`)
+                .toStrictEqual(original);
+        }
+    });
+
+    it("keeps the starting number of an ordered list, including through the Markdown exporter", () => {
+        const input = trimIndentation`\
+            3.  Third
+            4.  Fourth`;
+        const expected = `<ol start="3"><li>Third</li><li>Fourth</li></ol>`;
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+        expect(markdownService.renderToHtml(markdownExportService.toMarkdown(expected), "Title")).toStrictEqual(expected);
     });
 
     it("imports todo list multistate markers as data-trilium-task-state and titles the <li> with the state's human name", () => {

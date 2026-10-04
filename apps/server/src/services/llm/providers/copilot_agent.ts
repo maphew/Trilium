@@ -17,7 +17,8 @@ import type { ModelInfo } from "@triliumnext/core/src/services/llm/types.js";
 
 import { AcpAgentProvider, type AcpLaunchSpec, type AcpModel, type AcpSessionModelState, describeError, resetAcpAgentStateForTests } from "./acp_agent.js";
 import { AcpError } from "./acp_client.js";
-import { needsShell, resolveCopilotBinaryPath } from "./copilot_binary.js";
+import { needsShell } from "./binary_lookup.js";
+import { resolveCopilotBinaryPath } from "./copilot_binary.js";
 
 /**
  * The catalog available without asking the CLI. It holds only the two ids the

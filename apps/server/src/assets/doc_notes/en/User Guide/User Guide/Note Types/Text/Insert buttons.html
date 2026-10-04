@@ -15,9 +15,9 @@
   be selected via a combo box to the right.</p>
 <p>There is also the possibility of inserting emojis directly by typing <code>:</code> followed
   by a name of an emoji, triggering the display of a list of emojis. Simply
-  use the arrow keys to select one and press <kbd>Enter</kbd> to insert it.</p>
-<img
-src="1_Insert buttons_plus.png" width="272" height="187">
+  use the arrow keys to select one and press <kbd>Enter</kbd> or <kbd>Tab</kbd> to
+  insert it.</p>
+<img src="1_Insert buttons_plus.png" width="272" height="187">
 <h2>Symbols</h2>
 <figure class="image image-style-align-right">
   <img style="aspect-ratio:346/322;" src="Insert buttons_image.png" width="346"
@@ -36,6 +36,10 @@ src="1_Insert buttons_plus.png" width="272" height="187">
 </ul>
 <h2>Math equations</h2>
 <p>See the dedicated&nbsp;<a class="reference-link" href="#root/_help_YfYAtQBcfo5V">Math Equations</a>&nbsp;page.</p>
+<h2>Drawing canvas</h2>
+<p>Choose <span class="tn-icon bx bx-pen"></span>  <em>Drawing canvas</em> to
+  draw on an Excalidraw canvas inside the text. See <em>Drawing canvases</em> in <a
+  class="reference-link" href="#root/_help_nBAXQFj20hS1">Include Note</a>.</p>
 <h2>Mermaid diagram</h2>
 <p>Press the&nbsp;<span class="tn-icon cke cke-trilium-mermaid-insert"></span> button
   to create an inline Mermaid diagram.</p>
@@ -71,6 +75,25 @@ src="1_Insert buttons_image.png" width="502" height="95">
     it and press <kbd>Ctrl</kbd>+<kbd>C</kbd>. Then use <kbd>Ctrl</kbd>+<kbd>V</kbd>,
     to paste as many times as needed.</li>
 </ul>
+<h2>Date and time</h2>
+<p>The <span class="tn-icon cke cke-trilium-date-time"></span> button inserts
+  the current date and time at the cursor, replacing the selected text if
+  there is any. The inserted text takes the formatting of the text around
+  it, so a date inserted inside bold text is bold too.</p>
+<ul>
+  <li>To insert the date in the default format, press the button itself or press <kbd>Alt</kbd>+<kbd>T</kbd>.</li>
+  <li>To insert it in another format, press the arrow next to the button and
+    pick a format from the list. Each entry shows the current date and time
+    in that format: the default one, the date or the time alone, the date written
+    out, and ISO 8601.</li>
+  <li>The same formats are offered by the <a class="reference-link" href="#root/_help_ZlN4nump6EbW">Slash Commands</a>:
+    type <code>/date</code>, <code>/time</code>, <code>/now</code> or <code>/today</code>.
+    The <em>Insert date/time</em> entry uses the default format, and shows what
+    it inserts underneath; the other entries show their output in the title.</li>
+</ul>
+<p>The default format can be changed in <a class="reference-link" href="#root/_help_4TIF1oA4VQRO">Options</a> → <em>Text Notes</em> → <em>Editor</em> → <em>Date/time format</em>,
+  using <a href="https://day.js.org/docs/en/display/format">Day.js format tokens</a> (for
+  example <code>DD.MM.YYYY HH:mm</code>).</p>
 <h2>Icons</h2>
 <p>Icons just like the ones for the <a href="#root/_help_p9kXRFAkwN4o">note icon</a> can
   be inserted in text. For more information see&nbsp;<a class="reference-link"

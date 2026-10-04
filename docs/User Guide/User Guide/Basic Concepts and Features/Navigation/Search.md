@@ -26,7 +26,7 @@ There are multiple types of searches, all using the same search mechanism and qu
 
 *   From the <a class="reference-link" href="../UI%20Elements/Launch%20Bar.md">Launch Bar</a>, look for the dedicated search button.
 *   To limit the search to a note and its children, select _Search from subtree_ from the <a class="reference-link" href="../UI%20Elements/Note%20Tree/Note%20tree%20contextual%20menu.md">Note tree contextual menu</a> or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.
-*   Go to <a class="reference-link" href="Jump%20to%20%26%20command%20palette.md">Jump to &amp; command palette</a>, look for something then press _Search in full text_ (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).
+*   Go to <a class="reference-link" href="Jump%20to%20%26%20command%20palette.md">Jump to &amp; command palette</a>, look for something then press _Show in full search_ below the results (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).
 
 ## Interaction
 
@@ -50,14 +50,18 @@ To search for notes, click on the magnifying glass icon on the toolbar or press 
 
 To help with the syntax, Trilium offers an autocomplete functionality which can be triggered by pressing <kbd>Ctrl</kbd>+<kbd>Space</kbd>.
 
+Some suggestions also open on their own as you type: label and relation names after `#` and `~`, fields after `.`, operators, values, and notes after `@`. Keywords such as `and`, `or`, `not`, `orderBy` and `limit` appear only on <kbd>Ctrl</kbd>+<kbd>Space</kbd>, since a plain word is usually a search term.
+
+No suggestion is selected when a list opens on its own, so <kbd>Enter</kbd> runs the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and press <kbd>Enter</kbd>. The list opened with <kbd>Ctrl</kbd>+<kbd>Space</kbd> and the notes after `@` open on the best match instead, so <kbd>Enter</kbd> inserts it.
+
 The autocomplete offers:
 
 *   Basic operators such as `*=` and keywords (`limit`, `not`).
 *   Fields for object-like fields such as `note` or `~relation`, triggered by typing `.`.
 *   Contextual enumerations such as `note.type = "` or `note.mime = "`.
-*   [Label](../../Advanced%20Usage/Attributes/Labels.md) names by typing `#`, with user-defined ones shown first.
+*   [Label](../../Advanced%20Usage/Attributes/Labels.md) names by typing `#`.
     
-    *   A gear icon indicates system attributes.
+    *   A small gear on the name's icon indicates a system attribute.
     *   After typing the label name, the value is also autocompleted with values that are present in the database.
 *   [Relation](../../Advanced%20Usage/Attributes/Relations.md) names by typing `~`.
 *   [Note ID](../../Advanced%20Usage/Note%20ID.md)s can be inserted easily by typing `@` and looking for a note.
@@ -75,6 +79,8 @@ The search is also checked for errors in two phases, which will be displayed as 
 
 *   Linter errors which identify common error patterns and also provide a way to fix them.
 *   Search errors which are checked by the server, without indicating the exact place the error occurred.
+
+An error the search only runs into while running, such as an operator that note content cannot be searched with, is shown in a _Search error_ card instead: below the search string, or at the top of the <a class="reference-link" href="Quick%20search.md">Quick search</a> results.
 
 ### Multiline
 
@@ -129,7 +135,7 @@ In addition: 
 
 *   The **total number of results** is always shown, so you can immediately tell how broad a query is.
 *   A **page-size selector** lets you choose how many results to display per page. Your choice is remembered and synced across your devices (stored in the `searchResultsPageSize` option), so you do not have to reset it on every device.
-*   **Clicking a result** opens the note and jumps straight to the first match. The in-note find bar opens pre-filled with your search terms, so you can step through the remaining matches with the find controls.
+*   **Clicking a result** opens the note and jumps straight to the first match. The in-note find bar opens pre-filled with the first word of your search, so you can step through its matches with the find controls. To have the find bar look for a whole phrase instead, put the phrase in quotes in the search, e.g. `"The Lord of the Rings"`. In read-only notes, the other words of the search are highlighted as well.
 *   If a match is inside a **collapsed section** (for example a folded heading), that section is expanded automatically so the match is visible.
 
 ## Simple Note Search Examples

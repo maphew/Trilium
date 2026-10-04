@@ -13,7 +13,7 @@ This feature allows inserting Unicode emoji characters. Simply select a category
 
 Emojis can also be searched by their English name and the skin tone can be selected via a combo box to the right.
 
-There is also the possibility of inserting emojis directly by typing `:` followed by a name of an emoji, triggering the display of a list of emojis. Simply use the arrow keys to select one and press <kbd>Enter</kbd> to insert it.
+There is also the possibility of inserting emojis directly by typing `:` followed by a name of an emoji, triggering the display of a list of emojis. Simply use the arrow keys to select one and press <kbd>Enter</kbd> or <kbd>Tab</kbd> to insert it.
 
 <img src="1_Insert buttons_plus.png" width="272" height="187">
 
@@ -32,6 +32,10 @@ Interaction:
 ## Math equations
 
 See the dedicated <a class="reference-link" href="Math%20Equations.md">Math Equations</a> page.
+
+## Drawing canvas
+
+Choose <span class="tn-icon bx bx-pen"></span> _Drawing canvas_ to draw on an Excalidraw canvas inside the text. See _Drawing canvases_ in <a class="reference-link" href="Include%20Note.md">Include Note</a>.
 
 ## Mermaid diagram
 
@@ -59,6 +63,16 @@ Page breaks are marked in the editor with the words _Page break_, but they will 
 
 *   To insert a page break, press the <span class="tn-icon cke cke-page-break"></span> in the formatting toolbar.
 *   To insert many page breaks at once, insert a page break first, click on it and press <kbd>Ctrl</kbd>+<kbd>C</kbd>. Then use <kbd>Ctrl</kbd>+<kbd>V</kbd>, to paste as many times as needed.
+
+## Date and time
+
+The <span class="tn-icon cke cke-trilium-date-time"></span> button inserts the current date and time at the cursor, replacing the selected text if there is any. The inserted text takes the formatting of the text around it, so a date inserted inside bold text is bold too.
+
+*   To insert the date in the default format, press the button itself or press <kbd>Alt</kbd>+<kbd>T</kbd>.
+*   To insert it in another format, press the arrow next to the button and pick a format from the list. Each entry shows the current date and time in that format: the default one, the date or the time alone, the date written out, and ISO 8601.
+*   The same formats are offered by the <a class="reference-link" href="Slash%20Commands.md">Slash Commands</a>: type `/date`, `/time`, `/now` or `/today`. The _Insert date/time_ entry uses the default format, and shows what it inserts underneath; the other entries show their output in the title.
+
+The default format can be changed in <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a> → _Text Notes_ → _Editor_ → _Date/time format_, using [Day.js format tokens](https://day.js.org/docs/en/display/format) (for example `DD.MM.YYYY HH:mm`).
 
 ## Icons
 

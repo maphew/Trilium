@@ -2,135 +2,135 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const shownContext = vi.hoisted(() => ({
-    current: null as import("../entities/fnote").default | null,
-    parentComponent: null as import("../components/component").default | null,
-}));
-
-vi.mock("./react/hooks", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("./react/hooks")>()),
-    useNoteContext: () => ({
-        note: shownContext.current,
-        notePath: shownContext.current
-            ? `root/${shownContext.current.noteId}`
-            : "root",
-        ntxId: "ntx1",
-        parentComponent: shownContext.parentComponent,
-    }),
-}));
-
-vi.mock("./collections/NoteList", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("./collections/NoteList")>()),
-    SearchNoteList: () => null,
-}));
-
-import type Component from "../components/component";
 import type FNote from "../entities/fnote";
+
+// The widget reads the note of the tab it sits in. Like the real hook, the mock re-renders its
+// component when that note changes, which `shownNote.notify()` triggers.
+const shownNote = vi.hoisted(() => ({
+    current: null as FNote | null,
+    notify: () => {},
+    parentComponent: null as import("../components/component").default | null
+}));
+vi.mock("./react/hooks", async (importOriginal) => {
+    const { useEffect, useState } = await import("preact/hooks");
+    return {
+        ...(await importOriginal<typeof import("./react/hooks")>()),
+        useNoteContext: () => {
+            const [ note, setNote ] = useState(shownNote.current);
+            useEffect(() => {
+                shownNote.notify = () => setNote(shownNote.current);
+            }, []);
+            return { note, notePath: note?.noteId, ntxId: "ntx1", parentComponent: shownNote.parentComponent };
+        }
+    };
+});
+
+import Component from "../components/component";
 import froca from "../services/froca";
+import server from "../services/server";
 import toast from "../services/toast";
 import { buildNote } from "../test/easy-froca";
-import SearchResult from "./search_result";
 import { ParentComponent } from "./react/react_utils";
+import SearchResult from "./search_result";
+
+let container: HTMLElement;
+let parent: Component;
+
+beforeEach(() => {
+    parent = new Component();
+    shownNote.parentComponent = parent;
+    container = document.createElement("div");
+    document.body.appendChild(container);
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+    render(null, container);
+    container.remove();
+});
 
 describe("SearchResult", () => {
-    const handlers = new Map<string, (data: unknown) => void>();
-    const triggerEvent = vi.fn((name: string, data: unknown) => {
-        handlers.get(name)?.(data);
-    });
-    const parent = {
-        componentId: "cid",
-        registerHandler: (name: string, callback: (data: unknown) => void) =>
-            handlers.set(name, callback),
-        removeHandler: () => {},
-        triggerEvent,
-    } as unknown as Component;
-    const defaultLoadSearchNote = async (noteId: string) => {
-        const note =
-            (froca.notes[noteId] as FNote | undefined) ?? shownContext.current;
-        if (note) {
-            note.searchResultsLoaded = true;
-        }
-        return undefined as Awaited<ReturnType<typeof froca.loadSearchNote>>;
-    };
-    const loadSearchNote = vi.fn(defaultLoadSearchNote);
-    const showError = vi.spyOn(toast, "showError");
-    let container: HTMLDivElement | null = null;
-
-    beforeEach(() => {
-        handlers.clear();
-        triggerEvent.mockClear();
-        loadSearchNote.mockReset();
-        loadSearchNote.mockImplementation(defaultLoadSearchNote);
-        showError.mockClear();
-        shownContext.current = null;
-        shownContext.parentComponent = parent;
-        froca.loadSearchNote =
-            loadSearchNote as unknown as typeof froca.loadSearchNote;
-    });
-
-    afterEach(() => {
-        if (container) {
-            render(null, container);
-            container.remove();
-            container = null;
-        }
-    });
-
-    function showSavedSearchButton() {
-        const savedSearch = buildNote({
-            title: "My search",
+    it("does not request search result details for a result note opened in the same tab", async () => {
+        const post = vi.spyOn(server, "post").mockResolvedValue({ results: [] });
+        const searchNote = buildNote({
+            id: "searchNote",
+            title: "Search",
             type: "search",
-            "#searchString": "#tcfindme",
+            children: [
+                { id: "resultA", title: "A" },
+                { id: "resultB", title: "B" }
+            ]
         });
-        shownContext.current = savedSearch;
-        const mountedContainer = document.createElement("div");
-        container = mountedContainer;
-        document.body.appendChild(mountedContainer);
+        searchNote.searchResultsLoaded = true;
+        // `useNoteViewType()` reads the shown note, so only a note in list view reaches the card list;
+        // a note in the default grid view mounts `SearchNoteList`, which fetches no details.
+        const resultNote = buildNote({ id: "listNote", title: "List", "#viewType": "list" });
 
-        act(() =>
-            render(
-                <ParentComponent.Provider value={parent}>
-                    <SearchResult />
-                </ParentComponent.Provider>,
-                mountedContainer,
-            ),
-        );
+        shownNote.current = searchNote;
+        await mount();
+        expect(container.querySelectorAll(".search-result-card")).toHaveLength(2);
+        expect(post).toHaveBeenCalledWith("search-note/searchNote/result-details", expect.anything());
 
-        const button = mountedContainer.querySelector("button");
-        if (!button) {
-            throw new Error("Search now button not found");
-        }
-        return { savedSearch, button, mountedContainer };
-    }
-
-    it("surfaces errors returned by a saved search", async () => {
-        const { savedSearch, button } = showSavedSearchButton();
-        loadSearchNote.mockResolvedValue({ error: "Invalid saved search" });
-
-        await act(async () => {
-            button.click();
+        await settle(() => {
+            shownNote.current = resultNote;
+            shownNote.notify();
         });
-
-        expect(loadSearchNote).toHaveBeenCalledWith(savedSearch.noteId);
-        expect(showError).toHaveBeenCalledWith("Invalid saved search");
-        expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", {
-            ntxId: "ntx1",
-        });
+        expect(post).not.toHaveBeenCalledWith("search-note/listNote/result-details", expect.anything());
+        expect(container.querySelector(".search-results-list")).toBeNull();
     });
 
-    it("refreshes a saved search without showing an error when it succeeds", async () => {
-        const { savedSearch, button, mountedContainer } =
-            showSavedSearchButton();
-
-        await act(async () => {
-            button.click();
+    it("runs the shown saved search from \"Search now\" instead of opening a new search", async () => {
+        const savedSearch = buildNote({ id: "savedSearch", title: "My search", type: "search", "#searchString": "#book" });
+        const loadSearchNote = vi.spyOn(froca, "loadSearchNote").mockImplementation(async () => {
+            savedSearch.searchResultsLoaded = true;
+            return undefined;
         });
+        const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
+        const triggerEvent = vi.spyOn(parent, "triggerEvent").mockImplementation((name, data) => parent.handleEvent(name, data));
 
-        expect(loadSearchNote).toHaveBeenCalledWith(savedSearch.noteId);
+        shownNote.current = savedSearch;
+        await mount();
+        await settle(() => clickSearchNow());
+
+        expect(loadSearchNote).toHaveBeenCalledWith("savedSearch");
+        expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", { ntxId: "ntx1" });
+        expect(triggerEvent).not.toHaveBeenCalledWith("searchNotes", expect.anything());
         expect(showError).not.toHaveBeenCalled();
-        expect(mountedContainer.querySelector("button")).toBeNull();
-        expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", {
-            ntxId: "ntx1",
-        });
+        expect(container.querySelector("button")).toBeNull();
+    });
+
+    it("reports an error from the saved search as a toast", async () => {
+        const savedSearch = buildNote({ id: "badSearch", title: "Bad search", type: "search", "#searchString": "#" });
+        vi.spyOn(froca, "loadSearchNote").mockResolvedValue({ error: "Invalid saved search" });
+        const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
+
+        shownNote.current = savedSearch;
+        await mount();
+        await settle(() => clickSearchNow());
+
+        expect(showError).toHaveBeenCalledWith("Invalid saved search");
     });
 });
+
+async function mount() {
+    await settle(() => {
+        render(<ParentComponent.Provider value={parent}><SearchResult /></ParentComponent.Provider>, container);
+    });
+}
+
+function clickSearchNow() {
+    const button = container.querySelector("button");
+    expect(button).not.toBeNull();
+    button?.click();
+}
+
+async function settle(change: () => void) {
+    await act(change);
+    // Each pass flushes the effects of the re-render the previous one scheduled (`useNoteIds`
+    // loading, `refresh()` updating the state, the details fetch).
+    for (let pass = 0; pass < 3; pass++) {
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+    }
+}

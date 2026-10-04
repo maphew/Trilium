@@ -426,6 +426,11 @@
     --board-drop-hint-background-lightness: 45%;
     --board-drop-hint-color: #ffffffc9;
 
+    --board-edit-backdrop: rgba(0, 0, 0, 0.3);
+
+    --board-drop-placeholder-background: rgba(255, 255, 255, 0.1);
+    --board-column-drop-placeholder-background: rgba(255, 255, 255, 0.06);
+
     --board-text-saturation: 25%;
     --board-text-lightness: 80%;
     --board-muted-text-saturation: 18%;

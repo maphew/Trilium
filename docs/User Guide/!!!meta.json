@@ -7679,32 +7679,7 @@
                             ],
                             "format": "markdown",
                             "dataFileName": "Kanban Board.md",
-                            "attachments": [
-                                {
-                                    "attachmentId": "3ze7RpkjIWdW",
-                                    "title": "image.png",
-                                    "role": "image",
-                                    "mime": "image/png",
-                                    "position": 10,
-                                    "dataFileName": "Kanban Board_image.png"
-                                },
-                                {
-                                    "attachmentId": "IrIeh59VGjHq",
-                                    "title": "image.png",
-                                    "role": "image",
-                                    "mime": "image/png",
-                                    "position": 10,
-                                    "dataFileName": "1_Kanban Board_image.png"
-                                },
-                                {
-                                    "attachmentId": "usSSa0WI6dDK",
-                                    "title": "image.png",
-                                    "role": "image",
-                                    "mime": "image/png",
-                                    "position": 10,
-                                    "dataFileName": "2_Kanban Board_image.png"
-                                }
-                            ]
+                            "attachments": []
                         },
                         {
                             "isClone": false,
@@ -10180,7 +10155,7 @@
                                 {
                                     "type": "label",
                                     "name": "iconClass",
-                                    "value": "bx bx-hash",
+                                    "value": "bx bx-fingerprint",
                                     "isInheritable": false,
                                     "position": 10
                                 },

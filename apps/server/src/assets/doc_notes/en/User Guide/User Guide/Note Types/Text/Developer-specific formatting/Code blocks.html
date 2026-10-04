@@ -23,6 +23,16 @@
         to the last selected language.</li>
     </ul>
   </li>
+  <li>Paste several lines of code copied from Visual Studio Code.
+    <ul>
+      <li>The code block uses the language of the file in Visual Studio Code.</li>
+      <li>If that language is not in the list of languages, the code block uses <em>Auto-detected</em>.</li>
+      <li>The colors of the Visual Studio Code theme are removed.</li>
+      <li>A single line becomes inline code instead of a code block.</li>
+      <li>In Firefox, the code block always uses <em>Auto-detected</em>. Firefox
+        can't read the language from Visual Studio Code.</li>
+    </ul>
+  </li>
 </ul>
 <h2>Exiting out of the code block</h2>
 <ul>
@@ -46,8 +56,10 @@
 <ul>
   <li>When the language is set to <em>Auto-detected</em> (by default), Trilium
     will try to identify the programming language (or similar) that corresponds
-    to the given snippet of text and highlight it. If this is problematic,
-    consider changing the language of the code block manually.</li>
+    to the given snippet of text and highlight it. Only the languages enabled
+    in <a class="reference-link" href="#root/_help_4TIF1oA4VQRO">Options</a> → <em>Code Notes</em> → <em>Available MIME types in the dropdown</em> are
+    considered. If this is problematic, consider changing the language of the
+    code block manually.</li>
   <li>When the language is set to <em>Plain text</em>, there will be no syntax
     highlighting.</li>
 </ul>
