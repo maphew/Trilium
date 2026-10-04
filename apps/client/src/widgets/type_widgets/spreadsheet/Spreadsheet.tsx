@@ -23,7 +23,8 @@ import { createUniver, FUniver, mergeLocales } from '@univerjs/presets';
 import { CalculationMode } from '@univerjs/sheets-formula';
 import { IEditorBridgeService, SheetCellEditorResizeService } from '@univerjs/sheets-ui';
 import { IDialogService, IShortcutService, ISidebarService } from '@univerjs/ui';
-import { MutableRef, useEffect, useRef, useState } from "preact/hooks";
+import { RefObject } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import type NoteContext from "../../../components/note_context";
 import { t } from "../../../services/i18n";
@@ -91,7 +92,7 @@ function useUniverLocale() {
 
 function SpreadsheetEditor({ note, noteContext, readOnly, locale }: TypeWidgetProps & { readOnly: boolean; locale: UniverLocale }) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const apiRef = useRef<FUniver>();
+    const apiRef = useRef<FUniver | undefined>(undefined);
 
     useInitializeSpreadsheet(containerRef, apiRef, readOnly, locale);
     useReleaseFillShortcuts(apiRef);
@@ -167,7 +168,7 @@ interface ShortcutServiceLike {
  * cell into its neighbour when a user presses Ctrl+R expecting a reload. The commands
  * remain available via the toolbar/context menu and the fill handle.
  */
-function useReleaseFillShortcuts(apiRef: MutableRef<FUniver | undefined>) {
+function useReleaseFillShortcuts(apiRef: RefObject<FUniver | undefined>) {
     useEffect(() => {
         const univerAPI = apiRef.current;
         if (!univerAPI) return;
@@ -225,7 +226,7 @@ function useReleaseFillShortcuts(apiRef: MutableRef<FUniver | undefined>) {
  * stale origin and only resizes), and `fitTextSize()` pushes that layout to the overlay's DOM
  * state, which is the same pair Univer runs when the editor first opens.
  */
-function useAnchorCellEditorOnScroll(apiRef: MutableRef<FUniver | undefined>) {
+function useAnchorCellEditorOnScroll(apiRef: RefObject<FUniver | undefined>) {
     useEffect(() => {
         const univerAPI = apiRef.current;
         if (!univerAPI) return;
@@ -242,7 +243,7 @@ function useAnchorCellEditorOnScroll(apiRef: MutableRef<FUniver | undefined>) {
     }, [ apiRef ]);
 }
 
-function useInitializeSpreadsheet(containerRef: MutableRef<HTMLDivElement | null>, apiRef: MutableRef<FUniver | undefined>, readOnly: boolean, locale: UniverLocale) {
+function useInitializeSpreadsheet(containerRef: RefObject<HTMLDivElement | null>, apiRef: RefObject<FUniver | undefined>, readOnly: boolean, locale: UniverLocale) {
     useEffect(() => {
         if (!containerRef.current) return;
 
@@ -351,7 +352,7 @@ function toMobilePresets(presets: UniverPreset[]): UniverPreset[] {
     }));
 }
 
-function useDarkMode(apiRef: MutableRef<FUniver | undefined>) {
+function useDarkMode(apiRef: RefObject<FUniver | undefined>) {
     const colorScheme = useColorScheme();
 
     // React to dark mode.
@@ -362,7 +363,7 @@ function useDarkMode(apiRef: MutableRef<FUniver | undefined>) {
     }, [ colorScheme, apiRef ]);
 }
 
-function useSearchIntegration(apiRef: MutableRef<FUniver | undefined>, noteContext: NoteContext | undefined) {
+function useSearchIntegration(apiRef: RefObject<FUniver | undefined>, noteContext: NoteContext | undefined) {
     useTriliumEvent("findInText", () => {
         if (!noteContext?.isActive()) return;
 
@@ -374,7 +375,7 @@ function useSearchIntegration(apiRef: MutableRef<FUniver | undefined>, noteConte
     });
 }
 
-function useDismissDialogsOnNoteSwitch(apiRef: MutableRef<FUniver | undefined>) {
+function useDismissDialogsOnNoteSwitch(apiRef: RefObject<FUniver | undefined>) {
     useTriliumEvents(["beforeNoteSwitch", "noteTypeMimeChanged"], () => {
         const univerAPI = apiRef.current;
         if (!univerAPI) return;

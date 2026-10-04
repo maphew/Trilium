@@ -1,7 +1,8 @@
 import type { Injector, ITextStyle, ObjectMatrix } from "@univerjs/core";
 import type { FUniver } from "@univerjs/presets";
 import { type ICellDataWithSpanInfo, ISheetClipboardService } from "@univerjs/sheets-ui";
-import { type MutableRef, useEffect } from "preact/hooks";
+import type { RefObject } from "preact";
+import { useEffect } from "preact/hooks";
 
 const STRIP_FONT_FAMILY_HOOK_ID = "trilium.strip-pasted-font-family";
 
@@ -14,7 +15,7 @@ const STRIP_FONT_FAMILY_HOOK_ID = "trilium.strip-pasted-font-family";
  * cell matrix, so this hook runs first and edits the matrix before the default paste hook
  * turns it into mutations.
  */
-export default function useStripPastedFontFamily(apiRef: MutableRef<FUniver | undefined>) {
+export default function useStripPastedFontFamily(apiRef: RefObject<FUniver | undefined>) {
     useEffect(() => {
         const univerAPI = apiRef.current;
         if (!univerAPI) return;

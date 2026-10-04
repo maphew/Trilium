@@ -64,7 +64,7 @@ export function useZoomPanPinch({ minScale, maxScale, resetOn, onScaleChange }: 
  * With `isFocusRequired`, the wheel scrolls the page until `element` has focus or is fullscreen.
  */
 export function useZoomPanWheel(
-    apiRef: RefObject<ReactZoomPanPinchRef>,
+    apiRef: RefObject<ReactZoomPanPinchRef | null>,
     element: HTMLElement | null,
     isFocusRequired = false
 ) {
@@ -183,6 +183,6 @@ export function zoomToPointPosition(scale0: number, posX0: number, posY0: number
 }
 
 /** The instance's live scale. Read at click time rather than render time, so the step is current. */
-function currentScale(ref: RefObject<ReactZoomPanPinchRef>) {
+function currentScale(ref: RefObject<ReactZoomPanPinchRef | null>) {
     return ref.current?.instance?.state?.scale ?? 1;
 }

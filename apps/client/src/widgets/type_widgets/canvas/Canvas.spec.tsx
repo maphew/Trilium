@@ -26,7 +26,7 @@ const { CanvasEditor } = await import("./Canvas");
 describe("CanvasEditor", () => {
     let container: HTMLElement;
     let refresh: ReturnType<typeof vi.fn>;
-    let apiRef: RefObject<ExcalidrawImperativeAPI>;
+    let apiRef: RefObject<ExcalidrawImperativeAPI | null>;
     /** The position of the container as Excalidraw last read it; happy-dom places it at 0, 0. */
     let offsets: { offsetLeft: number; offsetTop: number };
 

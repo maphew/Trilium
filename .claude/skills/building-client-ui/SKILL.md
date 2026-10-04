@@ -182,6 +182,56 @@ Two `Modal` footguns:
 
 Full prop reference, `LazyDialog` mechanics and the eager exceptions: [references/dialogs.md](references/dialogs.md).
 
+## Preact 11 conventions
+
+**Where a name comes from.** Components, `createPortal`, `Fragment` and every type come from
+`preact`; hooks come from `preact/hooks`. Import from `preact/compat` only what nothing else
+provides: `memo`, `lazy`, `Suspense`, `flushSync`, `useSyncExternalStore`.
+
+- The DOM helper types are top-level exports of `preact`: `CSSProperties`, `HTMLAttributes`,
+  `ButtonHTMLAttributes`, `TargetedMouseEvent` (and the pointer, focus, keyboard, wheel and drag
+  twins), `MouseEventHandler`. The `JSX` namespace keeps only `JSX.Element` and
+  `JSX.IntrinsicElements`.
+- `MutableRef` is gone; its shape is `RefObject<T>`. `HTMLProps` exists only in compat; use
+  `HTMLAttributes`.
+- In an ambient `.d.ts` (`types-lib.d.ts`), import the Preact types an augmentation uses
+  explicitly: inside `declare module "preact"`, a name Preact only re-exports does not resolve.
+  `skipLibCheck` keeps `.d.ts` errors silent, so the broken augmentation shows up only where the
+  element is used.
+
+**Refs.** `useRef<T>(null)` returns `RefObject<T | null>`, so a hook or prop taking an element ref
+declares `RefObject<T | null>`. The argument-less `useRef<T>()` is gone: a value ref is
+`useRef<T | undefined>(undefined)`, and a callback type needs parentheses,
+`useRef<(() => void) | undefined>(undefined)`, or the union lands on its return type. Passing a
+nullable ref to `useImperativeHandle` infers `T` without its `null`; give both type arguments.
+
+**Unmount cleanups.** A removed component's `useEffect` cleanups run after the next paint, not during
+the unmount. A cleanup that must happen while the tree is torn down goes in `useLayoutEffect`
+instead:
+
+- it reports to a host that lets go of its state right after `render(null)` (`useForwardedKeys()`
+  clearing the editor's `aria-activedescendant` for `createHostedList()`);
+- it reads a child or library instance, which a class component's `componentWillUnmount()` tears
+  down synchronously (the canvas attachment editor's `release()` reading Excalidraw's scene).
+
+Clearing a timer, aborting a request or setting a flag can stay a passive cleanup: a frame late does
+no harm, and Preact runs all pending cleanups before any new effect.
+
+**`preact/compat` is always loaded**, and its `options.vnode` hook changes every element: `onChange`
+on a text-like `<input>`/`<textarea>` (including `range` and `color`) fires on `input`, `onFocus`/
+`onBlur` are the bubbling `focusin`/`focusout`, and numeric style values get `px`. Still write the
+unit (`` `${width}px` ``): core no longer adds it. `defaultProps` also works only through compat;
+use parameter defaults.
+
+**Per-element attribute types.** `role` is typed by element, following ARIA in HTML:
+
+- `<menu>` requires a `role`. Our menus use `role="none"`, as their rows carry their own roles.
+- Props spread onto a `<button>` are `ButtonHTMLAttributes`, not the generic `HTMLAttributes`.
+- `<input>` and `<img>` are discriminated unions keyed on `type` and on the accessible name. A
+  wrapper forwarding its caller's props cannot prove which branch it hits, so it casts once where
+  it spreads them (`AccessibleInputHTMLAttributes`, `AccessibleImgHTMLAttributes`), as `FormTextBox`
+  and `SafeImage` do. Narrowing the wrapper's props does not satisfy the union.
+
 ## Footgun checklist
 
 - **Reinventing a hook** — `useState` + `server.get` + a manual `entitiesReloaded` listener that a hook already provides. Check the catalogue.
@@ -192,6 +242,8 @@ Full prop reference, `LazyDialog` mechanics and the eager exceptions: [reference
 - **Bootstrap utility classes or inline static styles on `Form*` components** — use the sibling per-component `.css` scoped under a root class.
 - **Hand-rolled overlay buttons** — `tn-overlay-*` classes at a call site instead of `OverlayControlGroup` / `OverlayControlButton`.
 - **Copying the jQuery lifecycle** (`doRenderBody` / `refreshWithNote` / `this.$widget`) into new `.tsx` — use `useLegacyWidget` only to embed an existing widget.
+- **A `useEffect` cleanup that must run during the unmount** — it runs after paint; reporting to a host or reading a child instance belongs in a `useLayoutEffect` cleanup (see "Preact 11 conventions").
+- **Importing core names through `preact/compat`** — `createPortal`, hooks and types come from `preact` / `preact/hooks`; compat is for `memo`, `lazy`, `Suspense`, `flushSync`, `useSyncExternalStore`.
 - **Diagnosing a style or placement bug from the stylesheets** — the load order in a hand-built test page does not match the app's, so the bug can fail to reproduce and send you after the wrong cause. Measure computed styles in a running instance: [references/inspecting-the-running-app.md](references/inspecting-the-running-app.md).
 
 > Not a footgun here: `isElectron()` / `isMac()` from `apps/client/src/services/utils.ts` are runtime checks safe at module load. The "call only after init" trap is a **trilium-core** concern (`utils/index.ts` → `getPlatform()`), not client UI.

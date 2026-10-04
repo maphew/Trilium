@@ -6,8 +6,7 @@ import { jsPlumbInstance, OnConnectionBindInfo } from "jsplumb";
 // handful of calls the map made when it was written and knows nothing of the rest — the ends of the
 // zoom range, or unsubscribing from a report.
 import panzoom, { PanZoom, PanZoomOptions } from "panzoom";
-import { RefObject } from "preact";
-import { HTMLProps } from "preact/compat";
+import { HTMLAttributes, RefObject } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
@@ -198,7 +197,7 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
  */
 function usePanZoom({ ntxId, containerRef, options, transformData, onTransform }: {
     ntxId: string | null | undefined;
-    containerRef: RefObject<HTMLDivElement>;
+    containerRef: RefObject<HTMLDivElement | null>;
     options: PanZoomOptions;
     transformData: MapData["transform"] | undefined;
     onTransform: (pzInstance: PanZoom) => void
@@ -248,7 +247,7 @@ function usePanZoom({ ntxId, containerRef, options, transformData, onTransform }
     return panZoom;
 }
 
-async function useRelationData(noteId: string, mapData: MapData | undefined, mapApiRef: RefObject<RelationMapApi>, jsPlumbRef: RefObject<jsPlumbInstance>) {
+async function useRelationData(noteId: string, mapData: MapData | undefined, mapApiRef: RefObject<RelationMapApi | null>, jsPlumbRef: RefObject<jsPlumbInstance | null>) {
     const noteIds = mapData?.notes.map((note) => note.noteId);
     const [ relations, setRelations ] = useState<ClientRelation[]>();
     const [ inverseRelations, setInverseRelations ] = useState<RelationMapPostResponse["inverseRelations"]>();
@@ -336,8 +335,8 @@ async function useRelationData(noteId: string, mapData: MapData | undefined, map
 function useNoteCreation({ ntxId, note, containerRef, mapApiRef }: {
     ntxId: string | null | undefined;
     note: FNote;
-    containerRef: RefObject<HTMLDivElement>;
-    mapApiRef: RefObject<RelationMapApi>;
+    containerRef: RefObject<HTMLDivElement | null>;
+    mapApiRef: RefObject<RelationMapApi | null>;
 }) {
     const clipboardRef = useRef<Clipboard>(null);
     useTriliumEvent("relationMapCreateChildNote", async ({ ntxId: eventNtxId }) => {
@@ -375,9 +374,9 @@ function useNoteCreation({ ntxId, note, containerRef, mapApiRef }: {
 }
 
 function useNoteDragging({ containerRef, mapApiRef }: {
-    containerRef: RefObject<HTMLDivElement>;
-    mapApiRef: RefObject<RelationMapApi>;
-}): Pick<HTMLProps<HTMLDivElement>, "onDrop" | "onDragOver"> {
+    containerRef: RefObject<HTMLDivElement | null>;
+    mapApiRef: RefObject<RelationMapApi | null>;
+}): Pick<HTMLAttributes<HTMLDivElement>, "onDrop" | "onDragOver"> {
     const dragProps = useMemo(() => ({
         onDrop(ev: DragEvent) {
             const container = containerRef.current;
@@ -415,8 +414,8 @@ function useNoteDragging({ containerRef, mapApiRef }: {
 }
 
 function useRelationCreation({ mapApiRef, jsPlumbApiRef, askRelationName }: {
-    mapApiRef: RefObject<RelationMapApi>,
-    jsPlumbApiRef: RefObject<jsPlumbInstance>,
+    mapApiRef: RefObject<RelationMapApi | null>,
+    jsPlumbApiRef: RefObject<jsPlumbInstance | null>,
     askRelationName: AskRelationName
 }) {
     const connectionCallback = useCallback(async (info: OnConnectionBindInfo, originalEvent: Event) => {

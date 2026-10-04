@@ -2,7 +2,7 @@ import "./text_notes.css";
 
 import { normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import { getThemeVariant, Themes } from "@triliumnext/highlightjs";
-import type { CSSProperties } from "preact/compat";
+import type { CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { isExperimentalFeatureEnabled } from "../../../services/experimental_features";

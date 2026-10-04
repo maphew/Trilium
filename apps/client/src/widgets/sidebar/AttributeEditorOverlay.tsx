@@ -9,7 +9,7 @@ import { useGrowsUpwards } from "../react/grows_upwards";
 
 interface AttributeEditorOverlayProps {
     /** The host's own ref to the overlay element, through which it reaches the fields within. */
-    overlayRef: RefObject<HTMLSpanElement>;
+    overlayRef: RefObject<HTMLSpanElement | null>;
     /** Names the host's kind of overlay, for the styles of its own it adds to the shell's. */
     className?: string;
     children: ComponentChildren;

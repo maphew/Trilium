@@ -1,6 +1,6 @@
 import type { FieldEditor } from "@triliumnext/codemirror/src/field_editor";
 import clsx from "clsx";
-import type { MutableRef } from "preact/hooks";
+import type { RefObject } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
 import { t } from "../../services/i18n";
@@ -29,7 +29,7 @@ interface SearchStringEditorProps {
      */
     extraShortcutHints?: ShortcutHintDefinition;
     /** Handed the editor once built, for a caller that has to focus or select what it holds. */
-    editorRef?: MutableRef<FieldEditor | undefined>;
+    editorRef?: RefObject<FieldEditor | undefined>;
     onChange(newValue: string): void;
     /** Runs when Enter is pressed, which the editor treats as "run this search". */
     onEnter(): void;
@@ -78,7 +78,7 @@ const SINGLE_LINE_HINTS: ShortcutHintDefinition = [
  */
 export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, extraShortcutHints, editorRef: exposedRef, onChange, onEnter, onArrowDown, onEscape }: SearchStringEditorProps) {
     const parentRef = useRef<HTMLDivElement>(null);
-    const editorRef = useRef<FieldEditor>();
+    const editorRef = useRef<FieldEditor | undefined>(undefined);
     // The editor is built once, so it reaches the current props through a ref rather than
     // through the closure of the render that created it.
     const propsRef = useRef({ currentValue, onChange, onEnter, onArrowDown, onEscape });

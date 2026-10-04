@@ -67,9 +67,10 @@ describe("Board card", () => {
     });
 
     afterEach(() => {
-        if (container) {
-            render(null, container);
-            container.remove();
+        const mounted = container;
+        if (mounted) {
+            act(() => render(null, mounted));
+            mounted.remove();
             container = undefined;
         }
     });
@@ -600,13 +601,8 @@ describe("Board card", () => {
         target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...init }));
     }
 
-    /**
-     * happy-dom defines no `ondragstart` on elements, so Preact registers the handler under the
-     * prop's own casing rather than the DOM event name (see drag.spec).
-     */
     function fireDrag(target: HTMLElement, type: "dragstart" | "dragend", dataTransfer: unknown) {
-        const cased = type === "dragstart" ? "DragStart" : "DragEnd";
-        const event = new Event(`on${type}` in target ? type : cased, { bubbles: true });
+        const event = new Event(type, { bubbles: true });
         Object.defineProperty(event, "dataTransfer", { value: dataTransfer, configurable: true });
         target.dispatchEvent(event);
     }
@@ -743,7 +739,7 @@ describe("OutsideFilterBadge", () => {
             expect(badge?.getAttribute("role")).toBe("img");
             expect(badge?.getAttribute("aria-label")).toBe("board_view.card-outside-filter");
         } finally {
-            render(null, container);
+            act(() => render(null, container));
             container.remove();
         }
     });

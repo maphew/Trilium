@@ -3,8 +3,8 @@ import "./AttributeEditor.css";
 import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
 import clsx from "clsx";
-import { createPortal } from "preact/compat";
-import { MutableRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
+import { createPortal, RefObject } from "preact";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
 
 import type { CommandData, FilteredCommandNames } from "../../../components/app_context";
 import FAttribute from "../../../entities/fattribute";
@@ -37,7 +37,7 @@ type AttributeCommandNames = FilteredCommandNames<CommandData>;
 const BLINK_DURATION = 300;
 
 interface AttributeEditorProps {
-    api: MutableRef<AttributeEditorImperativeHandlers | null>;
+    api: RefObject<AttributeEditorImperativeHandlers | null>;
     note: FNote;
     componentId: string;
     notePath?: string | null;
@@ -65,11 +65,11 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const suppressNextOnHide = useRef(false);
 
-    const blinkTimeout = useRef<ReturnType<typeof setTimeout>>();
-    const lastSavedContent = useRef<string>();
+    const blinkTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const lastSavedContent = useRef<string | undefined>(undefined);
     const currentValueRef = useRef(currentValue);
     const wrapperRef = useRef<HTMLDivElement>(null);
-    const editorRef = useRef<CKEditorApi>();
+    const editorRef = useRef<CKEditorApi | undefined>(undefined);
     // The editor outlives a switch to another note, so its `@` list reads the path as it opens.
     const notePathRef = useRef(notePath);
     notePathRef.current = notePath;

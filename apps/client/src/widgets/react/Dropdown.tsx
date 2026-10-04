@@ -1,9 +1,10 @@
 import type { Placement } from "@floating-ui/dom";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
-import { ComponentChildren, HTMLAttributes } from "preact";
-import { CSSProperties, HTMLProps } from "preact/compat";
-import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+    ButtonHTMLAttributes, ComponentChildren, CSSProperties, HTMLAttributes, RefObject
+} from "preact";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { isMobile, isNarrowLayout, onNarrowLayoutChange } from "../../services/utils";
 import { focusListItem } from "./FormList";
@@ -16,14 +17,14 @@ type DataAttributes = {
     [key: `data-${string}`]: string | number | boolean | undefined;
 };
 
-export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "className"> {
+export interface DropdownProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | "className"> {
     buttonClassName?: string;
-    buttonProps?: Partial<HTMLAttributes<HTMLButtonElement> & DataAttributes>;
+    buttonProps?: Partial<ButtonHTMLAttributes<HTMLButtonElement> & DataAttributes>;
     children: ComponentChildren;
     title?: string;
     dropdownContainerStyle?: CSSProperties;
     dropdownContainerClassName?: string;
-    dropdownContainerRef?: MutableRef<HTMLDivElement | null>;
+    dropdownContainerRef?: RefObject<HTMLDivElement | null>;
     hideToggleArrow?: boolean;
     /** If set to true, then the dropdown button will be considered an icon action (without normal border and sized for icons only). */
     iconAction?: boolean;
@@ -41,7 +42,7 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
      * keeps a menu open whatever this says.
      */
     autoClose?: boolean | "inside" | "outside";
-    dropdownRef?: MutableRef<DropdownHandle | null>;
+    dropdownRef?: RefObject<DropdownHandle | null>;
     titlePosition?: "top" | "right" | "bottom" | "left";
     titleOptions?: Partial<Tooltip.Options>;
     mobileBackdrop?: boolean;

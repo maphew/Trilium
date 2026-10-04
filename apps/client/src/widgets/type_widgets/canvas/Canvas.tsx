@@ -41,7 +41,7 @@ export default function Canvas({ note, noteContext }: TypeWidgetProps) {
 }
 
 export interface CanvasEditorProps {
-    apiRef: RefObject<ExcalidrawImperativeAPI>;
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>;
     isReadOnly: boolean;
     colorScheme: AppState["theme"];
     persistence: Partial<ExcalidrawProps>;

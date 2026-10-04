@@ -3,7 +3,7 @@ import { ExcalidrawElement, NonDeletedExcalidrawElement } from "@excalidraw/exca
 import { AppState, BinaryFileData, BinaryFiles, ExcalidrawImperativeAPI, ExcalidrawInitialDataState, ExcalidrawProps, LibraryItem } from "@excalidraw/excalidraw/types";
 import { deferred, type DeferredPromise } from "@triliumnext/commons";
 import { RefObject } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import NoteContext from "../../../components/note_context";
 import type FAttachment from "../../../entities/fattachment";
@@ -27,7 +27,7 @@ export interface CanvasContent {
 /** Subset of the app state that should be persisted whenever they change. This explicitly excludes transient state like the current selection or zoom level. */
 type ImportantAppState = Pick<AppState, "gridModeEnabled" | "viewBackgroundColor">;
 
-export default function useCanvasPersistence(note: FNote, noteContext: NoteContext | null | undefined, apiRef: RefObject<ExcalidrawImperativeAPI>, theme: AppState["theme"], isReadOnly: boolean): Partial<ExcalidrawProps> {
+export default function useCanvasPersistence(note: FNote, noteContext: NoteContext | null | undefined, apiRef: RefObject<ExcalidrawImperativeAPI | null>, theme: AppState["theme"], isReadOnly: boolean): Partial<ExcalidrawProps> {
     const libraryChanged = useRef(false);
 
     /**
@@ -62,7 +62,8 @@ export default function useCanvasPersistence(note: FNote, noteContext: NoteConte
     // loaded via `updateScene` in that window is wiped — and the wipe then looks like a
     // user edit and gets saved over the note (#10279). Excalidraw awaits this promise and
     // applies its value as part of that very reset, so the first load cannot be clobbered.
-    const initialDataRef = useRef<DeferredPromise<ExcalidrawInitialDataState | null>>();
+    const initialDataRef =
+        useRef<DeferredPromise<ExcalidrawInitialDataState | null> | undefined>(undefined);
     if (!initialDataRef.current) {
         initialDataRef.current = deferred<ExcalidrawInitialDataState | null>();
     }
@@ -350,7 +351,7 @@ export default function useCanvasPersistence(note: FNote, noteContext: NoteConte
 export function useCanvasDrawingPersistence(
     attachment: FAttachment,
     editor: AttachmentEditor | undefined,
-    apiRef: RefObject<ExcalidrawImperativeAPI>,
+    apiRef: RefObject<ExcalidrawImperativeAPI | null>,
     theme: AppState["theme"]
 ): Partial<ExcalidrawProps> {
     const currentSceneVersion = useRef(0);
@@ -378,7 +379,9 @@ export function useCanvasDrawingPersistence(
         };
     });
 
-    useEffect(() => () => editor?.release(attachment.attachmentId), [ editor, attachment ]);
+    // A layout cleanup runs during the unmount, before Excalidraw's `componentWillUnmount()` empties
+    // the scene that `release()` reads; a passive one runs after paint.
+    useLayoutEffect(() => () => editor?.release(attachment.attachmentId), [ editor, attachment ]);
 
     return {
         initialData,
@@ -445,7 +448,7 @@ export function parseContent(newContent: string, entity: FNote | FAttachment): C
     return content;
 }
 
-async function getData(api: ExcalidrawImperativeAPI, appStateToCompare: RefObject<Partial<ImportantAppState>>) {
+async function getData(api: ExcalidrawImperativeAPI, appStateToCompare: RefObject<Partial<ImportantAppState> | null>) {
     const elements = api.getSceneElements();
     const appState = api.getAppState();
 

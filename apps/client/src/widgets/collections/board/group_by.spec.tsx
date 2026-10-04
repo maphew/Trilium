@@ -140,9 +140,10 @@ describe("BoardGroupBy", () => {
         mocks.setLabel.mockClear();
         mocks.showError.mockClear();
         mocks.detail.opts = null;
-        if (container) {
-            render(null, container);
-            container.remove();
+        const mounted = container;
+        if (mounted) {
+            act(() => render(null, mounted));
+            mounted.remove();
             container = undefined;
         }
     });
@@ -168,12 +169,15 @@ describe("BoardGroupBy", () => {
             );
         });
 
-        // Bootstrap does not open a menu under happy-dom, and the items are drawn only once it is.
+        await openMenu(mountPoint);
+        return { mountPoint, onSelect };
+    }
+
+    // Bootstrap does not open a menu under happy-dom, and the items are drawn only once it is.
+    async function openMenu(mountPoint: HTMLElement) {
         await act(async () => {
             $(mountPoint.querySelector(".dropdown") as HTMLElement).children("button:not([aria-expanded=true])").trigger("click");
         });
-
-        return { mountPoint, onSelect };
     }
 
     const items = (mountPoint: HTMLElement) =>
@@ -209,7 +213,11 @@ describe("BoardGroupBy", () => {
         act(() => { (priority as HTMLElement).click(); });
         expect(onSelect).not.toHaveBeenCalled();
 
-        act(() => { (status as HTMLElement).click(); });
+        // Picking closes the menu, so the next pick happens in a menu opened again.
+        await openMenu(mountPoint);
+        const [ statusAgain ] = items(mountPoint);
+        expect(statusAgain?.textContent?.trim()).toBe("Status");
+        act(() => { (statusAgain as HTMLElement).click(); });
         expect(onSelect).toHaveBeenCalledWith("status");
     });
 

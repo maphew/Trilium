@@ -1,10 +1,9 @@
 import clsx from "clsx";
-import { Fragment } from "preact";
+import { Fragment, TargetedMouseEvent, TargetedWheelEvent } from "preact";
 import { flushSync } from "preact/compat";
 import {
     useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
-import { JSX } from "preact/jsx-runtime";
 
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
@@ -248,7 +247,7 @@ export default function Column({
     // Cards slide to follow the drop gap opening and closing. Measured only when the column's own
     // cards have changed: reading one position costs a layout of the whole board, and anything
     // else that redraws it would have every column read one per card.
-    const measured = useRef<unknown>();
+    const measured = useRef<unknown>(undefined);
     const cardsChanged = measured.current !== columnItems;
     measured.current = columnItems;
     useFlip(contentRef, {
@@ -581,7 +580,7 @@ export default function Column({
     const isRailDrawn = useLingeringTrue(isRailShown, RAIL_EXIT_MS);
 
     /** Allow using mouse wheel to scroll inside card, while also maintaining column horizontal scrolling. */
-    const handleScroll = useCallback((event: JSX.TargetedWheelEvent<HTMLDivElement>) => {
+    const handleScroll = useCallback((event: TargetedWheelEvent<HTMLDivElement>) => {
         const el = event.currentTarget;
         if (!el) return;
 
@@ -726,6 +725,7 @@ export default function Column({
                 className={`${isEditing ? "editing" : ""}`}
                 // A collapsed header opens the column, so it is announced as a button. Open, it
                 // is a heading, and Space collapses it as a board shortcut like F2.
+                // @ts-expect-error Preact allows no `button` role on a heading element.
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
                 aria-keyshortcuts="Space"
@@ -903,7 +903,7 @@ export default function Column({
  * Where a menu opened from a button stands: at the pointer for a press, and below the button for a
  * keyboard, which reports no position of its own.
  */
-function menuOrigin(e: JSX.TargetedMouseEvent<HTMLElement>): [ number, number ] {
+function menuOrigin(e: TargetedMouseEvent<HTMLElement>): [ number, number ] {
     if (e.detail) {
         return [ e.pageX, e.pageY ];
     }

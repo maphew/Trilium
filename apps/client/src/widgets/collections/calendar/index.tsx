@@ -410,8 +410,8 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
 function CalendarCollectionProperties({ note, calendarRef, containerRef }: {
     note: FNote;
-    calendarRef: RefObject<FullCalendar>;
-    containerRef: RefObject<HTMLDivElement>;
+    calendarRef: RefObject<FullCalendar | null>;
+    containerRef: RefObject<HTMLDivElement | null>;
 }) {
     const { title, viewType: currentViewType } = useOnDatesSet(calendarRef);
     const currentViewData = CALENDAR_VIEWS.find(v => calendarRef.current && v.type === currentViewType);
@@ -439,7 +439,7 @@ function CalendarCollectionProperties({ note, calendarRef, containerRef }: {
 
 function PinDateButton({ note, calendarRef }: {
     note: FNote;
-    calendarRef: RefObject<FullCalendar>;
+    calendarRef: RefObject<FullCalendar | null>;
 }) {
     const [ initialDate, setInitialDate ] = useNoteLabel(note, "calendar:initialDate");
     const isPinned = !!initialDate;
@@ -468,9 +468,9 @@ function PinDateButton({ note, calendarRef }: {
  * a screen, which is why the fold is decided by the view's own width rather than by the device.
  */
 function CalendarViewSwitcher({ calendarRef, containerRef }: {
-    calendarRef: RefObject<FullCalendar>;
+    calendarRef: RefObject<FullCalendar | null>;
     /** The view's own element, whose width the row of buttons is weighed against. */
-    containerRef: RefObject<HTMLDivElement>;
+    containerRef: RefObject<HTMLDivElement | null>;
 }) {
     const { viewType: currentViewType } = useOnDatesSet(calendarRef);
     const currentViewTypeData = CALENDAR_VIEWS.find(view => view.type === currentViewType);
@@ -778,7 +778,7 @@ export function eventInnerClass(e: EventDisplayInfo) {
         && "calendar-event-inner-wrapped");
 }
 
-function useOnDatesSet(calendarRef: RefObject<FullCalendar>) {
+function useOnDatesSet(calendarRef: RefObject<FullCalendar | null>) {
     const [ title, setTitle ] = useState<string>();
     const [ viewType ,setViewType ] = useState<string>();
     useEffect(() => {

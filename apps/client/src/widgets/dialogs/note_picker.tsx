@@ -28,7 +28,7 @@ export interface NotePickerDialogOptions {
  * answer into a promise.
  */
 export default function NotePickerDialog() {
-    const opts = useRef<NotePickerDialogOptions>();
+    const opts = useRef<NotePickerDialogOptions | undefined>(undefined);
     const autocompleteRef = useRef<NoteAutocompleteHandle>(null);
     const [ suggestion, setSuggestion ] = useState<Suggestion | null>(null);
     const [ shown, setShown ] = useState(false);

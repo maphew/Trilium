@@ -256,7 +256,7 @@ export default function NoteDetail() {
  * `isReady` turns true. A request made while ready is left to the widgets that already received it.
  */
 export function useDeferredDetailFocus(isReady: boolean, replay: (data: EventData<"focusOnDetail">) => void) {
-    const pendingRef = useRef<EventData<"focusOnDetail">>();
+    const pendingRef = useRef<EventData<"focusOnDetail"> | undefined>(undefined);
     const replayRef = useRef(replay);
     replayRef.current = replay;
 

@@ -273,7 +273,7 @@ export function useViewModeConfig<T extends object>(note: FNote | null | undefin
         storeFn: (data: T) => void;
         note: FNote;
     }>();
-    const storageRef = useRef<{ storage: ViewModeStorage<T>, storeFn: (data: T) => void, note: FNote }>();
+    const storageRef = useRef<{ storage: ViewModeStorage<T>, storeFn: (data: T) => void, note: FNote } | undefined>(undefined);
 
     useEffect(() => {
         if (!note || !viewType) return;

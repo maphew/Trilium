@@ -86,7 +86,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     const [ active, setActiveRow ] = useState<ActiveRow>();
     const rows = useRef(new Map<string, RowEntry>()).current;
     /** The level whose first row becomes active once it has rendered, for a submenu a key opened. */
-    const pendingFirstRow = useRef<number>();
+    const pendingFirstRow = useRef<number | undefined>(undefined);
     const typeahead = useRef({ text: "", timeout: 0 });
     /** Whether the keys moved the menu since the pointer last did. See `Menu.css`. */
     const [ keyboardDriven, setKeyboardDriven ] = useState(false);

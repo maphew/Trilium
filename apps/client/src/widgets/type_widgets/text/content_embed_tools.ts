@@ -104,7 +104,7 @@ export function showContentEmbedFullscreen(element: Element | null) {
  * sets `hasEditableFlag`. Content outside an embed has no toggle, and is editable. `false` until
  * the content is in the page.
  */
-export function useIsContentEmbedEditable(ref: RefObject<HTMLElement>) {
+export function useIsContentEmbedEditable(ref: RefObject<HTMLElement | null>) {
     const [ isEditable, setIsEditable ] = useState(false);
 
     useEffect(() => {
@@ -129,7 +129,7 @@ export function useIsContentEmbedEditable(ref: RefObject<HTMLElement>) {
  * as content can mount before its embed box takes it in.
  */
 export function useContentEmbedEvent(
-    ref: RefObject<HTMLElement>,
+    ref: RefObject<HTMLElement | null>,
     name: ContentEmbedEvent,
     callback: () => void
 ) {

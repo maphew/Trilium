@@ -10,7 +10,7 @@ import {
     SnippetDefinition
 } from "@triliumnext/ckeditor5";
 import { deferred } from "@triliumnext/commons";
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
@@ -56,12 +56,12 @@ export default function EditableText({ note, parentComponent, ntxId, noteContext
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<string>("");
     /** The note `contentRef` holds the content of, so a restarted editor can be marked as holding it. */
-    const contentNoteIdRef = useRef<string>();
-    const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges>();
+    const contentNoteIdRef = useRef<string | undefined>(undefined);
+    const pendingAttachmentChangesRef = useRef<PendingAttachmentChanges | undefined>(undefined);
     /** The attachment whose embed takes the focus when it renders next. */
-    const focusedAttachmentIdRef = useRef<string>();
+    const focusedAttachmentIdRef = useRef<string | undefined>(undefined);
     const watchdogRef = useRef<EditorWatchdog>(null);
-    const stopWatchingEmbedsRef = useRef<() => void>();
+    const stopWatchingEmbedsRef = useRef<(() => void) | undefined>(undefined);
     const editorApiRef = useRef<CKEditorApi>(null);
     /** The open icon picker request and its balloon container, or `null` when none is open. */
     const [ iconPickerRequest, setIconPickerRequest ] = useState<IconPickerOpts & { container: HTMLElement } | null>(null);

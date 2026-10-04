@@ -2,7 +2,7 @@ import "./FormAutocomplete.css";
 
 import type { ReferenceElement } from "@floating-ui/dom";
 import type { ComponentChildren, RefObject } from "preact";
-import { type MutableRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
 import { useUniqueName } from "./hooks";
@@ -198,7 +198,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
     anchor: DropdownAnchor;
     renderItem?(item: string, query: string): ComponentChildren;
     onPick(item: string): void;
-    handleRef: MutableRef<AutocompleteListHandle | null>;
+    handleRef: RefObject<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
     /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
     onActiveDescendant?(id: string | null): void;
@@ -231,7 +231,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
  */
 export function useForwardedKeys<T>(
     autocomplete: ReturnType<typeof useAutocomplete<T>>,
-    handleRef: MutableRef<AutocompleteListHandle | null>,
+    handleRef: RefObject<AutocompleteListHandle | null>,
     onActiveDescendant?: (id: string | null) => void
 ) {
     const { isShown, activeIndex, itemId } = autocomplete;
@@ -239,7 +239,9 @@ export function useForwardedKeys<T>(
     const onActiveDescendantRef = useRef(onActiveDescendant);
     onActiveDescendantRef.current = onActiveDescendant;
     useEffect(() => onActiveDescendantRef.current?.(activeId), [ activeId ]);
-    useEffect(() => () => onActiveDescendantRef.current?.(null), []);
+    // A layout cleanup runs during the unmount itself; a passive one runs after paint, by which
+    // time `createHostedList()` has already let go of the host it would report to.
+    useLayoutEffect(() => () => onActiveDescendantRef.current?.(null), []);
 
     useLayoutEffect(() => {
         handleRef.current = {
@@ -322,7 +324,7 @@ interface UseAutocompleteOptions<T> {
     /** Called with the entry picked by click or Enter. */
     onPick(item: T): void;
     /** The field, which keeps the focus once an entry is picked. */
-    inputRef: RefObject<HTMLInputElement>;
+    inputRef: RefObject<HTMLInputElement | null>;
     /** Keeps the list closed, for a read-only or disabled field. */
     disabled?: boolean;
     /** See {@link FormAutocompleteProps.openOnFocus}. */
@@ -398,7 +400,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     const scrollToActive = useRef(false);
     // Where the pointer last moved over the list. Scrolling slides a row under a still pointer, and the
     // browser can report that as a move at the same spot, which is not the pointer choosing the row.
-    const lastPointer = useRef<{ x: number; y: number }>();
+    const lastPointer = useRef<{ x: number; y: number } | undefined>(undefined);
     // Names the entries so the field can point at the highlighted one: focus stays in the box, so
     // that pointer is all a screen reader has to go on.
     const itemIdPrefix = useUniqueName("autocomplete-item");

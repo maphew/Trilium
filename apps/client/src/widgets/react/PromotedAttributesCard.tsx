@@ -1,6 +1,6 @@
 import "./PromotedAttributesCard.css";
 
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 
 import type FNote from "../../entities/fnote";
@@ -94,9 +94,9 @@ export default function PromotedAttributesCard({
     }
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
     /** The definition the editor last reported, which `save` writes. */
-    const edited = useRef<Attribute>();
+    const edited = useRef<Attribute | undefined>(undefined);
     /** The definition the editor was handed, which `save` compares against to spot a rename. */
-    const original = useRef<Attribute>();
+    const original = useRef<Attribute | undefined>(undefined);
 
     // A definition created, renamed or deleted here arrives as an attribute change. Resolving
     // against the current list is what keeps the order of the rest.

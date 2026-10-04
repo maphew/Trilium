@@ -60,7 +60,7 @@ interface PendingFocus {
 }
 
 export interface BoardKeyboardOptions {
-    containerRef: RefObject<HTMLDivElement>;
+    containerRef: RefObject<HTMLDivElement | null>;
     /** The columns as shown, which is what the arrows count and what `moveColumn` is told about. */
     columns: string[];
     byColumn: ColumnMap | undefined;

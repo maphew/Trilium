@@ -159,7 +159,7 @@ function SearchStringOption({ note, refreshResults, error, ...restProps }: Searc
         }
     }, [ note, setSearchString ]);
 
-    const spacedUpdateRef = useRef<SpacedUpdate<string>>();
+    const spacedUpdateRef = useRef<SpacedUpdate<string> | undefined>(undefined);
     if (!spacedUpdateRef.current) {
         spacedUpdateRef.current = new SpacedUpdate<string>({ key: note.noteId, prepare, commit }, 1000);
     }

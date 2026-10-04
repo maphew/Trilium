@@ -254,7 +254,7 @@ function ContentEmbedActionButton({ className, action }: {
  * Dispatches `fullscreenChangeStart` on the content box as it enters or leaves fullscreen, then
  * `enterFullscreen` or `leaveFullscreen` once it has the size that fullscreen gives or takes back.
  */
-function useFullscreenEvents(contentRef: RefObject<HTMLElement>) {
+function useFullscreenEvents(contentRef: RefObject<HTMLElement | null>) {
     useEffect(() => {
         const content = contentRef.current;
         if (!content) return;

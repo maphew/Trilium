@@ -3,8 +3,7 @@ import "./IconPicker.css";
 import { IconRegistry } from "@triliumnext/commons";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
-import { CSSProperties } from "preact";
-import { createPortal } from "preact/compat";
+import { createPortal, CSSProperties } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type React from "react";
 import { CellComponentProps, Grid } from "react-window";
@@ -91,10 +90,10 @@ export default function IconPicker({ onSelect, onReset, resetText, columnCount, 
                 class="icon-list"
                 ref={iconListRef}
                 style={{
-                    width: (columnCount * iconSize + 10),
+                    width: `${columnCount * iconSize + 10}px`,
                     // The CSS sets the height of the regular grid; the compact grid shows
                     // `COMPACT_ROWS` rows.
-                    ...(compact && { height: COMPACT_ROWS * iconSize })
+                    ...(compact && { height: `${COMPACT_ROWS * iconSize}px` })
                 }}
                 onClick={(e) => {
                     // Make sure we are not clicking on something else than a button.

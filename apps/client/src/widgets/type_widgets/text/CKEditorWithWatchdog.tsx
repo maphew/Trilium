@@ -1,6 +1,7 @@
 import { CKTextEditor, ClassicEditor, EditorWatchdog, PopupEditor, SnippetDefinition, type WatchdogConfig } from "@triliumnext/ckeditor5";
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
-import { HTMLProps, RefObject, useEffect, useImperativeHandle, useRef, useState } from "preact/compat";
+import { HTMLAttributes, RefObject } from "preact";
+import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
 import froca from "../../../services/froca";
 import link from "../../../services/link";
@@ -41,10 +42,10 @@ export interface NotificationEventData {
     title: string;
 }
 
-interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "className" | "tabIndex"> {
+interface CKEditorWithWatchdogProps extends Pick<HTMLAttributes<HTMLDivElement>, "className" | "tabIndex"> {
     contentLanguage: string | null | undefined;
     isClassicEditor?: boolean;
-    watchdogRef: RefObject<EditorWatchdog>;
+    watchdogRef: RefObject<EditorWatchdog | null>;
     watchdogConfig?: WatchdogConfig;
     onNotificationWarning?: (evt: NotificationEventInfo, data: NotificationEventData) => void;
     onNotificationInfo?: (evt: NotificationEventInfo, data: NotificationEventData) => void;
@@ -52,9 +53,9 @@ interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "cla
     onChange: () => void;
     /** Called upon whenever a new CKEditor instance is initialized, whether it's the first initialization, after a crash or after a config change that requires it (e.g. content language). */
     onEditorInitialized?: (editor: CKTextEditor) => void;
-    editorApi: RefObject<CKEditorApi>;
+    editorApi: RefObject<CKEditorApi | null>;
     templates: SnippetDefinition[];
-    containerRef?: RefObject<HTMLDivElement>;
+    containerRef?: RefObject<HTMLDivElement | null>;
 }
 
 export default function CKEditorWithWatchdog({ containerRef: externalContainerRef, contentLanguage, className, tabIndex, isClassicEditor, watchdogRef: externalWatchdogRef, watchdogConfig, onNotificationWarning, onNotificationInfo, onWatchdogStateChange, onChange, onEditorInitialized, editorApi, templates }: CKEditorWithWatchdogProps) {

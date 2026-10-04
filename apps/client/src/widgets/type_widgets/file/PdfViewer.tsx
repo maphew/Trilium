@@ -15,7 +15,7 @@ const FONTS: FontDefinition[] = [
 ];
 
 interface PdfViewerProps extends Pick<HTMLAttributes<HTMLIFrameElement>, "tabIndex"> {
-    iframeRef?: RefObject<HTMLIFrameElement>;
+    iframeRef?: RefObject<HTMLIFrameElement | null>;
     /** Relative URLs resolve against /pdfjs/web; build API paths with {@link getPdfUrl} instead. */
     pdfUrl: string;
     onLoad?(): void;
@@ -69,7 +69,10 @@ function getAddressParams(noteId: string, ntxId: string | null | undefined) {
     return `&noteId=${encodeURIComponent(noteId)}${ntxId ? `&ntxId=${encodeURIComponent(ntxId)}` : ""}`;
 }
 
-function useStyleInjection(iframeRef: RefObject<HTMLIFrameElement>, disableSelection?: boolean) {
+function useStyleInjection(
+    iframeRef: RefObject<HTMLIFrameElement | null>,
+    disableSelection?: boolean
+) {
     const styleRef = useRef<HTMLStyleElement | null>(null);
 
     // First load.
