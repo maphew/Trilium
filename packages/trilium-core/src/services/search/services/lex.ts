@@ -97,6 +97,13 @@ function lex(str: string) {
             }
 
             if (chr === "#" || chr === "~") {
+                // In the full-text part, # and ~ start an attribute only at the start of a word,
+                // so "c#" and "towers#book" are searched as written. A leading "(" is grouping.
+                if (!fulltextEnded && currentWord !== "" && !/^\(+$/.test(currentWord)) {
+                    currentWord += chr;
+                    continue;
+                }
+
                 if (!fulltextEnded) {
                     fulltextEnded = true;
                 } else {

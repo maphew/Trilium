@@ -67,6 +67,19 @@ describe("Lexer fulltext", () => {
         expect(lex("hello \\#\\~\\'").fulltextTokens.map((t) => t.token)).toEqual(["hello", "#~'"]);
     });
 
+    it("# and ~ inside a word are literal characters", () => {
+        const towers = lex("towers#book");
+        expect(towers.fulltextTokens.map((t) => t.token)).toEqual(["towers#book"]);
+        expect(towers.expressionTokens).toEqual([]);
+
+        expect(lex("learn c# and f#").fulltextTokens.map((t) => t.token)).toEqual(["learn", "c#", "and", "f#"]);
+        expect(lex("issue#42 a~b").fulltextTokens.map((t) => t.token)).toEqual(["issue#42", "a~b"]);
+
+        const spaced = lex("towers #book");
+        expect(spaced.fulltextTokens.map((t) => t.token)).toEqual(["towers"]);
+        expect(spaced.expressionTokens.map((t) => t.token)).toEqual(["#book"]);
+    });
+
     it("recognizes leading = operator for exact match", () => {
         const result1 = lex("=example");
         expect(result1.fulltextTokens.map((t) => t.token)).toEqual(["example"]);
