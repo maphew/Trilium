@@ -307,6 +307,7 @@ describe("loadSearchNote", () => {
         expect(search.highlightedTokenInfos).toEqual([{ token: "token", type: "plain" }]);
         expect(search.children).toContain(result.noteId);
         expect(search.children).not.toContain("stale");
+        expect(appContext.triggerEvent).toHaveBeenCalledWith("notesReloaded", { noteIds: [ search.noteId ] });
     });
 
     it("stores the server's structured highlightedTokenInfos as-is when present", async () => {

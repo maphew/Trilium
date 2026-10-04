@@ -242,6 +242,9 @@ class FrocaImpl implements Froca {
         froca.notes[note.noteId].highlightedTokenInfos = highlightedTokenInfos
             ?? highlightedTokens.map((token) => ({ token, type: "plain" as const }));
 
+        // The tree and embedded collections also load search notes, so `SearchResult` needs telling.
+        appContext.triggerEvent("notesReloaded", { noteIds: [ note.noteId ] });
+
         return { error };
     }
 

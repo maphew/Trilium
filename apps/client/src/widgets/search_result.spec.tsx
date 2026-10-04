@@ -25,6 +25,7 @@ vi.mock("./react/hooks", async (importOriginal) => {
     };
 });
 
+import appContext from "../components/app_context";
 import Component from "../components/component";
 import froca from "../services/froca";
 import server from "../services/server";
@@ -97,6 +98,22 @@ describe("SearchResult", () => {
         expect(triggerEvent).not.toHaveBeenCalledWith("searchNotes", expect.anything());
         expect(showError).not.toHaveBeenCalled();
         expect(container.querySelector("button")).toBeNull();
+    });
+
+    it("shows the results of a saved search loaded elsewhere, such as by expanding it in the tree", async () => {
+        const savedSearch = buildNote({ id: "treeSearch", title: "Tree search", type: "search", "#searchString": "#book" });
+        const result = buildNote({ id: "treeResult", title: "Result" });
+        vi.spyOn(server, "get").mockResolvedValue({ searchResultNoteIds: [ result.noteId ], highlightedTokens: [], error: null });
+        vi.spyOn(appContext, "triggerEvent").mockImplementation(async (name, data) => parent.handleEvent(name, data));
+
+        shownNote.current = savedSearch;
+        await mount();
+        expect(container.querySelector(".no-items .bx-file-find")).not.toBeNull();
+
+        await settle(() => { void froca.loadSearchNote(savedSearch.noteId); });
+
+        expect(container.querySelector(".no-items")).toBeNull();
+        expect(container.textContent).toContain("Result");
     });
 
     it("reports an error from the saved search as a toast", async () => {
