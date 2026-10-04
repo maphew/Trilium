@@ -93,6 +93,8 @@ Where the search comes from is chosen under _Web search_ in the <span class="tn-
 
 Whether web search is on is kept per chat; the search source is shared by all chats. A choice the current model can't use stays in the menu, disabled; hover the <span class="tn-icon bx bx-info-circle"></span> icon next to it to see why. Claude Code, GitHub Copilot, Google Antigravity and OpenAI Codex run their own tools, so they can't use a search provider.
 
+In the chat, a search run through a search provider shows that provider's logo at the start of its line instead of the <span class="tn-icon bx bx-search"></span> magnifier; hover the logo to see the provider's name.
+
 ### Thinking
 
 Some models reason before they answer. While the model is thinking, its reasoning is shown in full under a spinner; once it is done, it folds into a collapsible _Thought process_ line above the reply.

@@ -12,6 +12,8 @@ import { llmFetch } from "./providers/fetch.js";
 /** A configured search provider, as stored in the `llmProviders` option. */
 export interface WebSearchSetup {
     provider: string;
+    /** The name the user sees the provider by; the provider type stands in when absent. */
+    name?: string;
     apiKey: string;
     baseURL?: string;
 }
@@ -27,7 +29,8 @@ const SEARCH_TIMEOUT_MS = 30_000;
 
 /**
  * The `web_search` tool for `setup`. Its result has the `sources` the chat lists under the tool's
- * line, and a failure is returned as `{ error }` so the model can tell the user about it.
+ * line and the `searchProvider` whose mark the line shows, and a failure is returned as
+ * `{ error }` so the model can tell the user about it.
  */
 export function createWebSearchTool(setup: WebSearchSetup) {
     return tool({
@@ -37,7 +40,11 @@ export function createWebSearchTool(setup: WebSearchSetup) {
         }),
         execute: async ({ query }) => {
             try {
-                return { query, sources: await searchWeb(setup, query) };
+                return {
+                    query,
+                    searchProvider: { type: setup.provider, name: setup.name ?? setup.provider },
+                    sources: await searchWeb(setup, query)
+                };
             } catch (e) {
                 return { error: e instanceof Error ? e.message : String(e) };
             }

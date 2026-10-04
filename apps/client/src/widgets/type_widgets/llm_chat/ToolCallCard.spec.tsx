@@ -721,6 +721,26 @@ describe("ToolCallCard", () => {
         expect(sources(badUrl)).toEqual([ { text: "Bad", href: "https://bad host/", domain: "" } ]);
     });
 
+    it("marks a search a configured search provider ran with its logo and name, a built-in one with the magnifier", () => {
+        const viaTavily = (id: string): ToolCall => ({
+            id, toolName: "web_search", input: { query: "trilium" },
+            result: JSON.stringify({ query: "trilium", searchProvider: { type: "tavily", name: "Tavily" }, sources: [ { url: "https://triliumnotes.org", title: "Trilium" } ] })
+        });
+        const builtIn: ToolCall = { id: "b", toolName: "web_search", input: { query: "q" }, result: JSON.stringify([ { url: "https://a.com", title: "A" } ]) };
+        /** The first element of a line's header, which is its icon. */
+        const icon = (line: Element | null | undefined) => line?.querySelector(".expandable-section-summary, .expandable-line-header")?.firstElementChild;
+
+        const single = icon(renderCard([ viaTavily("1") ]).querySelector(".llm-chat-tool-call"));
+        expect(single?.getAttribute("title")).toBe("llm_chat.searched_with{\"name\":\"Tavily\"}");
+        expect(single?.querySelector(".masked-icon")).not.toBeNull();
+
+        // A run of searches is one line, marked as its searches are.
+        const group = icon(renderCard([ viaTavily("1"), viaTavily("2") ]).querySelector(".llm-chat-tool-call-group"));
+        expect(group?.getAttribute("title")).toBe("llm_chat.searched_with{\"name\":\"Tavily\"}");
+
+        expect(icon(renderCard([ builtIn ]).querySelector(".llm-chat-tool-call"))?.className).toBe("bx bx-search");
+    });
+
     it("links the page a call read, and previews what it read there", () => {
         const target = renderCard([ {
             id: "1",

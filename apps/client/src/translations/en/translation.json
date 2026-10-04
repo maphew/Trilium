@@ -2727,7 +2727,8 @@
     "web_search_builtin": "Use the model's built-in search",
     "manage_search_providers": "Manage search providers…",
     "web_search_builtin_unsupported": "This model has no built-in web search. Choose a search provider instead.",
-    "web_search_provider_unsupported": "This model's provider searches the web with its own tools."
+    "web_search_provider_unsupported": "This model's provider searches the web with its own tools.",
+    "searched_with": "Searched with {{name}}"
   },
   "sidebar_chat": {
     "title": "AI Chat",

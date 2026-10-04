@@ -80,11 +80,15 @@ describe("createWebSearchTool", () => {
     const run = (tool: ReturnType<typeof createWebSearchTool>, query: string) =>
         tool.execute?.({ query }, { toolCallId: "1", messages: [], context: {} });
 
-    it("returns the query and its sources, or the failure for the model to report", async () => {
-        const tool = createWebSearchTool({ provider: "tavily", apiKey: "tk" });
+    it("returns the query, the provider that ran it and its sources, or the failure for the model to report", async () => {
+        const tool = createWebSearchTool({ provider: "tavily", name: "My Tavily", apiKey: "tk" });
 
         respond({ results: [ { ...PAGE, content: "Hit" } ] });
-        expect(await run(tool, "trilium")).toEqual({ query: "trilium", sources: [ { ...PAGE, snippet: "Hit" } ] });
+        expect(await run(tool, "trilium")).toEqual({
+            query: "trilium",
+            searchProvider: { type: "tavily", name: "My Tavily" },
+            sources: [ { ...PAGE, snippet: "Hit" } ]
+        });
 
         respond({}, 403);
         expect(await run(tool, "trilium")).toEqual({ error: expect.stringContaining("HTTP 403") });
