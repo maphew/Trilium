@@ -86,7 +86,7 @@ export function JsPlumbItem({ x, y, children, draggable, sourceConfig, targetCon
         <div
             ref={containerRef}
             {...restProps}
-            style={{ left: x, top: y }}
+            style={{ left: `${x}px`, top: `${y}px` }}
         >
             {children}
         </div>

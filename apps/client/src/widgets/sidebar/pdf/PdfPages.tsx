@@ -86,7 +86,7 @@ function PdfPagesList({ pagesData, ntxId }: { pagesData: NoteContextDataMap["pdf
                         requestThumbnail,
                         scrollToPage: pagesData.scrollToPage
                     }}
-                    style={{ height: containerHeight }}
+                    style={{ height: `${containerHeight}px` }}
                 />
             )}
         </div>

@@ -79,7 +79,7 @@ export default function CalendarWidget({ launcherNote }: LauncherNoteProps) {
             dropdownRef={dropdownRef}
             autoClose="outside"
         >
-            {calendarArgs && date && <div className="calendar-dropdown-widget" style={{ width: 400 }}>
+            {calendarArgs && date && <div className="calendar-dropdown-widget" style={{ width: "400px" }}>
                 <CalendarHeader date={date} setDate={setDate} />
                 <Calendar
                     date={date}

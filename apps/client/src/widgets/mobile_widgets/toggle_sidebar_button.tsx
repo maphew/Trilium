@@ -6,7 +6,7 @@ export default function ToggleSidebarButton() {
     const { noteContext, parentComponent } = useNoteContext();
 
     return (
-        <div style={{ contain: "none", minWidth: 8 }}>
+        <div style={{ contain: "none", minWidth: "8px" }}>
             { noteContext?.isMainContext() && <ActionButton
                 icon="bx bx-sidebar"
                 text={t("note_tree.toggle-sidebar")}

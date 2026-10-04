@@ -213,7 +213,7 @@ function DeletedNotes({ noteIdsToBeDeleted }: { noteIdsToBeDeleted: DeleteNotesP
                             rowCount={noteIdsToBeDeleted.length}
                             rowHeight={ROW_HEIGHT}
                             rowProps={{ noteIds: noteIdsToBeDeleted }}
-                            style={{ maxHeight: MAX_LIST_HEIGHT }}
+                            style={{ maxHeight: `${MAX_LIST_HEIGHT}px` }}
                         />
                     ) : (
                         <ul className="preview-list">
