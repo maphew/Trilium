@@ -239,18 +239,38 @@ describe("searchCompletionAt", () => {
             expect(await titlesOf(complete("note.isProtected ="))).toContain("=*");
             expect(await titlesOf(complete("note.isArchived = t"))).toEqual([ "true", "false" ]);
 
-            const mimes = complete("note.mime = pyt");
+            expect(server.get).not.toHaveBeenCalled();
+        });
 
-            expect((await entryFor(mimes, "text/x-python"))?.description).toBe("Python");
+        it("offers the MIME types the notes carry, in the order the server counts them", async () => {
+            vi.mocked(server.get).mockResolvedValue([
+                { mime: "application/pdf", count: 12 },
+                { mime: "text/x-python", count: 3 },
+                { mime: "text/mermaid", count: 2 },
+                { mime: "image/png", count: 1 }
+            ]);
+
+            const mimes = complete("note.mime = ");
+
+            expect(await titlesOf(mimes)).toEqual([ "application/pdf", "text/x-python", "text/mermaid", "image/png" ]);
+            expect(server.get).toHaveBeenCalledWith("search/note-mimes");
+            // A code language is named and drawn as the language dropdown draws it, the rest as the
+            // note tree draws a note of that type.
+            expect(await entryFor(mimes, "text/x-python")).toMatchObject({ description: "Python", icon: "bx bxl-python" });
+            expect((await entryFor(mimes, "application/pdf"))?.icon).toBe("bx bxs-file-pdf");
+            expect((await entryFor(mimes, "image/png"))?.icon).toBe("bx bx-image");
+            expect((await entryFor(mimes, "text/mermaid"))?.icon).toBe("bx bx-selection");
             // The lexer splits a bare `text/x-python` at the dash, so the value is inserted quoted.
             expect((await entryFor(mimes, "text/x-python"))?.insert).toBe("\"text/x-python\"");
+            expect((await entryFor(complete("note.mime = 'app"), "application/pdf"))?.insert).toBe("application/pdf'");
 
-            expect(server.get).not.toHaveBeenCalled();
+            vi.mocked(server.get).mockRejectedValue(new Error("offline"));
+            expect(await entriesOf(complete("note.mime = "))).toEqual([]);
         });
 
         it("follows the property through a traversal and a relation, and leaves the rest alone", async () => {
             expect(await titlesOf(complete("note.parents.type = co"))).toContain("code");
-            expect(await titlesOf(complete("note.type = code and note.mime = pyt"))).toContain("text/x-python");
+            expect(complete("note.type = code and note.mime = pyt")).toMatchObject({ key: "property:mime" });
             expect(await titlesOf(complete("~author.type = co"))).toContain("code");
 
             // A property whose values nothing can enumerate falls through to the keywords, which

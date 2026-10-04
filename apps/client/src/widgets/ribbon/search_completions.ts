@@ -1,4 +1,7 @@
-import { ALLOWED_NOTE_TYPES, allowedSearchOperators, MIME_TYPES_DICT, NOTE_TYPE_ICONS, SEARCH_NOTE_PATH } from "@triliumnext/commons";
+import {
+    ALLOWED_NOTE_TYPES, allowedSearchOperators, getMimeIcon, type MermaidMimeType, MIME_TYPES_DICT,
+    NOTE_TYPE_ICONS, type NoteMimeCount, SEARCH_NOTE_PATH
+} from "@triliumnext/commons";
 
 import { t } from "../../services/i18n";
 import server from "../../services/server";
@@ -72,7 +75,7 @@ export function searchCompletionAt(before: string, explicit: boolean): SearchCom
 
     const property = propertyValueBeingTyped(context);
     if (property) {
-        return entries(context, `property:${property.property}`, context.pos - property.typed.length, () => property.entries);
+        return entries(context, `property:${property.property}`, context.pos - property.typed.length, property.entries);
     }
 
     // An ordering names a key and sorts on it, comparing nothing.
@@ -192,9 +195,17 @@ function propertyValueBeingTyped(context: Context) {
     }
 
     const [ , property, tail ] = match;
-    const values = PROPERTY_VALUES.get(property.toLowerCase());
-    const value = values && valueBeingTyped(tail);
+    const key = property.toLowerCase();
+    const fetched = FETCHED_PROPERTY_VALUES.get(key);
+    const values = PROPERTY_VALUES.get(key);
+    const value = (fetched || values) && valueBeingTyped(tail);
     if (!value) {
+        return null;
+    }
+    if (fetched) {
+        return { ...value, property: key, entries: () => fetched(value.quote) };
+    }
+    if (!values) {
         return null;
     }
 
@@ -210,7 +221,7 @@ function propertyValueBeingTyped(context: Context) {
             insert: verbatim ? label : applyValue(label, value.quote)
         }));
 
-    return offered.length ? { ...value, property: property.toLowerCase(), entries: offered } : null;
+    return offered.length ? { ...value, property: key, entries: () => offered } : null;
 }
 
 /**
@@ -235,18 +246,25 @@ function valueBeingTyped(tail: string) {
 
 /**
  * The values each enumerable property holds, keyed lower-case as `PROP_MAPPING` is because the
- * lexer lowercases the query. The lists are the ones the note row and the code-note MIME dropdown
- * already use, so a type or a MIME added there is offered here without further work.
+ * lexer lowercases the query. The note types are the list the note row already uses, so a type added
+ * there is offered here as well.
  */
 const PROPERTY_VALUES = new Map<string, () => PropertyValue[]>([
     [ "type", () => ALLOWED_NOTE_TYPES.map((noteType) => ({ label: noteType, icon: noteTypeIcon(noteType) })) ],
-    [ "mime", () => MIME_TYPES_DICT.map(({ mime, title }) => ({ label: mime, detail: title, icon: "bx bx-code-alt" })) ],
     [ "isprotected", booleanValues ],
     [ "isarchived", booleanValues ],
     [ "datecreated", dateValues ],
     [ "datemodified", dateValues ],
     [ "utcdatecreated", dateValues ],
     [ "utcdatemodified", dateValues ]
+]);
+
+/**
+ * The values of the properties that are looked up in the database, keyed as `PROPERTY_VALUES` is.
+ * A lookup runs when the list opens, not on each keystroke.
+ */
+const FETCHED_PROPERTY_VALUES = new Map<string, (quote: string) => Promise<SearchEntry[]>>([
+    [ "mime", mimeValues ]
 ]);
 
 interface PropertyValue {
@@ -260,6 +278,37 @@ interface PropertyValue {
 function noteTypeIcon(noteType: string) {
     return (NOTE_TYPE_ICONS as Record<string, string>)[noteType] ?? "bx bx-note";
 }
+
+/**
+ * The MIME types the user's notes carry, the most used first. A code language is shown with its
+ * name and icon from `MIME_TYPES_DICT`, any other type with the icon `getMimeIcon()` gives it.
+ */
+async function mimeValues(quote: string): Promise<SearchEntry[]> {
+    let mimes: NoteMimeCount[];
+    try {
+        mimes = await server.get<NoteMimeCount[]>("search/note-mimes");
+    } catch {
+        // A failed lookup offers no values, and the query is typed as usual.
+        return [];
+    }
+
+    return mimes.map(({ mime }) => {
+        const language = MIME_TYPES_DICT.find((definition) => definition.mime === mime);
+        return {
+            id: mime,
+            title: mime,
+            description: language?.title,
+            icon: language ? (language.icon ?? NOTE_TYPE_ICONS.code) : mimeIcon(mime),
+            insert: applyValue(mime, quote)
+        };
+    });
+}
+
+function mimeIcon(mime: string) {
+    return MERMAID_MIMES.has(mime) ? NOTE_TYPE_ICONS.mermaid : getMimeIcon(mime);
+}
+
+const MERMAID_MIMES: ReadonlySet<string> = new Set<MermaidMimeType>([ "text/mermaid", "text/vnd.mermaid" ]);
 
 function booleanValues(): PropertyValue[] {
     return [ { label: "true", icon: "bx bx-toggle-right" }, { label: "false", icon: "bx bx-toggle-left" } ];

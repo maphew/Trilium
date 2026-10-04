@@ -866,6 +866,13 @@ export interface TemplatesResponse {
     newTemplateNoteIds: string[];
 }
 
+/** A media type the notes carry, as the search autocomplete offers it after `note.mime`. */
+export interface NoteMimeCount {
+    mime: string;
+    /** How many notes carry it, system notes left out. */
+    count: number;
+}
+
 export interface CloneResponse {
     success: boolean;
     message?: string;

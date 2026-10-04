@@ -244,6 +244,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(PST, "/api/search-and-execute-note/:noteId", searchRoute.searchAndExecute);
     apiRoute(PST, "/api/search-related", searchRoute.getRelatedNotes);
     apiRoute(PST, "/api/search/lint", searchRoute.lintSearchString);
+    apiRoute(GET, "/api/search/note-mimes", searchRoute.getNoteMimes);
     apiRoute(GET, "/api/search", searchRoute.search);
     apiRoute(GET, "/api/search-templates", searchRoute.searchTemplates);
 
