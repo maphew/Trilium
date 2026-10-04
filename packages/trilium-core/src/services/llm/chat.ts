@@ -12,7 +12,7 @@ import type { LlmMessage, LlmStreamChunk } from "@triliumnext/commons";
 import { getLog } from "../log.js";
 import { safeExtractMessageAndStackFromError } from "../utils/index.js";
 import { generateChatTitle } from "./chat_title.js";
-import { getProvider, getProviderByType, getSelectedModel, hasConfiguredProviders, type LlmProviderConfig } from "./index.js";
+import { getProvider, getProviderByType, getSearchProviderSetup, getSelectedModel, hasConfiguredProviders, type LlmProviderConfig } from "./index.js";
 import { formatStreamError, streamToChunks } from "./stream.js";
 import { resolveToolRegistries } from "./tools/index.js";
 
@@ -29,9 +29,11 @@ import { resolveToolRegistries } from "./tools/index.js";
  */
 export async function* runChat(
     messages: LlmMessage[],
-    config: LlmProviderConfig = {},
+    requestConfig: LlmProviderConfig = {},
     abortSignal?: AbortSignal
 ): AsyncGenerator<LlmStreamChunk> {
+    // `webSearch` comes from the stored provider config only, never from the request.
+    const config: LlmProviderConfig = { ...requestConfig, webSearch: getSearchProviderSetup(requestConfig.webSearchProviderId) };
     try {
         if (!hasConfiguredProviders()) {
             yield { type: "error", error: "No LLM providers configured. Please add a provider in Options → AI / LLM." };

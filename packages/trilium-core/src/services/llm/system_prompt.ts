@@ -72,7 +72,7 @@ export function buildSystemPrompt(messages: LlmMessage[], config: LlmProviderCon
     // Web search hint
     if (!config.enableWebSearch) {
         parts.push(
-            `You do not have access to web search. If the user asks for current/real-time information, news, or anything that requires searching the web, inform them that "Web search" is disabled and they can turn it on with ${WEB_SEARCH_TOGGLE}.`
+            `You do not have access to web search. If the user asks for current/real-time information, news, or anything that requires searching the web, inform them that "Web search" is disabled and they can turn it on by ${WEB_SEARCH_TOGGLE}.`
         );
     }
 
@@ -139,12 +139,9 @@ function buildTaskListHint(): string {
 }
 
 /**
- * Where the user turns a capability on: a switch in the Tools menu beside the model selector in
+ * Where the user turns a capability on: the Tools menu beside the model selector in
  * `ChatInputBar`. The icon class must match the toggle button of `ChatToolsDropdown`.
  */
-const NOTE_ACCESS_TOGGLE = describeToggle("Note access");
-const WEB_SEARCH_TOGGLE = describeToggle("Web search");
-
-function describeToggle(label: string): string {
-    return `the "${label}" switch in the <span class="tn-icon bx bx-shield-quarter"></span> "Tools" menu next to the model selector, below the message box (include the icon exactly as written, so the user sees the same icon)`;
-}
+const TOOLS_MENU = `the <span class="tn-icon bx bx-shield-quarter"></span> "Tools" menu next to the model selector, below the message box (include the icon exactly as written, so the user sees the same icon)`;
+const NOTE_ACCESS_TOGGLE = `the "Note access" switch in ${TOOLS_MENU}`;
+const WEB_SEARCH_TOGGLE = `choosing a search source under "Web search" in ${TOOLS_MENU}`;

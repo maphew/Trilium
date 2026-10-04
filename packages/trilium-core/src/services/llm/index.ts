@@ -96,6 +96,23 @@ let cachedProviders: Record<string, LlmProvider> = {};
 let cachedProvidersSource: string | null = null;
 
 /**
+ * The configured search provider with the config id `searchProviderId`, or undefined when there is
+ * none, so web search falls back to the model's built-in search.
+ */
+export function getSearchProviderSetup(searchProviderId: string | undefined): LlmProviderSetup | undefined {
+    if (!searchProviderId) {
+        return undefined;
+    }
+    try {
+        const configs = JSON.parse(optionService.getOptionOrNull("llmProviders") ?? "[]") as LlmProviderSetup[];
+        return configs.find(c => c.id === searchProviderId && isProviderOfKind(c, "search"));
+    } catch (e) {
+        getLog().error(`Failed to parse llmProviders option: ${e}`);
+        return undefined;
+    }
+}
+
+/**
  * Get the configured chat providers from the options. Search providers share the option and are
  * left out, so none of them is ever picked to answer a chat.
  */

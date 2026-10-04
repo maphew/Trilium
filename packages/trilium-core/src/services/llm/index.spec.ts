@@ -49,6 +49,7 @@ import {
     clearProviderCache,
     getProvider,
     getProviderByType,
+    getSearchProviderSetup,
     getSelectedModel,
     hasConfiguredProviders,
     HOST_PROVIDED_TYPES,
@@ -199,6 +200,17 @@ describe("llm/index provider registry", () => {
         it("reports true when providers exist", () => {
             setProviders(TWO);
             expect(hasConfiguredProviders()).toBe(true);
+        });
+
+        it("finds a search provider by config id, never a chat provider", () => {
+            const search = { id: "s1", name: "Tavily", provider: "tavily", kind: "search", apiKey: "k" };
+            setProviders([ ...TWO, search ]);
+            expect(getSearchProviderSetup("s1")).toEqual(search);
+            expect(getSearchProviderSetup("a1")).toBeUndefined();
+            expect(getSearchProviderSetup(undefined)).toBeUndefined();
+
+            getOptionOrNullMock.mockReturnValue("{not json");
+            expect(getSearchProviderSetup("s1")).toBeUndefined();
         });
 
         it("leaves search providers out of the chat providers", async () => {

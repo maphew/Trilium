@@ -30,7 +30,7 @@ This is the reason the provider list is grouped this way, and why Trilium pre-se
     *   Tools let the model search your tree and read notes, attributes and attachments beyond the current one.
     *   It decides what to fetch; there is no per-note permission system, so the reachable scope is your whole tree.
 *   **Attachments and mentions**, when you add them: images, PDFs and text files are sent to the provider, and an `@` mention makes that note fetchable.
-*   **Your search query**, when web search is enabled, the model's search terms reach the provider's own search infrastructure.
+*   **Your search query**, when web search is enabled, the model's search terms reach the provider's own search infrastructure, or the search provider chosen in the _Tools_ menu (Brave Search, Tavily, Exa or your SearXNG instance).
 
 ## The in-editor AI assistant
 

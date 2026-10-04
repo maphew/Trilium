@@ -7,12 +7,19 @@
 import type { LlmAttachmentKind, LlmChatConfig, LlmMessage, LlmReasoningEffort, LlmStreamChunk } from "@triliumnext/commons";
 import type { streamText } from "ai";
 
+import type { WebSearchSetup } from "./web_search.js";
+
 /**
  * Extended provider config with server-specific options.
  */
 export interface LlmProviderConfig extends LlmChatConfig {
     maxTokens?: number;
     temperature?: number;
+    /**
+     * The search provider named by {@link LlmChatConfig.webSearchProviderId}, resolved by
+     * `runChat()`. When set, web search goes through it instead of the model's built-in search.
+     */
+    webSearch?: WebSearchSetup;
 }
 
 /**

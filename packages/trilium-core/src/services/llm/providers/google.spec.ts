@@ -162,6 +162,22 @@ describe("GoogleProvider tool handling", () => {
         expect(opts.system).toContain("web search is unavailable in this turn");
     });
 
+    it("keeps note tools beside a configured search provider, which has no conflict to drop", () => {
+        const provider = new GoogleProvider("test-key");
+        provider.chat([{ role: "user", content: "hi" }], {
+            enableWebSearch: true,
+            enableNoteTools: true,
+            webSearch: { provider: "tavily", apiKey: "tk" }
+        });
+
+        expect(googleSearchMock).not.toHaveBeenCalled();
+        const opts = streamTextMock.mock.calls[0][0] as any;
+        expect(opts.tools.google_search).toBeUndefined();
+        expect(opts.tools.web_search).toBeDefined();
+        expect(opts.tools.search_notes).toBeDefined();
+        expect(opts.system).not.toContain("web search is unavailable in this turn");
+    });
+
     it("forwards thinkingBudget override under extended thinking with tools enabled", () => {
         const provider = new GoogleProvider("test-key");
         provider.chat([{ role: "user", content: "hi" }], {

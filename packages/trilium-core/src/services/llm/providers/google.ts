@@ -18,7 +18,7 @@ const OFFICIAL_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
  * is Trilium's higher-value capability and is what the user explicitly toggled.
  */
 function geminiHasToolConflict(config: LlmProviderConfig): boolean {
-    return !!(config.enableWebSearch && config.enableNoteTools);
+    return !!(config.enableWebSearch && config.enableNoteTools && !config.webSearch);
 }
 
 export class GoogleProvider extends BaseProvider {

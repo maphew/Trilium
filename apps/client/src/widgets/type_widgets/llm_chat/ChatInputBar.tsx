@@ -3,7 +3,7 @@ import "./ChatInputBar.css";
 import type { AttributeEditor as CKEditorAttributeEditor, CKTextEditor, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import type { DISPLAYABLE_LOCALE_IDS, LlmReasoningEffort } from "@triliumnext/commons";
 import { Fragment } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
@@ -27,7 +27,7 @@ import ChatToolsDropdown from "./ChatToolsDropdown.js";
 import ReasoningEffortDropdown from "./ReasoningEffortDropdown.js";
 import { SafeImage } from "./retry_image.js";
 import { getAttachmentLightbox, getUnreadableReasons, useChatAttachments } from "./useChatAttachments.js";
-import { type ModelOption, resolveSelectedModel, unreadableAttachments } from "../../../services/llm_providers.js";
+import { type ModelOption, readSearchProviders, resolveSelectedModel, resolveWebSearch, unreadableAttachments } from "../../../services/llm_providers.js";
 import { type AttachmentBlock, type UseLlmChatReturn } from "./useLlmChat.js";
 
 const READ_ONLY_LOCK = "llm-chat-streaming";
@@ -91,6 +91,10 @@ export default function ChatInputBar({
     const editorApiRef = useRef<CKEditorApi | undefined>(undefined);
     const editorInstanceRef = useRef<CKTextEditor | undefined>(undefined);
     const [ uiLanguage ] = useTriliumOption("locale");
+    const [ llmProviders ] = useTriliumOption("llmProviders");
+    const [ webSearchProviderId, setWebSearchProviderId ] = useTriliumOption("llmWebSearchProvider");
+    // Read through `options`; `llmProviders` is the dependency so the list follows the settings.
+    const searchProviders = useMemo(readSearchProviders, [ llmProviders ]);
     // CKEditor is the heaviest module the client has, and importing it statically here put it
     // on the startup critical path: the right panel mounts SidebarChat, which pulls this bar,
     // which pulled the editor — and its math plugin, and mathlive — before the app finished
@@ -163,8 +167,12 @@ export default function ChatInputBar({
         }
     }, [chat.isStreaming]);
 
-    const handleWebSearchToggle = (newValue: boolean) => {
-        chat.setEnableWebSearch(newValue);
+    /** Turns web search off for this chat, or on with the chosen source, which every chat shares. */
+    const handleWebSearchChoose = (choice: string) => {
+        chat.setEnableWebSearch(choice !== "disabled");
+        if (choice !== "disabled") {
+            void setWebSearchProviderId(choice === "builtin" ? "" : choice);
+        }
         onWebSearchChange?.();
     };
 
@@ -229,11 +237,14 @@ export default function ChatInputBar({
     const currentModel = resolveSelectedModel(chat.availableModels, chat.selectedModel, chat.selectedProvider, chat.selectedProviderId);
     const isSelectedModel = (m: ModelOption) => m === currentModel;
     const unreadableReasons = getUnreadableReasons(currentModel, chat.pendingAttachments);
-    // Gemini 2.x cannot combine googleSearch with function tools in a single
-    // request. When note tools are enabled on a Gemini model we silently drop
-    // web search server-side; reflect that here by disabling the toggle so the
-    // user understands the trade-off instead of seeing it mysteriously ignored.
-    const webSearchUnavailable = currentModel?.provider === "google" && chat.enableNoteTools;
+    // Resolved as `useLlmChat` resolves it for sending, so the menu marks what the turn will use.
+    const webSearch = resolveWebSearch({
+        modelProvider: currentModel?.provider,
+        enableWebSearch: chat.enableWebSearch,
+        enableNoteTools: chat.enableNoteTools,
+        searchProviderId: webSearchProviderId,
+        searchProviders
+    });
     // Null until the window is close enough to matter, and null (rather than a guess) when
     // the model advertises no window at all. See chat_context_usage.
     const contextUsage = computeContextUsage({
@@ -466,10 +477,10 @@ export default function ChatInputBar({
                     <div className="llm-chat-capabilities">
                         <ChatToolsDropdown
                             enableNoteTools={chat.enableNoteTools}
-                            enableWebSearch={chat.enableWebSearch}
                             onNoteToolsChange={handleNoteToolsToggle}
-                            onWebSearchChange={handleWebSearchToggle}
-                            webSearchUnavailableReason={webSearchUnavailable ? t("llm_chat.web_search_unavailable_gemini") : undefined}
+                            webSearch={webSearch}
+                            searchProviders={searchProviders}
+                            onWebSearchChoose={handleWebSearchChoose}
                             disabled={chat.isStreaming}
                         />
                         {!currentModel?.reasoningEfforts?.length && (

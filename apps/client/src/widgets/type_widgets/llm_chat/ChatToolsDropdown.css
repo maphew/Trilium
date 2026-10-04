@@ -11,4 +11,11 @@
         max-width: 18rem;
         white-space: normal;
     }
+
+    .llm-chat-tools-provider-icon {
+        --masked-icon-size: 1em;
+
+        margin-inline-end: 0.4em;
+        opacity: 0.8;
+    }
 }

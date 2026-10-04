@@ -44,11 +44,11 @@ describe("buildSystemPrompt", () => {
         expect(prompt).toContain("do not have access to web search");
     });
 
-    it("points the user at the switch in the Tools menu that turns a missing capability on", () => {
+    it("points the user at the place in the Tools menu that turns a missing capability on", () => {
         const prompt = buildSystemPrompt([], {}) ?? "";
         // The menu's own icon, as ChatToolsDropdown draws it, for the model to show the user.
         const menu = `<span class="tn-icon bx bx-shield-quarter"></span> "Tools" menu`;
-        expect(prompt).toContain(`turn it on with the "Web search" switch in the ${menu}`);
+        expect(prompt).toContain(`turn it on by choosing a search source under "Web search" in the ${menu}`);
         expect(prompt).toContain(`turn it on with the "Note access" switch in the ${menu}`);
         expect(prompt).not.toContain("model name dropdown");
     });

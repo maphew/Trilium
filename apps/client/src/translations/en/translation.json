@@ -2612,7 +2612,7 @@
     "empty_state": "Start a conversation by typing a message below.",
     "searching_web": "Searching the web...",
     "web_search": "Web search",
-    "web_search_unavailable_gemini": "Not available on Gemini models while note access is on — Google's API does not allow combining both. Disable note access or switch to a different provider to use web search.",
+    "web_search_unavailable_gemini": "Gemini can't combine its built-in search with note access. Turn off note access, or choose a search provider instead.",
     "note_tools": "Note access",
     "sources": "Sources",
     "sources_summary": "{{count}} sources from {{sites}} sites",
@@ -2723,7 +2723,11 @@
     "remove_unreadable_attachments": "Remove the attachments {{- model}} can't read",
     "tools": "Tools",
     "note_tools_description": "Search, read and edit your notes",
-    "web_search_description": "Search the internet for current information"
+    "web_search_disabled": "Disabled",
+    "web_search_builtin": "Use the model's built-in search",
+    "manage_search_providers": "Manage search providers…",
+    "web_search_builtin_unsupported": "This model has no built-in web search. Choose a search provider instead.",
+    "web_search_provider_unsupported": "This model's provider searches the web with its own tools."
   },
   "sidebar_chat": {
     "title": "AI Chat",

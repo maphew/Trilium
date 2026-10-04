@@ -50,6 +50,73 @@ export function readSelectedModels(): { models: ModelOption[]; groups: ModelProv
     return { models, groups, hasProvider: configs.length > 0 };
 }
 
+/** A configured search provider, as the chat's Tools menu lists it. */
+export interface SearchProviderOption {
+    id: string;
+    name: string;
+    provider: string;
+}
+
+/** The search providers configured in the `llmProviders` option, in config order. */
+export function readSearchProviders(): SearchProviderOption[] {
+    return ((options.getJson("llmProviders") as StoredProviderConfig[] | null) ?? [])
+        .filter(config => isProviderOfKind(config, "search"))
+        .map(({ id, name, provider }) => ({ id, name, provider }));
+}
+
+/** Provider types whose models search the web themselves when `enableWebSearch` is set. */
+const BUILT_IN_WEB_SEARCH = new Set([ "anthropic", "openai", "google", "claude-agent", "antigravity-agent", "codex-agent" ]);
+
+/** Provider types that run their own agent loop, which takes no tool from Trilium's chat. */
+const OWN_AGENT_LOOP = new Set([ "claude-agent", "copilot-agent", "antigravity-agent", "codex-agent" ]);
+
+/** The web search of a chat turn, as the Tools menu shows it and as the turn is sent. */
+export interface WebSearchState {
+    /** The marked choice: `"disabled"`, `"builtin"`, or the config id of a search provider. */
+    choice: string;
+    /** The i18n key saying why the model's built-in search can't be used, if it can't. */
+    builtInUnavailableKey?: string;
+    /** The i18n key saying why a search provider can't be used with this model, if it can't. */
+    searchProviderUnavailableKey?: string;
+    /** Whether the turn searches the web. False when the marked choice can't be used. */
+    enableWebSearch: boolean;
+    /** The search provider the turn searches through, in place of the built-in search. */
+    webSearchProviderId?: string;
+}
+
+/**
+ * Resolve the chat's web search for a model of `modelProvider`. `searchProviderId` is the
+ * `llmWebSearchProvider` option; one that names no configured search provider means built-in.
+ */
+export function resolveWebSearch({ modelProvider, enableWebSearch, enableNoteTools, searchProviderId, searchProviders }: {
+    modelProvider: string | undefined;
+    enableWebSearch: boolean;
+    enableNoteTools: boolean;
+    searchProviderId: string;
+    searchProviders: SearchProviderOption[];
+}): WebSearchState {
+    let builtInUnavailableKey: string | undefined;
+    if (modelProvider && !BUILT_IN_WEB_SEARCH.has(modelProvider)) {
+        builtInUnavailableKey = "llm_chat.web_search_builtin_unsupported";
+    } else if (modelProvider === "google" && enableNoteTools) {
+        builtInUnavailableKey = "llm_chat.web_search_unavailable_gemini";
+    }
+    const searchProviderUnavailableKey = modelProvider && OWN_AGENT_LOOP.has(modelProvider)
+        ? "llm_chat.web_search_provider_unsupported"
+        : undefined;
+
+    const isSearchProvider = searchProviders.some(p => p.id === searchProviderId);
+    const choice = !enableWebSearch ? "disabled" : isSearchProvider ? searchProviderId : "builtin";
+    const usable = choice === "builtin" ? !builtInUnavailableKey : choice !== "disabled" && !searchProviderUnavailableKey;
+    return {
+        choice,
+        builtInUnavailableKey,
+        searchProviderUnavailableKey,
+        enableWebSearch: usable,
+        webSearchProviderId: usable && isSearchProvider ? searchProviderId : undefined
+    };
+}
+
 /**
  * Resolve the active model from the available list. Several providers can expose
  * the same model ID (e.g. an Anthropic API key and a Claude subscription, or two

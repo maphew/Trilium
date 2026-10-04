@@ -157,6 +157,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     // LLM options
     "aiEnabled",
     "llmProviders",
+    "llmWebSearchProvider",
     "aiAssistantModel",
     "mcpEnabled",
     // OCR options
