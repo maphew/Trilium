@@ -353,29 +353,39 @@ describe("scrolling to an annotation", () => {
 
     afterEach(() => uninstallViewerApp());
 
-    /** Appends the element pdf.js would render for an annotation. */
-    function renderAnnotation(id: string) {
-        const el = document.createElement("div");
-        el.setAttribute("data-annotation-id", id);
-        viewer.viewerEl.append(el);
-        return el;
+    /** Both fixture pages are US Letter, 792 points tall, stacked 1000 px apart. */
+    const PAGES = { 0: { offsetTop: 0, clientHeight: 792 }, 1: { offsetTop: 1000, clientHeight: 792 } };
+
+    /** Where the last scroll request puts the centre of the container, in container pixels. */
+    function centreOfLastScroll() {
+        const { left, top } = viewer.scrollRequests.mock.lastCall?.[0] ?? {};
+        return { x: left + 600 / 2, y: top + 800 / 2 };
     }
 
-    it("scrolls straight to an annotation that is already rendered", async () => {
-        viewer = await installViewerApp(allFeaturesPdf());
-        await setupPdfAnnotations();
-        renderAnnotation("5R");
+    /** Replaces what pdf.js holds for the annotations edited in this session. */
+    function editedInSession(entries: [ string, Record<string, unknown> ][]) {
+        vi.spyOn(viewer.pdfDocument.annotationStorage, "serializable", "get").mockReturnValue({
+            map: new Map(entries), hash: "x", transfer: []
+        } as any);
+    }
 
-        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "5R", pageNumber: 1 });
+    it("centres an annotation, from its rectangle in the document", async () => {
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
+        await setupPdfAnnotations();
+
+        // Object 18 is the ink stroke at [400 400 500 450] on page 2. Nothing has rendered it,
+        // which no longer matters: the page's viewport places it.
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "18R", pageNumber: 2 });
 
         await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
+        // PDF y grows upwards, so y 425 on a 792-point page is 367 px from its top.
+        expect(centreOfLastScroll()).toEqual({ x: 450, y: 1000 + 367 });
         expect(viewer.scrollRequests).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
     });
 
     it("ignores a scroll request from another origin", async () => {
-        viewer = await installViewerApp(allFeaturesPdf());
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
         await setupPdfAnnotations();
-        renderAnnotation("5R");
 
         window.dispatchEvent(new MessageEvent("message", {
             data: { type: "trilium-scroll-to-annotation", annotationId: "5R", pageNumber: 1 },
@@ -386,57 +396,48 @@ describe("scrolling to an annotation", () => {
         expect(viewer.scrollRequests).not.toHaveBeenCalled();
     });
 
-    it("scrolls to an annotation that only exists in the editor", async () => {
-        viewer = await installViewerApp(allFeaturesPdf());
+    it("finds an annotation where it was moved to, or drawn, in this session", async () => {
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
         await setupPdfAnnotations();
-        // pdf.js gives an editor no data-annotation-id — it is not in the document yet — so the
-        // element carries the editor's own id and that is what the sidebar entry holds.
-        const editorEl = document.createElement("div");
-        editorEl.id = "pdfjs_internal_editor_0";
-        viewer.viewerEl.append(editorEl);
+        editedInSession([
+            [ "pdfjs_internal_editor_0", { annotationType: 9, id: null, pageIndex: 0, rect: [ 0, 0, 100, 100 ] } ],
+            [ "pdfjs_internal_editor_1", { annotationType: 9, id: "5R", pageIndex: 0, rect: [ 300, 392, 300, 392 ] } ]
+        ]);
 
         viewer.sendFromParent({
             type: "trilium-scroll-to-annotation", annotationId: "pdfjs_internal_editor_0", pageNumber: 1
         });
+        await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalledTimes(1));
+        expect(centreOfLastScroll()).toEqual({ x: 50, y: 742 });
 
-        await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "5R", pageNumber: 1 });
+        await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalledTimes(2));
+        expect(centreOfLastScroll()).toEqual({ x: 300, y: 400 });
     });
 
-    it("jumps to the page and waits for an annotation that has not rendered yet", async () => {
-        viewer = await installViewerApp(allFeaturesPdf());
+    it("turns to the page when the annotation is gone, or none is named", async () => {
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
         await setupPdfAnnotations();
+        const app = window.PDFViewerApplication;
+        editedInSession([ [ "pdfjs_internal_editor_0", { id: "17R", pageIndex: 1, deleted: true } ] ]);
 
-        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "14R", pageNumber: 2 });
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "17R", pageNumber: 2 });
+        await vi.waitFor(() => expect(app?.pdfViewer.currentPageNumber).toBe(2));
 
-        // Nothing to scroll to yet, so the viewer is asked to page there first.
-        await vi.waitFor(() => expect(window.PDFViewerApplication?.pdfViewer.currentPageNumber).toBe(2));
-        expect(viewer.scrollRequests).not.toHaveBeenCalled();
-
-        // Other things render meanwhile; only the annotation itself ends the wait.
-        viewer.viewerEl.append(document.createElement("div"));
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(viewer.scrollRequests).not.toHaveBeenCalled();
-        // Once pdf.js renders the annotation, the observer picks it up.
-        renderAnnotation("14R");
-        await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
-    });
-
-    it("turns to the page alone when no annotation is named", async () => {
-        viewer = await installViewerApp(allFeaturesPdf());
-        await setupPdfAnnotations();
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "99R", pageNumber: 1 });
+        await vi.waitFor(() => expect(app?.pdfViewer.currentPageNumber).toBe(1));
 
         viewer.sendFromParent({ type: "trilium-scroll-to-annotation", pageNumber: 2 });
+        await vi.waitFor(() => expect(app?.pdfViewer.currentPageNumber).toBe(2));
 
-        await vi.waitFor(() => expect(window.PDFViewerApplication?.pdfViewer.currentPageNumber).toBe(2));
-        // A page reference ends at the top of the page. Nothing is looked up by id, not even the
-        // literal "undefined" a missing id turns into.
-        renderAnnotation("undefined");
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        // A link to a page an older version of the document had.
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "5R", pageNumber: 9 });
+        await vi.waitFor(() => expect(app?.pdfViewer.currentPageNumber).toBe(9));
         expect(viewer.scrollRequests).not.toHaveBeenCalled();
     });
 
     it("waits for pdf.js to apply its initial view, which would undo an earlier scroll", async () => {
-        viewer = await installViewerApp(allFeaturesPdf());
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
         const app = window.PDFViewerApplication;
         if (!app) throw new Error("viewer not installed");
         let pagesLoaded = () => {};
@@ -444,17 +445,17 @@ describe("scrolling to an annotation", () => {
         trackInitialView(app);
         await setupPdfAnnotations();
 
-        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "14R", pageNumber: 2 });
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "18R", pageNumber: 2 });
         await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(app.pdfViewer.currentPageNumber).toBe(1);
+        expect(viewer.scrollRequests).not.toHaveBeenCalled();
 
         // pdf.js restores the last-read position at `documentinit`, and again once every page is
         // sized when the pages differ in size.
         viewer.eventBus.dispatch("documentinit", { source: null });
         await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(app.pdfViewer.currentPageNumber).toBe(1);
+        expect(viewer.scrollRequests).not.toHaveBeenCalled();
 
         pagesLoaded();
-        await vi.waitFor(() => expect(app.pdfViewer.currentPageNumber).toBe(2));
+        await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
     });
 });

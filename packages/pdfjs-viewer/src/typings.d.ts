@@ -35,7 +35,11 @@ declare global {
                 optionalContentConfigPromise: Promise<OptionalContentConfig>;
                 getPageView(pageIndex: number): {
                     div: HTMLDivElement;
-                };
+                    viewport: {
+                        /** Maps a point in PDF units to CSS pixels on the page. */
+                        convertToViewportPoint(x: number, y: number): number[];
+                    };
+                } | undefined;
                 container: HTMLElement;
             };
             pdfLinkService: {
