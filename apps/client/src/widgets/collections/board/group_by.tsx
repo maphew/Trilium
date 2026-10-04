@@ -51,7 +51,7 @@ export default function BoardGroupBy({ note, options, current, onSelect }: {
 }) {
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
     /** The definition the editor last reported, which {@link save} writes. */
-    const edited = useRef<Attribute>();
+    const edited = useRef<Attribute | undefined>(undefined);
     const selected = options.find(option => option.value === current);
 
     const create = useCallback((event: MouseEvent) => {

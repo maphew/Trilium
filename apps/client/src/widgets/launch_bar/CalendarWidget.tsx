@@ -37,7 +37,7 @@ export default function CalendarWidget({ launcherNote }: LauncherNoteProps) {
     const dropdownRef = useRef<DropdownHandle>(null);
     const [ enableWeekNotes, setEnableWeekNotes ] = useState(false);
     const [ weekNotes, setWeekNotes ] = useState<string[]>([]);
-    const calendarRootRef = useRef<FNote>();
+    const calendarRootRef = useRef<FNote | undefined>(undefined);
 
     async function checkEnableWeekNotes() {
         if (!calendarRootRef.current) {

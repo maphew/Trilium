@@ -74,7 +74,7 @@ export default function AttributeList() {
 
     // Collected while rendering rather than in an effect, which would leave one frame listing the
     // attributes of the note navigated away from. The initial `undefined` is what collects the first.
-    const shownNoteId = useRef<string | null>();
+    const shownNoteId = useRef<string | null | undefined>(undefined);
     if (shownNoteId.current !== (note?.noteId ?? null)) {
         // An attribute left open for editing — in the popup or in its own row — is closed by the
         // change of note, and closing keeps what was typed into it — as a press outside does — rather

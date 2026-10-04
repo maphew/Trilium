@@ -43,7 +43,7 @@ export function useDragPan(ref: RefObject<HTMLElement | null>, options: DragPanO
     const { canStart, disabled } = options;
     const [ isPannable, setPannable ] = useState(false);
     const [ isPanning, setPanning ] = useState(false);
-    const glideRef = useRef<number>();
+    const glideRef = useRef<number | undefined>(undefined);
 
     // A ref holds no render of its own, so an effect keyed on one never hears the element arrive.
     // Containers drawn only once their content has loaded are the ordinary case, so the element is

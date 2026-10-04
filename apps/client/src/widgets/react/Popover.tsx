@@ -67,7 +67,7 @@ export interface PopoverProps {
 export default function Popover({ getAnchorRect, placement, updateKey, className, keepOpenSelector, onDismiss, maximized, onPlaced, children }: PopoverProps) {
     const elRef = useRef<HTMLDivElement>(null);
     const arrowRef = useRef<HTMLDivElement>(null);
-    const updateRef = useRef<() => void>();
+    const updateRef = useRef<(() => void) | undefined>(undefined);
 
     // In a ref, so the placement set up once reads the latest `getAnchorRect`. Setting it up again
     // on every render would reset the position mid-interaction.

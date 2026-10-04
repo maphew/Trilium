@@ -54,7 +54,7 @@ export function useScrollFade(ref: RefObject<HTMLElement | null>, options: Scrol
     } = options;
     const [ fades, setFades ] = useState({ start: false, end: false });
     const [ overflow, setOverflow ] = useState(0);
-    const frameRef = useRef<number>();
+    const frameRef = useRef<number | undefined>(undefined);
 
     const element = useTrackedElement(ref);
 

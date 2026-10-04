@@ -200,7 +200,7 @@ function useKeyboardShortcuts(videoRef: MutableRef<HTMLVideoElement | null>, wra
 
 function useAutoHideControls(videoRef: RefObject<HTMLVideoElement | null>, playing: boolean) {
     const [visible, setVisible] = useState(true);
-    const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
+    const hideTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const scheduleHide = useCallback(() => {
         clearTimeout(hideTimerRef.current);

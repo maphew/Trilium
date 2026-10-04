@@ -523,7 +523,7 @@ export default function BoardView({
     // again: a new object would be a new prop on every card, and `memo` would then redraw all of
     // them for a move that touched one. Another board takes a new one, since this instance is
     // reused across boards and the api holds that board's record of the writes in flight.
-    const apiRef = useRef<{ board: string, api: Api }>();
+    const apiRef = useRef<{ board: string, api: Api } | undefined>(undefined);
     const persistFilterQuery = useCallback(
         (query: string) => apiRef.current?.api.setFilterQuery(query), []);
     const filter = useCollectionFilter(parentNote, {
@@ -718,7 +718,9 @@ export default function BoardView({
      */
     const [ releasedCollapse, setReleasedCollapse ] = useState<ReadonlyMap<string, boolean>>();
     /** What the last unheld render drew, which a hold keeps drawing. */
-    const drawnCollapse = useRef<{ collapse: ReadonlyMap<string, boolean>, cards?: ColumnMap }>();
+    const drawnCollapse = useRef<
+        { collapse: ReadonlyMap<string, boolean>, cards?: ColumnMap } | undefined
+    >(undefined);
     const isCollapseHeld = releasedCollapse !== targetCollapse
         && drawnCollapse.current?.cards !== undefined && drawnCollapse.current.cards !== byColumn
         && sameColumns(drawnCollapse.current.collapse, targetCollapse)
@@ -841,7 +843,7 @@ export default function BoardView({
     // comparison. A column changing width hides or shows its own cards and moves no card inside
     // any other, so there is nothing for any column to measure while it is happening.
     const columnResizingUntil = useRef(0);
-    const columnWidths = useRef<string>();
+    const columnWidths = useRef<string | undefined>(undefined);
     const widths = shownColumns
         .map(column => collapsedColumns.get(column)
             && column !== activeColumn && !isPeekingAll ? "1" : "0")
@@ -1198,7 +1200,7 @@ export default function BoardView({
      * Let go a frame later than the one that draws it, a frame's callbacks running before the
      * styles it paints are worked out.
      */
-    const stillFor = useRef<number>();
+    const stillFor = useRef<number | undefined>(undefined);
     const holdStill = useCallback(() => {
         const container = containerRef.current;
         container?.classList.add("board-still");
@@ -1906,9 +1908,9 @@ export function TitleEditor({
     }), []);
     /** Whether the field has already saved, for one that keeps what it saved standing. */
     const hasHandedOver = useRef(false);
-    const held = useRef<number>();
+    const held = useRef<number | undefined>(undefined);
     /** Where on the screen the finger went down, against which a scroll is told from a hold. */
-    const heldFrom = useRef<{ x: number, y: number }>();
+    const heldFrom = useRef<{ x: number, y: number } | undefined>(undefined);
     /** Whether the menu was opened by a hold, whose press ends in a click the menu must survive. */
     const openedByHold = useRef(false);
 

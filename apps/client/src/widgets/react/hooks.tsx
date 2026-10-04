@@ -125,7 +125,7 @@ export function useEditorSpacedUpdate({ note, noteType, noteContext, getData, on
     // The note whose content is currently loaded in the editor. Editor instances are reused
     // across note switches, so until the new note's blob arrives the editor still holds the
     // previous note's content — content that must never be saved under the new noteId (#9614).
-    const loadedNoteIdRef = useRef<string>();
+    const loadedNoteIdRef = useRef<string | undefined>(undefined);
 
     const prepare = useCallback(() => {
         if (!note || loadedNoteIdRef.current !== note.noteId) return undefined;
@@ -154,7 +154,7 @@ export function useEditorSpacedUpdate({ note, noteType, noteContext, getData, on
         stateCallbackRef.current = stateCallback;
     }, [ stateCallback ]);
 
-    const spacedUpdateRef = useRef<SpacedUpdate<SavedData | undefined>>();
+    const spacedUpdateRef = useRef<SpacedUpdate<SavedData | undefined> | undefined>(undefined);
     if (!spacedUpdateRef.current) {
         spacedUpdateRef.current = new SpacedUpdate<SavedData | undefined>(
             { key: note?.noteId ?? null, prepare, commit },
@@ -231,7 +231,7 @@ export function useBlobEditorSpacedUpdate({ note, noteType, noteContext, getData
 
     // Same provenance guard as useEditorSpacedUpdate: never save content under a note it
     // was not loaded from (#9614).
-    const loadedNoteIdRef = useRef<string>();
+    const loadedNoteIdRef = useRef<string | undefined>(undefined);
 
     const prepare = useCallback(() => {
         if (loadedNoteIdRef.current !== note.noteId) return undefined;
@@ -257,7 +257,7 @@ export function useBlobEditorSpacedUpdate({ note, noteType, noteContext, getData
         stateCallbackRef.current = stateCallback;
     }, [ stateCallback ]);
 
-    const spacedUpdateRef = useRef<SpacedUpdate<Blob | undefined>>();
+    const spacedUpdateRef = useRef<SpacedUpdate<Blob | undefined> | undefined>(undefined);
     if (!spacedUpdateRef.current) {
         spacedUpdateRef.current = new SpacedUpdate<Blob | undefined>(
             { key: note.noteId, prepare, commit },
@@ -1538,7 +1538,7 @@ const MAX_REGEX_MATCHES = 500;
 export function useImperativeSearchHighlighlighting(
     highlightedTokens: (string | HighlightedTokenInfo)[] | null | undefined
 ) {
-    const mark = useRef<Mark>();
+    const mark = useRef<Mark | undefined>(undefined);
     const tokenInfos = useMemo<HighlightedTokenInfo[] | null>(() => {
         if (!highlightedTokens?.length) return null;
         return highlightedTokens.map((token) => (typeof token === "string" ? { token, type: "plain" as const } : token));

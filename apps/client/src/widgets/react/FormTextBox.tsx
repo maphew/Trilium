@@ -41,7 +41,7 @@ export default function FormTextBox({ inputRef, className, type, currentValue, o
     // compat-using import, remaps `onChange` — in any casing — to the input event. Held in a ref so
     // the once-bound listener commits through the props of the render it fires in, not the one it
     // was bound in.
-    const commitNumber = useRef<() => void>();
+    const commitNumber = useRef<(() => void) | undefined>(undefined);
     commitNumber.current = () => {
         const input = innerRef.current;
         if (!input) return;

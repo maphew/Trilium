@@ -248,7 +248,7 @@ export default function Column({
     // Cards slide to follow the drop gap opening and closing. Measured only when the column's own
     // cards have changed: reading one position costs a layout of the whole board, and anything
     // else that redraws it would have every column read one per card.
-    const measured = useRef<unknown>();
+    const measured = useRef<unknown>(undefined);
     const cardsChanged = measured.current !== columnItems;
     measured.current = columnItems;
     useFlip(contentRef, {

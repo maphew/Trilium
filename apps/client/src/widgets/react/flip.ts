@@ -66,7 +66,7 @@ export function useFlip(
     const drawn = useRef(false);
     /** Whether a growth is running, during which the children below it are already moving. */
     const settling = useRef(false);
-    const settled = useRef<number>();
+    const settled = useRef<number | undefined>(undefined);
 
     const read = useCallback(() => {
         const places = new Map<Element, Place>();

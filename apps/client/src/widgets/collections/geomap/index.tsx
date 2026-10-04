@@ -103,10 +103,10 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // Which pick the map stands on, so a boundary arriving after a later one is dropped rather than
     // drawn around whatever took its place.
     const latestPlacePick = useRef(0);
-    const outlineTimer = useRef<ReturnType<typeof setTimeout>>();
+    const outlineTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     // Gives up a boundary lookup already under way, which hands back its place in the geocoder's
     // request queue: the next search would otherwise wait out a boundary nobody is looking at.
-    const outlineRequest = useRef<AbortController>();
+    const outlineRequest = useRef<AbortController | undefined>(undefined);
     // Held still between renders: the pin's layer is rebuilt whenever it is handed a different one,
     // and an array literal is different every time (see PlaceMarker).
     const placeCenter = useMemo<[number, number] | null>(

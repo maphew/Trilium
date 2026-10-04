@@ -87,8 +87,8 @@ export default function ChatInputBar({
     const [modalStep, setModalStep] = useState<ProviderStep | undefined>();
     const [modalOpen, setModalOpen] = useState(false);
     const [openToken, setOpenToken] = useState(0);
-    const editorApiRef = useRef<CKEditorApi>();
-    const editorInstanceRef = useRef<CKTextEditor>();
+    const editorApiRef = useRef<CKEditorApi | undefined>(undefined);
+    const editorInstanceRef = useRef<CKTextEditor | undefined>(undefined);
     const [ uiLanguage ] = useTriliumOption("locale");
     // CKEditor is the heaviest module the client has, and importing it statically here put it
     // on the startup critical path: the right panel mounts SidebarChat, which pulls this bar,

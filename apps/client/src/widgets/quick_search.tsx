@@ -59,7 +59,7 @@ export default function QuickSearch() {
     const [ open, setOpen ] = useState(false);
     // Set while the keys move through the results; see `.tn-menu-keyboard` in Menu.css.
     const [ keyboardDriven, setKeyboardDriven ] = useState(false);
-    const editorRef = useRef<FieldEditor>();
+    const editorRef = useRef<FieldEditor | undefined>(undefined);
     const boxRef = useRef<HTMLDivElement>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
     // Each search takes a number, so a slower earlier response cannot overwrite a later one.

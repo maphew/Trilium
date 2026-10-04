@@ -78,7 +78,7 @@ const SINGLE_LINE_HINTS: ShortcutHintDefinition = [
  */
 export default function SearchStringEditor({ currentValue, noteId, placeholder, ariaLabel, className, autoFocus, singleLine, extraShortcutHints, editorRef: exposedRef, onChange, onEnter, onArrowDown, onEscape }: SearchStringEditorProps) {
     const parentRef = useRef<HTMLDivElement>(null);
-    const editorRef = useRef<FieldEditor>();
+    const editorRef = useRef<FieldEditor | undefined>(undefined);
     // The editor is built once, so it reaches the current props through a ref rather than
     // through the closure of the render that created it.
     const propsRef = useRef({ currentValue, onChange, onEnter, onArrowDown, onEscape });

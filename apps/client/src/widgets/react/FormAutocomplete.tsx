@@ -398,7 +398,7 @@ export function useAutocomplete<T>({ query, source, onPick, inputRef, disabled, 
     const scrollToActive = useRef(false);
     // Where the pointer last moved over the list. Scrolling slides a row under a still pointer, and the
     // browser can report that as a move at the same spot, which is not the pointer choosing the row.
-    const lastPointer = useRef<{ x: number; y: number }>();
+    const lastPointer = useRef<{ x: number; y: number } | undefined>(undefined);
     // Names the entries so the field can point at the highlighted one: focus stays in the box, so
     // that pointer is all a screen reader has to go on.
     const itemIdPrefix = useUniqueName("autocomplete-item");

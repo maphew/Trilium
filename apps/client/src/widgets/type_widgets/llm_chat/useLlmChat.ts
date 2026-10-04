@@ -274,7 +274,7 @@ export function useLlmChat(
     // The reply-input editor, registered by ChatInputBar once its CKEditor has initialized. Held in a
     // ref so timeline actions (e.g. quoting a selection) can write into it without a render-order
     // dependency.
-    const inputEditorRef = useRef<InputEditorApi | undefined>();
+    const inputEditorRef = useRef<InputEditorApi | undefined>(undefined);
     const isInputFocusPendingRef = useRef(false);
     const registerInputEditor = useCallback((api: InputEditorApi | undefined) => {
         inputEditorRef.current = api;

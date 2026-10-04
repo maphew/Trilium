@@ -62,7 +62,8 @@ export default function useCanvasPersistence(note: FNote, noteContext: NoteConte
     // loaded via `updateScene` in that window is wiped — and the wipe then looks like a
     // user edit and gets saved over the note (#10279). Excalidraw awaits this promise and
     // applies its value as part of that very reset, so the first load cannot be clobbered.
-    const initialDataRef = useRef<DeferredPromise<ExcalidrawInitialDataState | null>>();
+    const initialDataRef =
+        useRef<DeferredPromise<ExcalidrawInitialDataState | null> | undefined>(undefined);
     if (!initialDataRef.current) {
         initialDataRef.current = deferred<ExcalidrawInitialDataState | null>();
     }

@@ -72,7 +72,7 @@ export function useCollectionFilter(note: FNote, {
     // A run resolves on the server, so an older one can land after a newer one. Only the latest
     // run sets the result.
     const runSeqRef = useRef(0);
-    const rerunTimerRef = useRef<number>();
+    const rerunTimerRef = useRef<number | undefined>(undefined);
     const previousNoteIdRef = useRef(note.noteId);
     const collectionSet = useMemo(() => new Set(collectionNoteIds), [ collectionNoteIds ]);
     const collectionSetRef = useRef(collectionSet);
@@ -194,7 +194,7 @@ export function CollectionFilterInput({ filter, placeholder }: {
     placeholder?: string;
 }) {
     const [ typed, setTyped ] = useState(filter.query);
-    const editorRef = useRef<FieldEditor>();
+    const editorRef = useRef<FieldEditor | undefined>(undefined);
     const { noteContext } = useNoteContext();
 
     // Adopt a query submitted elsewhere, or the stored one arriving on mount.

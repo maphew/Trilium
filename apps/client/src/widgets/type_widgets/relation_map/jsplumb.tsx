@@ -15,7 +15,7 @@ export function JsPlumb({ className, props, children, containerRef: externalCont
     onConnection?: (info: OnConnectionBindInfo, originalEvent: Event) => void;
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const jsPlumbRef = useRef<jsPlumbInstance>();
+    const jsPlumbRef = useRef<jsPlumbInstance | undefined>(undefined);
 
     useEffect(() => {
         if (!containerRef.current) return;

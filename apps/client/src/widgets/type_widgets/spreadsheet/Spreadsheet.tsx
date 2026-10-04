@@ -91,7 +91,7 @@ function useUniverLocale() {
 
 function SpreadsheetEditor({ note, noteContext, readOnly, locale }: TypeWidgetProps & { readOnly: boolean; locale: UniverLocale }) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const apiRef = useRef<FUniver>();
+    const apiRef = useRef<FUniver | undefined>(undefined);
 
     useInitializeSpreadsheet(containerRef, apiRef, readOnly, locale);
     useReleaseFillShortcuts(apiRef);

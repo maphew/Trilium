@@ -109,8 +109,8 @@ export interface ModalProps {
 
 export default function Modal({ children, className, size, title, customTitleBarButtons: titleBarButtons, header, footer, footerStyle, footerAlignment, onShown, onSubmit, helpPageId, minWidth, maxWidth, zIndex, scrollable, onHidden, modalRef: externalModalRef, formRef, bodyStyle, show, stackable, keepInDom, noFocus, sidebar, hideSidebarHeader, isFullPageOnMobile, ariaLabel }: ModalProps) {
     const modalRef = useSyncedRef<HTMLDivElement>(externalModalRef);
-    const modalInstanceRef = useRef<BootstrapModal>();
-    const elementToFocus = useRef<Element | null>();
+    const modalInstanceRef = useRef<BootstrapModal | undefined>(undefined);
+    const elementToFocus = useRef<Element | null | undefined>(undefined);
 
     /*
      * Bootstrap writes classes of its own onto this element — `show` above all, which is what makes
