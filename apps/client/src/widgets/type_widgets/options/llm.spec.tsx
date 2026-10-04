@@ -204,7 +204,7 @@ describe("the configured providers", () => {
     const providers = () => [ ...host.querySelectorAll(".tn-card-option") ]
         .filter((option) => option.querySelector(".llm-provider-name"));
 
-    function withProviders(configured: { id: string; name: string; provider: string; kind?: string; apiKey: string; selectedModels?: unknown[] }[]) {
+    function withProviders(configured: { id: string; name: string; provider: string; kind?: string; apiKey: string; baseURL?: string; selectedModels?: unknown[] }[]) {
         mocks.stored = { ...mocks.stored, llmProviders: JSON.stringify(configured) };
     }
 
@@ -222,17 +222,19 @@ describe("the configured providers", () => {
         expect(host.querySelector(".no-items")).not.toBeNull();
     });
 
-    it("gives each provider a segment, named, and says how many models it was given", () => {
+    it("gives each provider a segment, named, described by its model count or its address and never by its name", () => {
         withProviders([
             { id: "a", name: "My OpenAI", provider: "openai", apiKey: "sk", selectedModels: [ {}, {} ] },
-            { id: "b", name: "Local", provider: "ollama", apiKey: "" }
+            { id: "b", name: "Ollama", provider: "ollama", apiKey: "", baseURL: "http://box:11434" },
+            { id: "c", name: "Brave Search", provider: "brave", kind: "search", apiKey: "bk" },
+            { id: "d", name: "SearXNG", provider: "searxng", kind: "search", apiKey: "", baseURL: "http://searx.lan" }
         ]);
         open();
 
-        expect(providers()).toHaveLength(2);
+        expect(providers()).toHaveLength(4);
         expect(providers()[0].querySelector(".llm-provider-name")?.textContent).toContain("My OpenAI");
-        // With no models chosen there is no count to give, so the kind of provider is said instead.
-        expect(providers()[1].querySelector(".tn-card-option-description")?.textContent).toBeTruthy();
+        const descriptions = providers().map((option) => option.querySelector(".tn-card-option-description")?.textContent ?? null);
+        expect(descriptions).toEqual([ "llm.provider_model_count", "http://box:11434", null, "http://searx.lan" ]);
     });
 
     it("marks only the destructive action, and drops the one provider it was pressed on", async () => {

@@ -298,7 +298,7 @@ function ProviderList({ providers, emptyIcon, emptyText, onEdit, onDelete }: Pro
                     }
                     description={modelCount > 0
                         ? t("llm.provider_model_count", { count: modelCount })
-                        : providerType?.name || provider.provider}
+                        : provider.baseURL}
                 >
                     <span className="tn-card-option-actions">
                         <ActionButton
