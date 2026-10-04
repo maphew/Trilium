@@ -402,6 +402,25 @@
       "collapsible_summary": "요약",
       "collapsible_details": "세부정보",
       "table_column": "열 {{number}}"
+    },
+    "titles": {
+      "date": "날짜/시간 삽입",
+      "include": "노트 포함",
+      "image": "이미지 업로드",
+      "link": "내부 링크",
+      "math": "수식",
+      "footnote": "각주",
+      "mermaid": "Mermaid 다이어그램",
+      "mermaid_template": "Mermaid 다이어그램: {{name}}",
+      "collapsible": "접을 수 있는 블록",
+      "page_break": "페이지 나누기",
+      "table": "표",
+      "note": "노트",
+      "tip": "팁",
+      "important": "중요",
+      "caution": "주의",
+      "warning": "경고",
+      "todo": "작업: {{title}}"
     }
   },
   "move_to": {
@@ -1652,7 +1671,11 @@
     "note_already_in_diagram": "\"{{title}}\"은 이미 도표에 표시되어 있습니다.",
     "enter_title_of_new_note": "새 노트의 제목 입력",
     "default_new_note_title": "새 노트",
-    "click_on_canvas_to_place_new_note": "캔버스를 클릭하면 새 노트를 넣으세요"
+    "click_on_canvas_to_place_new_note": "캔버스를 클릭하면 새 노트를 넣으세요",
+    "rename": "이름 변경",
+    "new_relation": "새 관계",
+    "create_relation": "관계 생성",
+    "relation_name_placeholder": "관계 이름"
   },
   "render": {
     "setup_title": "이 노트 안에 사용자 지정 HTML 또는 Preact JSX를 표시합니다",
@@ -2878,7 +2901,8 @@
     "convert_embed_to_link": "링크로 변환",
     "include_size": "크기",
     "show_title": "제목 표시",
-    "show_caption": "캡션 표시"
+    "show_caption": "캡션 표시",
+    "editable": "편집 가능"
   },
   "electron_integration": {
     "desktop-application": "데스크톱 애플리케이션",
@@ -2896,7 +2920,22 @@
     "create-note-into": "{{parentTitle}}에 노트 \"{{term}}\" 생성",
     "create-note-into-day-note": "오늘의 데일리 노트에 \"{{term}}\" 노트 생성",
     "create-note-into-root": "최상위에 \"{{term}}\" 노트 생성",
-    "create-child-note": "자식 노트 \"{{term}}\" 생성"
+    "create-child-note": "자식 노트 \"{{term}}\" 생성",
+    "show-in-full-search": "전체 검색에서 \"{{term}}\"의 모든 결과 표시",
+    "include-note-contents": "결과에 \"{{term}}\"의 노트 내용 포함",
+    "include-contents": "노트 내용 포함",
+    "hints": {
+      "title": "노트 검색 결과",
+      "move": "결과 사이 이동",
+      "open": "강조 표시된 결과 열기"
+    },
+    "recent": {
+      "today": "오늘",
+      "yesterday": "어제",
+      "past_week": "지난 7일",
+      "past_month": "지난 30일",
+      "older": "이전"
+    }
   },
   "note_tooltip": {
     "note-has-been-deleted": "노트는 삭제되었습니다.",
@@ -3572,9 +3611,7 @@
   },
   "server": {
     "unknown_http_error_title": "서버와의 통신 오류",
-    "unknown_http_error_content": "상태 코드: {{statusCode}}\nURL: {{method}} {{url}}\n메시지: {{message}}",
-    "reverse_proxy_blocked_title": "리버스 프록시에 의해 차단된 요청",
-    "reverse_proxy_blocked_message": "일부 요청이 Trilium에 도달하기 전에 거부되었습니다(HTTP 400). URL의 퍼센트 인코딩된 문자를 차단하는 리버스 프록시가 원인일 가능성이 높습니다.\n\nTraefik 3.6.4~3.6.6 버전에서는 기본적으로 이러한 동작이 발생합니다. Traefik 3.6.7 이상으로 업그레이드하거나 설정에서 인코딩된 문자를 허용하세요."
+    "unknown_http_error_content": "상태 코드: {{statusCode}}\nURL: {{method}} {{url}}\n메시지: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "이전 노트로 돌아가기",
@@ -4163,7 +4200,10 @@
       "enter-caption": "캡션 입력",
       "tiny": "작게",
       "show-title": "제목 표시",
-      "more-actions": "추가 작업"
+      "more-actions": "추가 작업",
+      "drawing-canvas": "그리기 캔버스",
+      "editable": "편집 가능",
+      "insert-a-canvas-to-draw-on": "그림을 그릴 수 있는 캔버스를 삽입합니다."
     },
     "toolbar-groups": {
       "text-formatting": "텍스트 서식",

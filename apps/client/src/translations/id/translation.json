@@ -3153,9 +3153,7 @@
   },
   "server": {
     "unknown_http_error_title": "Kesalahan komunikasi dengan server",
-    "unknown_http_error_content": "Kode status: {{statusCode}}\nURL: {{method}} {{url}}\nPesan: {{message}}",
-    "reverse_proxy_blocked_title": "Permintaan diblokir oleh proksi terbalik",
-    "reverse_proxy_blocked_message": "Beberapa permintaan ditolak (HTTP 400) sebelum mencapai Trilium, kemungkinan besar oleh proksi terbalik yang memblokir karakter terenkripsi persentase dalam URL.\n\nVersi Traefik 3.6.4 hingga 3.6.6 melakukan ini secara default: tingkatkan ke Traefik 3.6.7 atau lebih baru, atau izinkan karakter terenkripsi dalam konfigurasinya."
+    "unknown_http_error_content": "Kode status: {{statusCode}}\nURL: {{method}} {{url}}\nPesan: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Kembali ke catatan sebelumnya",

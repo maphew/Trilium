@@ -1706,7 +1706,8 @@
     "convert_embed_to_link": "リンクに変換",
     "include_size": "サイズ",
     "show_title": "タイトルを表示",
-    "show_caption": "キャプションを表示"
+    "show_caption": "キャプションを表示",
+    "editable": "編集可能"
   },
   "note_tooltip": {
     "quick-edit": "クイック編集",
@@ -2828,9 +2829,7 @@
   },
   "server": {
     "unknown_http_error_title": "サーバーとの通信エラー",
-    "unknown_http_error_content": "ステータスコード: {{statusCode}}\nURL: {{method}} {{url}}\nメッセージ: {{message}}",
-    "reverse_proxy_blocked_title": "リバースプロキシによってブロックされたリクエスト",
-    "reverse_proxy_blocked_message": "一部のリクエストが Trilium に到達する前に拒否（HTTP 400）されました。これはおそらく、URL 内のパーセントエンコードされた文字をブロックするリバースプロキシによるものと考えられます。\n\nTraefik バージョン 3.6.4 から 3.6.6 では、これがデフォルトで実行されます: Traefik 3.6.7以降にアップグレードするか、設定でエンコードされた文字を許可してください。"
+    "unknown_http_error_content": "ステータスコード: {{statusCode}}\nURL: {{method}} {{url}}\nメッセージ: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "前のノートに戻る",
@@ -3567,7 +3566,26 @@
       "table_column": "{{number}} 列"
     },
     "page_break": "改ページを挿入（印刷用）",
-    "table": "表を挿入"
+    "table": "表を挿入",
+    "titles": {
+      "date": "日付 / 時刻を挿入",
+      "include": "埋め込みノート",
+      "image": "画像をアップロード",
+      "link": "内部リンク",
+      "math": "数式",
+      "footnote": "脚注",
+      "mermaid": "マーメイド図",
+      "mermaid_template": "マーメイド図: {{name}}",
+      "collapsible": "折りたたみブロック",
+      "page_break": "改ページ",
+      "table": "表",
+      "note": "補足",
+      "tip": "ヒント",
+      "important": "重要",
+      "caution": "注意",
+      "warning": "警告",
+      "todo": "タスク: {{title}}"
+    }
   },
   "mobile_note_navigator": {
     "back": "1つ上の階層へ移動",
@@ -3771,7 +3789,10 @@
       "enter-caption": "キャプションを入力",
       "tiny": "コンパクト",
       "show-title": "タイトルを表示",
-      "more-actions": "その他のアクション"
+      "more-actions": "その他のアクション",
+      "drawing-canvas": "描画キャンバス",
+      "editable": "編集可能",
+      "insert-a-canvas-to-draw-on": "描画用のキャンバスを挿入。"
     },
     "toolbar-groups": {
       "text-formatting": "テキストの書式設定",

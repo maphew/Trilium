@@ -2863,9 +2863,7 @@
   },
   "server": {
     "unknown_http_error_title": "Errore di comunicazione con il server",
-    "unknown_http_error_content": "Codice di stato: {{statusCode}}\nURL: {{method}} {{url}}\nMessaggio: {{message}}",
-    "reverse_proxy_blocked_title": "Richieste bloccate da un proxy inverso",
-    "reverse_proxy_blocked_message": "Alcune richieste sono state respinte (HTTP 400) prima di raggiungere Trilium, molto probabilmente da un proxy inverso che blocca i caratteri codificati in formato percentuale negli URL.\n\nLe versioni di Traefik dalla 3.6.4 alla 3.6.6 si comportano così per impostazione predefinita: esegui l'aggiornamento a Traefik 3.6.7 o versioni successive, oppure consenti l'uso di caratteri codificati nella configurazione."
+    "unknown_http_error_content": "Codice di stato: {{statusCode}}\nURL: {{method}} {{url}}\nMessaggio: {{message}}"
   },
   "tab_history_navigation_buttons": {
     "go-back": "Torna alla nota precedente",
