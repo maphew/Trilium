@@ -5,10 +5,12 @@ import clsx from "clsx";
 import { t } from "../../../services/i18n.js";
 import Dropdown from "../../react/Dropdown.js";
 import { FormListToggleableItem } from "../../react/FormList.js";
+import Icon from "../../react/Icon.js";
 
 /**
  * The Tools menu of the chat input bar: one switch per group of tools the model can reach this
- * turn. Each row stops its click, so the menu stays open while several are flipped.
+ * turn. Each row stops its click, so the menu stays open while several are flipped. Its toggle
+ * shares the compact combo box styling of the model picker beside it.
  */
 export default function ChatToolsDropdown({ enableNoteTools, enableWebSearch, onNoteToolsChange, onWebSearchChange, webSearchUnavailableReason, disabled }: {
     enableNoteTools: boolean;
@@ -24,14 +26,12 @@ export default function ChatToolsDropdown({ enableNoteTools, enableWebSearch, on
 
     return (
         <Dropdown
-            buttonClassName={clsx("bx bx-shield-quarter llm-chat-capability llm-chat-tools-button", anyActive && "active")}
+            text={<Icon icon="bx bx-shield-quarter" className={clsx("llm-chat-tools-icon", anyActive && "llm-chat-tools-on")} />}
+            buttonClassName="llm-chat-model-select llm-chat-tools-button"
             className="llm-chat-tools"
             title={t("llm_chat.tools")}
             titlePosition="top"
             placement="top-start"
-            iconAction
-            hideToggleArrow
-            noSelectButtonStyle
             disabled={disabled}
         >
             <FormListToggleableItem

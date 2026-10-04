@@ -4,13 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => key }));
 
-// Renders the toggle's class and tooltip, and the menu, without the popup machinery.
+// Renders the toggle's face, class and tooltip, and the menu, without the popup machinery.
 vi.mock("../../react/Dropdown.js", () => ({
-    default: ({ title, buttonClassName, children }: {
-        title?: string; buttonClassName?: string; children: ComponentChildren;
+    default: ({ text, title, buttonClassName, children }: {
+        text?: ComponentChildren; title?: string; buttonClassName?: string; children: ComponentChildren;
     }) => (
         <div className="dropdown-stub">
-            <button className={buttonClassName} title={title} />
+            <button className={buttonClassName} title={title}>{text}</button>
             <div className="menu">{children}</div>
         </div>
     )
@@ -43,8 +43,14 @@ function renderMenu(props: Partial<Parameters<typeof ChatToolsDropdown>[0]> = {}
         />, target));
 
     const rows = [ ...target.querySelectorAll<HTMLElement>(".menu .dropdown-item") ];
+    const toggle = target.querySelector<HTMLButtonElement>(".dropdown-stub > button");
     return {
-        toggle: target.querySelector<HTMLButtonElement>(".dropdown-stub > button"),
+        toggle,
+        isToggleOn: () => {
+            const icon = toggle?.querySelector(".llm-chat-tools-icon");
+            expect(icon).not.toBeNull();
+            return icon?.classList.contains("llm-chat-tools-on");
+        },
         noteRow: rows.find((row) => row.textContent?.includes("llm_chat.note_tools")),
         webRow: rows.find((row) => row.textContent?.includes("llm_chat.web_search")),
         onNoteToolsChange,
@@ -55,15 +61,17 @@ function renderMenu(props: Partial<Parameters<typeof ChatToolsDropdown>[0]> = {}
 const isOn = (row: HTMLElement | undefined) => row?.querySelector<HTMLInputElement>("input[type='checkbox']")?.checked;
 
 describe("ChatToolsDropdown", () => {
-    it("shows a switch per tool group, and marks the toggle active while any is on", () => {
+    it("shows a switch per tool group, and marks the toggle while any is on", () => {
         const off = renderMenu();
         expect(off.toggle?.title).toBe("llm_chat.tools");
-        expect(off.toggle?.classList.contains("active")).toBe(false);
+        // The compact combo box of the model picker, which draws the dropdown caret.
+        expect(off.toggle?.classList.contains("llm-chat-model-select")).toBe(true);
+        expect(off.isToggleOn()).toBe(false);
         expect(isOn(off.noteRow)).toBe(false);
         expect(isOn(off.webRow)).toBe(false);
 
         const on = renderMenu({ enableWebSearch: true });
-        expect(on.toggle?.classList.contains("active")).toBe(true);
+        expect(on.isToggleOn()).toBe(true);
         expect(isOn(on.noteRow)).toBe(false);
         expect(isOn(on.webRow)).toBe(true);
     });
@@ -80,9 +88,9 @@ describe("ChatToolsDropdown", () => {
     });
 
     it("shows web search off and disabled, with the reason, when the model cannot combine it", async () => {
-        const { toggle, webRow, onWebSearchChange } = renderMenu({ enableWebSearch: true, webSearchUnavailableReason: "Not on Gemini" });
+        const { isToggleOn, webRow, onWebSearchChange } = renderMenu({ enableWebSearch: true, webSearchUnavailableReason: "Not on Gemini" });
 
-        expect(toggle?.classList.contains("active")).toBe(false);
+        expect(isToggleOn()).toBe(false);
         expect(isOn(webRow)).toBe(false);
         expect(webRow?.classList.contains("disabled")).toBe(true);
         expect(webRow?.querySelector(".description")?.textContent).toBe("Not on Gemini");
