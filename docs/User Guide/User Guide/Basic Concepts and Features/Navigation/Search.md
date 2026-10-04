@@ -166,7 +166,8 @@ In addition: 
         *   J. R. R. Tolkien
             *   relation: “son” points to "Christopher Tolkien" note
             *   Christopher Tolkien
-*   `~author.title *= Tolkien OR (#publicationDate >= 1954 AND #publicationDate <= 1960)`: Use boolean expressions and parentheses to group expressions. Note that expressions starting with a parenthesis need an "expression separator sign" (# or ~) prepended.
+*   `~author.title *= Tolkien OR (#publicationDate >= 1954 AND #publicationDate <= 1960)`: Use boolean expressions and parentheses to group expressions.
+*   `towers (#genre = fantasy OR #genre = scifi)`: A group can open the expression part directly, without a `#` or `~` before the parenthesis. Here it finds notes containing "towers" whose genre is fantasy or scifi.
 *   `note.parents.title = 'Books'`: Find notes with a parent named "Books".
 *   `note.parents.parents.title = 'Books'`: Find notes with a grandparent named "Books".
 *   `note.ancestors.title = 'Books'`: Find notes with an ancestor named "Books".

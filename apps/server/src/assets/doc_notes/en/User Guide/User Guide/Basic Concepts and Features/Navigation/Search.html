@@ -325,9 +325,11 @@
     </ul>
   </li>
   <li><code>~author.title *= Tolkien OR (#publicationDate &gt;= 1954 AND #publicationDate &lt;= 1960)</code>:
-    Use boolean expressions and parentheses to group expressions. Note that
-    expressions starting with a parenthesis need an "expression separator sign"
-    (# or ~) prepended.</li>
+    Use boolean expressions and parentheses to group expressions.</li>
+  <li><code>towers (#genre = fantasy OR #genre = scifi)</code>: A group can
+    open the expression part directly, without a <code>#</code> or <code>~</code> before
+    the parenthesis. Here it finds notes containing "towers" whose genre is
+    fantasy or scifi.</li>
   <li><code>note.parents.title = 'Books'</code>: Find notes with a parent named
     "Books".</li>
   <li><code>note.parents.parents.title = 'Books'</code>: Find notes with a grandparent

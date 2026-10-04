@@ -2,6 +2,8 @@ import type { TokenData } from "./types.js";
 
 /** Separates tokens outside quotes, so a query can be laid out over several lines. */
 const WHITESPACE = /\s/;
+/** Opening brackets followed by an attribute or `note.`, which make the brackets grouping. */
+const GROUP_START = /^\(+\s*(#|~|note\.)/;
 
 function lex(str: string) {
     str = str.toLowerCase();
@@ -96,10 +98,16 @@ function lex(str: string) {
                 fulltextEnded = true;
             }
 
+            // A "(" that opens a word starting with an attribute or `note.` opens the expression
+            // part, so "(#a OR #b)" groups without a leading "#".
+            if (!fulltextEnded && currentWord === "" && chr === "(" && GROUP_START.test(str.substring(i))) {
+                fulltextEnded = true;
+            }
+
             if (chr === "#" || chr === "~") {
                 // In the full-text part, # and ~ start an attribute only at the start of a word,
-                // so "c#" and "towers#book" are searched as written. A leading "(" is grouping.
-                if (!fulltextEnded && currentWord !== "" && !/^\(+$/.test(currentWord)) {
+                // so "c#" and "towers#book" are searched as written.
+                if (!fulltextEnded && currentWord !== "") {
                     currentWord += chr;
                     continue;
                 }

@@ -38,6 +38,25 @@ describe("Search", () => {
         expect(findNoteByTitle(searchResults, "Austria")).toBeTruthy();
     });
 
+    it("runs a query whose expression part opens with a parenthesis", () => {
+        rootNote
+            .child(note("Alpha").label("a"))
+            .child(note("Beta").label("b"))
+            .child(note("Gamma"));
+
+        const titles = (query: string) => {
+            const searchContext = new SearchContext();
+            const results = searchService.findResultsWithQuery(query, searchContext);
+            expect(searchContext.error).toBeNull();
+            return results.map((r) => becca.notes[r.noteId].title).sort();
+        };
+
+        expect(titles("(#a OR #b)")).toEqual([ "Alpha", "Beta" ]);
+        expect(titles("(note.title = 'Alpha')")).toEqual([ "Alpha" ]);
+        expect(titles("(#a) OR (#b)")).toEqual([ "Alpha", "Beta" ]);
+        expect(titles("alpha (#a OR #b)")).toEqual([ "Alpha" ]);
+    });
+
     it("normal search looks also at attributes", () => {
         const austria = note("Austria");
         const vienna = note("Vienna");
