@@ -25,11 +25,11 @@ export default function SearchResult() {
     const viewType = useNoteViewType(note);
     const [ , setRefreshCount ] = useState(0);
     const state = getSearchResultState(note);
-    const { isSearching, runSearch } = useSavedSearchRun(note, state === SearchResultState.NOT_EXECUTED, {
-        noteContext,
-        ntxId,
-        parentComponent
-    });
+    const { isSearching, runSearch } = useSavedSearchRun(
+        note,
+        state === SearchResultState.NOT_EXECUTED,
+        { noteContext, ntxId, parentComponent }
+    );
     const highlightedTokens = note?.highlightedTokenInfos ?? note?.highlightedTokens;
 
     // The search note is updated in place, so a re-render picks up the new results.
@@ -89,16 +89,21 @@ export default function SearchResult() {
     );
 }
 
+type SearchRunContext = Pick<
+    ReturnType<typeof useNoteContext>,
+    "noteContext" | "ntxId" | "parentComponent"
+>;
+
 /**
- * Runs the shown saved search through `search.runSearchNote()`, once each time it is shown in a visible
- * tab, and reports while a run is in progress. A failed request therefore waits for `runSearch()` ("Search
- * now") or the next showing. Safe mode runs nothing on its own, so a hanging search cannot hang every
- * start-up.
+ * Runs a saved search that has no results yet, through `search.runSearchNote()`, when it is
+ * shown in a visible tab, and reports while a run is in progress. A failed request waits for
+ * `runSearch()` ("Search now") or the next showing. Safe mode runs nothing on its own, so a
+ * hanging search cannot hang every start-up.
  */
 function useSavedSearchRun(
     note: FNote | null | undefined,
     hasNotRun: boolean,
-    { noteContext, ntxId, parentComponent }: Pick<ReturnType<typeof useNoteContext>, "noteContext" | "ntxId" | "parentComponent">
+    { noteContext, ntxId, parentComponent }: SearchRunContext
 ) {
     const hasTabBeenShown = useHasTabBeenShown(noteContext);
     const [ runningNoteId, setRunningNoteId ] = useState<string>();

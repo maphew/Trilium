@@ -525,10 +525,10 @@ function findClosestNoteContext(component: Component | null): NoteContext | unde
 }
 
 /**
- * Whether the tab holding `noteContext` has been shown since the component mounted. A tab restored or
- * opened in the background reads `false` until the user switches to it. Every split of a tab is shown
- * with it, so the check is keyed on the tab's main context. Special contexts (an ntxId starting with
- * "_", such as the popup editor) always read `true`.
+ * Whether the tab holding `noteContext` has been shown since the component mounted. A tab
+ * restored or opened in the background reads `false` until the user switches to it. Every split
+ * of a tab is shown with it, so the check is keyed on the tab's main context. Special contexts (an
+ * ntxId starting with "_", such as the popup editor) always read `true`.
  */
 export function useHasTabBeenShown(noteContext: NoteContext | undefined) {
     const isShown = () => (noteContext?.ntxId?.startsWith("_") ?? false)
@@ -550,12 +550,15 @@ export function useHasTabBeenShown(noteContext: NoteContext | undefined) {
 }
 
 /**
- * True when the given context belongs to the active tab, identified by `activeMainNtxId` (the ntxId of
- * the active tab's main context). A tab can hold several splits, but only one of them is the "active"
- * context at a time; every split of the active tab is visible and must load eagerly, so the deferral
- * check is keyed on the tab (the main context), not the individual split.
+ * True when the given context belongs to the active tab, identified by `activeMainNtxId` (the
+ * ntxId of the active tab's main context). A tab can hold several splits, but only one of them is
+ * the "active" context at a time; every split of the active tab is visible and must load eagerly,
+ * so the deferral check is keyed on the tab (the main context), not the individual split.
  */
-export function isContextInActiveTab(noteContext: NoteContext | undefined, activeMainNtxId: string | null | undefined): boolean {
+export function isContextInActiveTab(
+    noteContext: NoteContext | undefined,
+    activeMainNtxId: string | null | undefined
+): boolean {
     if (!noteContext || activeMainNtxId == null) {
         return false;
     }

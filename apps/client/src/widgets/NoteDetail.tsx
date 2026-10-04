@@ -19,7 +19,13 @@ import toast from "../services/toast.js";
 import { isElectron } from "../services/utils";
 import { ExtendedNoteType, TYPE_MAPPINGS, TypeWidget } from "./note_types";
 import Button from "./react/Button";
-import { useDelayedVisibility, useGetContextDataFrom, useHasTabBeenShown, useNoteContext, useTriliumEvent } from "./react/hooks";
+import {
+    useDelayedVisibility,
+    useGetContextDataFrom,
+    useHasTabBeenShown,
+    useNoteContext,
+    useTriliumEvent
+} from "./react/hooks";
 import Icon from "./react/Icon";
 import NoItems from "./react/NoItems";
 import { NoteListWithLinks } from "./react/NoteList";
