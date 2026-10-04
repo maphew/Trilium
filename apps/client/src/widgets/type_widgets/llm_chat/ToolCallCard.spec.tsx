@@ -734,11 +734,27 @@ describe("ToolCallCard", () => {
         expect(single?.getAttribute("title")).toBe("llm_chat.searched_with{\"name\":\"Tavily\"}");
         expect(single?.querySelector(".masked-icon")).not.toBeNull();
 
+        // A search that found nothing is a line with nothing to expand, marked the same way.
+        const nothingFound: ToolCall = { ...viaTavily("0"), result: JSON.stringify({ query: "trilium", searchProvider: { type: "tavily", name: "Tavily" }, sources: [] }) };
+        const bare = renderCard([ nothingFound ]).querySelector(".llm-chat-tool-call");
+        expect(bare instanceof HTMLDetailsElement).toBe(false);
+        expect(icon(bare)?.getAttribute("title")).toBe("llm_chat.searched_with{\"name\":\"Tavily\"}");
+
         // A run of searches is one line, marked as its searches are.
         const group = icon(renderCard([ viaTavily("1"), viaTavily("2") ]).querySelector(".llm-chat-tool-call-group"));
         expect(group?.getAttribute("title")).toBe("llm_chat.searched_with{\"name\":\"Tavily\"}");
 
         expect(icon(renderCard([ builtIn ]).querySelector(".llm-chat-tool-call"))?.className).toBe("bx bx-search");
+
+        // A result that names no provider in full, or is no object at all, keeps the magnifier.
+        const nameless: ToolCall = { id: "n", toolName: "web_search", input: { query: "q" }, result: JSON.stringify({ searchProvider: { type: "tavily" } }) };
+        const empty: ToolCall = { id: "e", toolName: "web_search", input: { query: "q" }, result: "null" };
+        for (const call of [ nameless, empty ]) {
+            expect(icon(renderCard([ call ]).querySelector(".llm-chat-tool-call"))?.className).toBe("bx bx-search");
+        }
+        // So does a run that mixes a search provider's searches with the model's own.
+        expect(icon(renderCard([ viaTavily("1"), { ...builtIn, id: "2" } ]).querySelector(".llm-chat-tool-call-group"))?.className)
+            .toBe("bx bx-search");
     });
 
     it("links the page a call read, and previews what it read there", () => {

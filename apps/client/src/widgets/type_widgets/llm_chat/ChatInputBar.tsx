@@ -3,7 +3,7 @@ import "./ChatInputBar.css";
 import type { AttributeEditor as CKEditorAttributeEditor, CKTextEditor, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import type { DISPLAYABLE_LOCALE_IDS, LlmReasoningEffort } from "@triliumnext/commons";
 import { Fragment } from "preact";
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
@@ -23,11 +23,11 @@ import { computeContextUsage } from "./chat_context_usage.js";
 import { insertNewBlock as insertNewBlockCommand, isSelectionInCodeBlock, outdentListItemAtStart } from "./chat_input_editing.js";
 import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
 import { shortModelName } from "./model_name.js";
-import ChatToolsDropdown from "./ChatToolsDropdown.js";
+import ChatToolsDropdown, { useChatWebSearch } from "./ChatToolsDropdown.js";
 import ReasoningEffortDropdown from "./ReasoningEffortDropdown.js";
 import { SafeImage } from "./retry_image.js";
 import { getAttachmentLightbox, getUnreadableReasons, useChatAttachments } from "./useChatAttachments.js";
-import { type ModelOption, readSearchProviders, resolveSelectedModel, resolveWebSearch, unreadableAttachments } from "../../../services/llm_providers.js";
+import { type ModelOption, resolveSelectedModel, unreadableAttachments } from "../../../services/llm_providers.js";
 import { type AttachmentBlock, type UseLlmChatReturn } from "./useLlmChat.js";
 
 const READ_ONLY_LOCK = "llm-chat-streaming";
@@ -91,10 +91,6 @@ export default function ChatInputBar({
     const editorApiRef = useRef<CKEditorApi | undefined>(undefined);
     const editorInstanceRef = useRef<CKTextEditor | undefined>(undefined);
     const [ uiLanguage ] = useTriliumOption("locale");
-    const [ llmProviders ] = useTriliumOption("llmProviders");
-    const [ webSearchProviderId, setWebSearchProviderId ] = useTriliumOption("llmWebSearchProvider");
-    // Read through `options`; `llmProviders` is the dependency so the list follows the settings.
-    const searchProviders = useMemo(readSearchProviders, [ llmProviders ]);
     // CKEditor is the heaviest module the client has, and importing it statically here put it
     // on the startup critical path: the right panel mounts SidebarChat, which pulls this bar,
     // which pulled the editor — and its math plugin, and mathlive — before the app finished
@@ -167,15 +163,6 @@ export default function ChatInputBar({
         }
     }, [chat.isStreaming]);
 
-    /** Turns web search off for this chat, or on with the chosen source, which every chat shares. */
-    const handleWebSearchChoose = (choice: string) => {
-        chat.setEnableWebSearch(choice !== "disabled");
-        if (choice !== "disabled") {
-            void setWebSearchProviderId(choice === "builtin" ? "" : choice);
-        }
-        onWebSearchChange?.();
-    };
-
     const handleNoteToolsToggle = (newValue: boolean) => {
         chat.setEnableNoteTools(newValue);
         onNoteToolsChange?.();
@@ -237,14 +224,7 @@ export default function ChatInputBar({
     const currentModel = resolveSelectedModel(chat.availableModels, chat.selectedModel, chat.selectedProvider, chat.selectedProviderId);
     const isSelectedModel = (m: ModelOption) => m === currentModel;
     const unreadableReasons = getUnreadableReasons(currentModel, chat.pendingAttachments);
-    // Resolved as `useLlmChat` resolves it for sending, so the menu marks what the turn will use.
-    const webSearch = resolveWebSearch({
-        modelProvider: currentModel?.provider,
-        enableWebSearch: chat.enableWebSearch,
-        enableNoteTools: chat.enableNoteTools,
-        searchProviderId: webSearchProviderId,
-        searchProviders
-    });
+    const { webSearch, searchProviders, chooseWebSearch } = useChatWebSearch(chat, currentModel?.provider, onWebSearchChange);
     // Null until the window is close enough to matter, and null (rather than a guess) when
     // the model advertises no window at all. See chat_context_usage.
     const contextUsage = computeContextUsage({
@@ -481,7 +461,7 @@ export default function ChatInputBar({
                             modelProvider={currentModel?.provider}
                             webSearch={webSearch}
                             searchProviders={searchProviders}
-                            onWebSearchChoose={handleWebSearchChoose}
+                            onWebSearchChoose={chooseWebSearch}
                             disabled={chat.isStreaming}
                         />
                         {!currentModel?.reasoningEfforts?.length && (

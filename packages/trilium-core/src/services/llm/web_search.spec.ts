@@ -110,6 +110,42 @@ describe("searchWeb", () => {
     });
 });
 
+describe("searchWeb overrides and sparse answers", () => {
+    it("sends every provider to its base URL override, and reads a payload without results as none", async () => {
+        const base = "https://proxy.example";
+        const cases: [ string, string ][] = [
+            [ "brave", `${base}/web/search?q=q&count=8` ],
+            [ "exa", `${base}/search` ],
+            [ "serper", `${base}/search` ],
+            [ "perplexity", `${base}/search` ]
+        ];
+        for (const [ provider, expectedUrl ] of cases) {
+            fetchMock.mockReset();
+            respond({});
+            expect(await searchWeb({ provider, apiKey: "k", baseURL: base }, "q"), provider).toEqual([]);
+            expect(request().url, provider).toBe(expectedUrl);
+        }
+    });
+
+    it("sends SearXNG its key when it has one, and skips a result that is not an object", async () => {
+        respond({ results: [ null, { ...PAGE, content: "Hit" } ] });
+        expect(await searchWeb({ provider: "searxng", apiKey: "xk", baseURL: "http://searx.lan" }, "q"))
+            .toEqual([ { ...PAGE, snippet: "Hit" } ]);
+        expect(request().headers.Authorization).toBe("Bearer xk");
+    });
+
+    it("names the provider by its type when it has no name, and reports a failure that is not an Error", async () => {
+        const tool = createWebSearchTool({ provider: "tavily", apiKey: "tk" });
+        const run = () => tool.execute?.({ query: "q" }, { toolCallId: "1", messages: [], context: {} });
+
+        respond({ results: [] });
+        expect(await run()).toMatchObject({ searchProvider: { type: "tavily", name: "tavily" } });
+
+        fetchMock.mockRejectedValueOnce("offline");
+        expect(await run()).toEqual({ error: "offline" });
+    });
+});
+
 describe("createWebSearchTool", () => {
     const run = (tool: ReturnType<typeof createWebSearchTool>, query: string) =>
         tool.execute?.({ query }, { toolCallId: "1", messages: [], context: {} });
@@ -196,6 +232,14 @@ describe("readWebPage", () => {
             serve("ok", "text/plain");
             expect(await readWebPage(url), url).toBe("ok");
         }
+    });
+
+    it("reads a page without a title or a main element, or without a content type, as HTML", async () => {
+        serve("<html><body><p>Only <b>body</b></p></body></html>");
+        expect(await readWebPage("https://a.example/")).toBe("Only **body**");
+
+        serve("<p>A fragment</p>", "");
+        expect(await readWebPage("https://a.example/fragment")).toBe("A fragment");
     });
 
     it("hands the model a refused address as an error to report", async () => {

@@ -208,6 +208,8 @@ describe("llm/index provider registry", () => {
             expect(getSearchProviderSetup("s1")).toEqual(search);
             expect(getSearchProviderSetup("a1")).toBeUndefined();
             expect(getSearchProviderSetup(undefined)).toBeUndefined();
+            getOptionOrNullMock.mockReturnValue(null);
+            expect(getSearchProviderSetup("s1")).toBeUndefined();
 
             getOptionOrNullMock.mockReturnValue("{not json");
             expect(getSearchProviderSetup("s1")).toBeUndefined();

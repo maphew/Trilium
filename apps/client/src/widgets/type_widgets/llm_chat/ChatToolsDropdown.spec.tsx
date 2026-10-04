@@ -2,10 +2,26 @@ import { type ComponentChildren, render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ triggerCommand: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+    triggerCommand: vi.fn(),
+    /** Option values by name, as `useTriliumOption` and `options.getJson()` read them. */
+    stored: {} as Record<string, string>,
+    /** Every option write. */
+    saved: [] as [ string, unknown ][]
+}));
 
 vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => key }));
 vi.mock("../../../components/app_context.js", () => ({ default: { triggerCommand: mocks.triggerCommand } }));
+vi.mock("../../../services/options.js", () => ({
+    default: { getJson: (name: string) => JSON.parse(mocks.stored[name] ?? "null") }
+}));
+vi.mock("../../react/hooks.js", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../react/hooks.js")>()),
+    useTriliumOption: (name: string) => [
+        mocks.stored[name] ?? "",
+        async (value: unknown) => void mocks.saved.push([ name, value ])
+    ]
+}));
 
 // Renders the toggle's face, class and tooltip, and the menu, without the popup machinery.
 vi.mock("../../react/Dropdown.js", () => ({
@@ -20,7 +36,7 @@ vi.mock("../../react/Dropdown.js", () => ({
 }));
 
 import type { WebSearchState } from "../../../services/llm_providers.js";
-import ChatToolsDropdown from "./ChatToolsDropdown.js";
+import ChatToolsDropdown, { useChatWebSearch } from "./ChatToolsDropdown.js";
 
 let host: HTMLElement | undefined;
 
@@ -30,6 +46,8 @@ afterEach(() => {
         host.remove();
         host = undefined;
     }
+    mocks.stored = {};
+    mocks.saved = [];
     vi.clearAllMocks();
 });
 
@@ -138,5 +156,59 @@ describe("ChatToolsDropdown", () => {
 
         await act(async () => menu.row("Tavily")?.click());
         expect(menu.onWebSearchChoose).not.toHaveBeenCalled();
+    });
+});
+
+describe("useChatWebSearch", () => {
+    const OPENAI = { id: "o1", name: "OpenAI", provider: "openai" };
+
+    function mountHook(modelProvider: string | undefined) {
+        const chat = { enableWebSearch: true, enableNoteTools: false, setEnableWebSearch: vi.fn() };
+        const onChange = vi.fn();
+        let result: ReturnType<typeof useChatWebSearch> | undefined;
+        function Probe() {
+            result = useChatWebSearch(chat, modelProvider, onChange);
+            return null;
+        }
+        host = document.body.appendChild(document.createElement("div"));
+        const target = host;
+        const rerender = () => act(() => render(<Probe />, target));
+        rerender();
+        const current = () => {
+            expect(result).toBeDefined();
+            return result as ReturnType<typeof useChatWebSearch>;
+        };
+        return { chat, onChange, current, rerender };
+    }
+
+    it("resolves the chosen search provider for the model, and lists only the search providers", () => {
+        mocks.stored = {
+            llmProviders: JSON.stringify([ { ...OPENAI, selectedModels: [] }, { ...TAVILY, kind: "search" } ]),
+            llmWebSearchProvider: "s1"
+        };
+        const { current, rerender } = mountHook("openai");
+
+        expect(current().searchProviders).toEqual([ TAVILY ]);
+        expect(current().webSearch).toMatchObject({ choice: "s1", enableWebSearch: true, webSearchProviderId: "s1" });
+
+        // A search provider removed in the settings leaves the model's built-in search.
+        mocks.stored.llmProviders = JSON.stringify([ OPENAI ]);
+        rerender();
+        expect(current().searchProviders).toEqual([]);
+        expect(current().webSearch).toMatchObject({ choice: "builtin", enableWebSearch: true, webSearchProviderId: undefined });
+    });
+
+    it("turns web search on with the chosen source, which every chat shares, or off for this chat only", () => {
+        const { chat, onChange, current } = mountHook(undefined);
+
+        act(() => current().chooseWebSearch("s1"));
+        act(() => current().chooseWebSearch("builtin"));
+        expect(chat.setEnableWebSearch.mock.calls).toEqual([ [ true ], [ true ] ]);
+        expect(mocks.saved).toEqual([ [ "llmWebSearchProvider", "s1" ], [ "llmWebSearchProvider", "" ] ]);
+
+        act(() => current().chooseWebSearch("disabled"));
+        expect(chat.setEnableWebSearch).toHaveBeenLastCalledWith(false);
+        expect(mocks.saved).toHaveLength(2);
+        expect(onChange).toHaveBeenCalledTimes(3);
     });
 });

@@ -2,16 +2,19 @@ import "./ChatToolsDropdown.css";
 
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
+import { useMemo } from "preact/hooks";
 
 import appContext from "../../../components/app_context.js";
 import { t } from "../../../services/i18n.js";
-import type { SearchProviderOption, WebSearchState } from "../../../services/llm_providers.js";
+import { readSearchProviders, resolveWebSearch, type SearchProviderOption, type WebSearchState } from "../../../services/llm_providers.js";
 import ActionButton from "../../react/ActionButton.js";
 import Dropdown from "../../react/Dropdown.js";
 import { FormDropdownDivider, FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList.js";
+import { useTriliumOption } from "../../react/hooks.js";
 import Icon from "../../react/Icon.js";
 import MaskedIcon from "../../react/MaskedIcon.js";
 import { providerIconUrl } from "../options/llm/provider_icons.js";
+import type { UseLlmChatReturn } from "./useLlmChat.js";
 
 /**
  * The Tools menu of the chat input bar: what the model can reach this turn, one section per group
@@ -90,6 +93,40 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
             ))}
         </Dropdown>
     );
+}
+
+/**
+ * The chat's web search for a model of `modelProvider`, resolved as `useLlmChat` resolves it for
+ * sending so the menu marks what the turn will use, with the search providers to offer and the
+ * handler for a choice. `onChange` runs after every choice.
+ */
+export function useChatWebSearch(
+    chat: Pick<UseLlmChatReturn, "enableWebSearch" | "enableNoteTools" | "setEnableWebSearch">,
+    modelProvider: string | undefined,
+    onChange?: () => void
+) {
+    const [ llmProviders ] = useTriliumOption("llmProviders");
+    const [ searchProviderId, setSearchProviderId ] = useTriliumOption("llmWebSearchProvider");
+    // Read through `options`; `llmProviders` is the dependency so the list follows the settings.
+    const searchProviders = useMemo(readSearchProviders, [ llmProviders ]);
+    const webSearch = resolveWebSearch({
+        modelProvider,
+        enableWebSearch: chat.enableWebSearch,
+        enableNoteTools: chat.enableNoteTools,
+        searchProviderId,
+        searchProviders
+    });
+
+    /** Turns web search off for this chat, or on with the chosen source, which every chat shares. */
+    const chooseWebSearch = (choice: string) => {
+        chat.setEnableWebSearch(choice !== "disabled");
+        if (choice !== "disabled") {
+            void setSearchProviderId(choice === "builtin" ? "" : choice);
+        }
+        onChange?.();
+    };
+
+    return { webSearch, searchProviders, chooseWebSearch };
 }
 
 /**

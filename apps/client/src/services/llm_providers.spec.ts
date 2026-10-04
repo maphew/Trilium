@@ -1,11 +1,11 @@
 import type { LlmModelInfo } from "@triliumnext/commons";
 import { describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ stored: [] as unknown[] }));
+const mocks = vi.hoisted(() => ({ stored: [] as unknown[] | null }));
 
 vi.mock("./options.js", () => ({ default: { getJson: () => mocks.stored } }));
 
-import { readSelectedModels, readsAttachmentKind, resolveWebSearch, unreadableAttachments } from "./llm_providers.js";
+import { readSearchProviders, readSelectedModels, readsAttachmentKind, resolveWebSearch, unreadableAttachments } from "./llm_providers.js";
 
 const textOnly: LlmModelInfo = { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", attachmentKinds: [] };
 const imagesOnly: LlmModelInfo = { id: "codex", name: "Codex", attachmentKinds: [ "image" ] };
@@ -47,6 +47,23 @@ describe("readSelectedModels", () => {
 
         mocks.stored = [ { id: "s1", name: "Brave Search", provider: "brave", kind: "search" } ];
         expect(readSelectedModels().hasProvider).toBe(false);
+    });
+});
+
+describe("readSearchProviders", () => {
+    it("lists the search providers in config order, and none when the option is unset", () => {
+        mocks.stored = [
+            { id: "s1", name: "Brave Search", provider: "brave", kind: "search", apiKey: "k" },
+            { id: "o1", name: "OpenAI", provider: "openai" },
+            { id: "s2", name: "Tavily", provider: "tavily", kind: "search" }
+        ];
+        expect(readSearchProviders()).toEqual([
+            { id: "s1", name: "Brave Search", provider: "brave" },
+            { id: "s2", name: "Tavily", provider: "tavily" }
+        ]);
+
+        mocks.stored = null;
+        expect(readSearchProviders()).toEqual([]);
     });
 });
 

@@ -10,8 +10,8 @@ vi.mock("../../../services/llm_chat.js", () => ({
 // The chat picker now reads the user's selected models straight from the
 // `llmProviders` option (no server fetch), so stub that service.
 const optionsGetJsonMock = vi.hoisted(() => vi.fn());
-/** The `llmWebSearchProvider` option. */
-const webSearchProvider = vi.hoisted(() => ({ id: "" }));
+/** The `llmWebSearchProvider` option, unset unless a test picks a search provider. */
+const webSearchProvider = vi.hoisted(() => ({ id: undefined as string | undefined }));
 vi.mock("../../../services/options.js", () => ({
     default: { getJson: optionsGetJsonMock, get: () => webSearchProvider.id }
 }));
@@ -88,7 +88,7 @@ describe("useLlmChat", () => {
     });
 
     afterEach(() => {
-        webSearchProvider.id = "";
+        webSearchProvider.id = undefined;
         if (host) {
             render(null, host);
             host.remove();

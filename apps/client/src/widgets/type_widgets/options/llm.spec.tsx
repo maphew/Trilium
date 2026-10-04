@@ -12,8 +12,18 @@ const mocks = vi.hoisted(() => ({
     // alongside it (keyboard actions) expect a list from the same service.
     /** What the server says about the interfaces it is bound to. */
     network: { addresses: [] as string[], reachableOnNetwork: false },
-    get: vi.fn(async (url: string) => (url === "network-addresses" ? mocks.network : []))
+    get: vi.fn(async (url: string) => (url === "network-addresses" ? mocks.network : [])),
+    /** The props of each provider card's modal, by its kind, as last rendered. */
+    modals: {} as Record<string, ModalProps>
 }));
+
+interface ModalProps {
+    show: boolean;
+    kind: string;
+    existingProvider?: { id: string };
+    onHidden: () => void;
+    onSave: (provider: { id: string; name: string; provider: string; kind?: string; apiKey: string }) => void;
+}
 
 // `isStandalone` is a const in the target, read here through a getter so a scenario can flip which
 // kind of client we are pretending to be. Partial-mock, so the rest of utils stays real.
@@ -58,7 +68,13 @@ vi.mock("./components/OptionsPageHeader", () => ({
     default: ({ below }: { below?: preact.ComponentChildren }) => <div className="header-stub">{below}</div>
 }));
 // Carries a bootstrap modal into the tree, and the MCP card below it is what is being read here.
-vi.mock("./llm/AddProviderModal", () => ({ default: () => null, findProviderType: () => undefined }));
+vi.mock("./llm/AddProviderModal", () => ({
+    default: (props: ModalProps) => {
+        mocks.modals[props.kind] = props;
+        return null;
+    },
+    findProviderType: () => undefined
+}));
 
 import LlmSettings, { buildMcpClientConfig, buildMcpClientCommand } from "./llm";
 
@@ -71,6 +87,7 @@ beforeEach(() => {
     mocks.standalone = false;
     mocks.stored = { aiEnabled: "true", mcpEnabled: "true" };
     mocks.saved = [];
+    mocks.modals = {};
     mocks.network = { addresses: [], reachableOnNetwork: false };
     host = document.body.appendChild(document.createElement("div"));
 });
@@ -273,6 +290,37 @@ describe("the configured providers", () => {
         await act(async () => remove.click());
 
         expect(mocks.saved.some(([ name ]) => name === "llmProviders")).toBe(false);
+    });
+
+    it("opens the modal of the card's kind to add or edit, and saves into the shared list", async () => {
+        withProviders([
+            { id: "a", name: "My OpenAI", provider: "openai", apiKey: "sk" },
+            { id: "s", name: "Brave Search", provider: "brave", kind: "search", apiKey: "bk" }
+        ]);
+        open();
+        const written = () => JSON.parse(mocks.saved.at(-1)?.[1] ?? "[]") as { id: string; name: string }[];
+
+        const add = host.querySelector<HTMLButtonElement>("button[name='add-search-provider-button']");
+        expect(add).not.toBeNull();
+        await act(async () => add?.click());
+        expect(mocks.modals.search).toMatchObject({ show: true, existingProvider: undefined });
+        expect(mocks.modals.llm?.show).toBe(false);
+
+        // Adding appends, keeping the providers of the other kind.
+        act(() => mocks.modals.search?.onSave({ id: "t", name: "Tavily", provider: "tavily", kind: "search", apiKey: "tk" }));
+        expect(written().map((provider) => provider.id)).toEqual([ "a", "s", "t" ]);
+
+        const edit = providers().find((option) => option.textContent?.includes("Brave Search"))?.querySelector("button");
+        expect(edit).toBeDefined();
+        await act(async () => edit?.click());
+        expect(mocks.modals.search?.existingProvider?.id).toBe("s");
+
+        // Editing replaces the provider in place.
+        act(() => mocks.modals.search?.onSave({ id: "s", name: "Brave", provider: "brave", kind: "search", apiKey: "bk2" }));
+        expect(written().map((provider) => provider.name)).toEqual([ "My OpenAI", "Brave", "Tavily" ]);
+
+        act(() => mocks.modals.search?.onHidden());
+        expect(mocks.modals.search?.show).toBe(false);
     });
 
     it("lists search providers in a card of their own, and deleting one keeps the chat providers", async () => {
