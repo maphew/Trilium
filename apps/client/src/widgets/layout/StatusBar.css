@@ -113,8 +113,16 @@
         padding: 1em !important;
     }
 
-    &.dropdown-note-paths .note-paths-widget {
-        padding: 0.5em;
+    &.dropdown-note-paths {
+        max-width: min(720px, calc(100vw - 20px));
+
+        .note-paths-widget {
+            padding: 0.5em;
+        }
+
+        .note-path-list li {
+            overflow-wrap: anywhere;
+        }
     }
 
     &.dropdown-backlinks {
