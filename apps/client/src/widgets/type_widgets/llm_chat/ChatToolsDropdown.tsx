@@ -84,7 +84,7 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
 
 /**
  * One choice of the web search section. A choice the current model can't use stays listed,
- * disabled, with the reason under it; the marked one is shown as such either way.
+ * disabled, with the reason on an info icon beside it; the marked one is shown as such either way.
  */
 function WebSearchChoice({ choice, webSearch, onChoose, unavailableReason, children }: {
     choice: string;
@@ -98,7 +98,7 @@ function WebSearchChoice({ choice, webSearch, onChoose, unavailableReason, child
             checkable
             checked={webSearch.choice === choice}
             disabled={!!unavailableReason}
-            description={unavailableReason}
+            disabledTooltip={unavailableReason}
             closeOnSelect={false}
             onClick={() => onChoose(choice)}
         >

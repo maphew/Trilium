@@ -107,7 +107,7 @@ describe("ChatToolsDropdown", () => {
         expect(mocks.triggerCommand).toHaveBeenCalledExactlyOnceWith("showOptions", { section: "_optionsLlm" });
     });
 
-    it("keeps a choice the model can't use listed, disabled, with the reason under it", async () => {
+    it("keeps a choice the model can't use listed, disabled, with the reason on an info icon", async () => {
         const menu = renderMenu({ webSearch: {
             choice: "builtin", enableWebSearch: false,
             builtInUnavailableKey: "no_builtin", searchProviderUnavailableKey: "own_tools"
@@ -115,8 +115,9 @@ describe("ChatToolsDropdown", () => {
 
         const builtIn = menu.row("llm_chat.web_search_builtin");
         expect(builtIn?.classList.contains("disabled")).toBe(true);
-        expect(builtIn?.querySelector(".description")?.textContent).toBe("no_builtin");
-        expect(menu.row("Tavily")?.querySelector(".description")?.textContent).toBe("own_tools");
+        expect(builtIn?.querySelector(".bx-info-circle")?.getAttribute("title")).toBe("no_builtin");
+        expect(builtIn?.querySelector(".description")).toBeNull();
+        expect(menu.row("Tavily")?.querySelector(".bx-info-circle")?.getAttribute("title")).toBe("own_tools");
 
         await act(async () => menu.row("Tavily")?.click());
         expect(menu.onWebSearchChoose).not.toHaveBeenCalled();
