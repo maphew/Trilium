@@ -2,7 +2,7 @@ import "./search_result.css";
 
 import type { HighlightedTokenInfo } from "@triliumnext/commons";
 import clsx from "clsx";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import type FNote from "../entities/fnote";
 import { t } from "../services/i18n";
@@ -11,7 +11,7 @@ import toast from "../services/toast";
 import { SearchNoteList, useNoteViewType } from "./collections/NoteList";
 import SearchResultsList from "./collections/search/SearchResultsList";
 import Button from "./react/Button";
-import { useNoteContext, useTriliumEvent } from "./react/hooks";
+import { useHasTabBeenShown, useNoteContext, useTriliumEvent } from "./react/hooks";
 import NoItems from "./react/NoItems";
 
 enum SearchResultState {
@@ -21,26 +21,20 @@ enum SearchResultState {
 }
 
 export default function SearchResult() {
-    const { note, notePath, ntxId, parentComponent } = useNoteContext();
+    const { note, notePath, ntxId, noteContext, parentComponent } = useNoteContext();
     const viewType = useNoteViewType(note);
     const [ , setRefreshCount ] = useState(0);
     const state = getSearchResultState(note);
+    const { isSearching, runSearch } = useSavedSearchRun(note, state === SearchResultState.NOT_EXECUTED, {
+        noteContext,
+        ntxId,
+        parentComponent
+    });
     const highlightedTokens = note?.highlightedTokenInfos ?? note?.highlightedTokens;
 
     // The search note is updated in place, so a re-render picks up the new results.
     function refresh() {
         setRefreshCount((count) => count + 1);
-    }
-
-    async function executeSearch() {
-        if (!note?.noteId) {
-            return;
-        }
-
-        const result = await search.runSearchNote(parentComponent, note.noteId, ntxId);
-        if (result?.error) {
-            toast.showError(result.error);
-        }
     }
 
     useTriliumEvent("searchRefreshed", ({ ntxId: eventNtxId }) => {
@@ -56,9 +50,13 @@ export default function SearchResult() {
 
     return (
         <div className={clsx("search-result-widget", state === undefined && "hidden-ext")}>
-            {state === SearchResultState.NOT_EXECUTED && (
+            {isSearching && (
+                <NoItems icon="bx bx-loader-alt bx-spin" text={t("search_result.searching")} />
+            )}
+
+            {state === SearchResultState.NOT_EXECUTED && !isSearching && (
                 <NoItems icon="bx bx-file-find" text={t("search_result.search_not_executed")}>
-                    <Button text={t("search_result.search_now")} onClick={executeSearch} />
+                    <Button text={t("search_result.search_now")} onClick={runSearch} />
                 </NoItems>
             )}
 
@@ -89,6 +87,58 @@ export default function SearchResult() {
             )}
         </div>
     );
+}
+
+/**
+ * Runs the shown saved search through `search.runSearchNote()`, once each time it is shown in a visible
+ * tab, and reports while a run is in progress. A failed request therefore waits for `runSearch()` ("Search
+ * now") or the next showing. Safe mode runs nothing on its own, so a hanging search cannot hang every
+ * start-up.
+ */
+function useSavedSearchRun(
+    note: FNote | null | undefined,
+    hasNotRun: boolean,
+    { noteContext, ntxId, parentComponent }: Pick<ReturnType<typeof useNoteContext>, "noteContext" | "ntxId" | "parentComponent">
+) {
+    const hasTabBeenShown = useHasTabBeenShown(noteContext);
+    const [ runningNoteId, setRunningNoteId ] = useState<string>();
+    const autoRunNoteId = useRef<string | undefined>(undefined);
+
+    async function runSearch() {
+        const noteId = note?.noteId;
+        if (!noteId) {
+            return;
+        }
+
+        setRunningNoteId(noteId);
+        try {
+            const result = await search.runSearchNote(parentComponent, noteId, ntxId);
+            if (result?.error) {
+                toast.showError(result.error);
+            }
+        } finally {
+            setRunningNoteId(undefined);
+        }
+    }
+
+    const runsOnShow = hasNotRun && hasTabBeenShown && !glob.TRILIUM_SAFE_MODE
+        && !!note && autoRunNoteId.current !== note.noteId;
+    useEffect(() => {
+        if (autoRunNoteId.current !== note?.noteId) {
+            autoRunNoteId.current = undefined;
+        }
+    }, [ note?.noteId ]);
+    useEffect(() => {
+        if (!runsOnShow || !note) return;
+
+        autoRunNoteId.current = note.noteId;
+        void runSearch();
+    }, [ runsOnShow, note ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return {
+        isSearching: hasNotRun && (runsOnShow || runningNoteId === note?.noteId),
+        runSearch
+    };
 }
 
 /**

@@ -11,6 +11,8 @@ const shownNote = vi.hoisted(() => ({
     notify: () => {},
     parentComponent: null as import("../components/component").default | null
 }));
+const shownTab = vi.hoisted(() => ({ activeMainNtxId: "ntx1" as string | null }));
+const tabContext = vi.hoisted(() => ({ ntxId: "ntx1", getMainContext() { return tabContext; } }));
 vi.mock("./react/hooks", async (importOriginal) => {
     const { useEffect, useState } = await import("preact/hooks");
     return {
@@ -20,7 +22,13 @@ vi.mock("./react/hooks", async (importOriginal) => {
             useEffect(() => {
                 shownNote.notify = () => setNote(shownNote.current);
             }, []);
-            return { note, notePath: note?.noteId, ntxId: "ntx1", parentComponent: shownNote.parentComponent };
+            return {
+                note,
+                notePath: note?.noteId,
+                ntxId: "ntx1",
+                noteContext: tabContext,
+                parentComponent: shownNote.parentComponent
+            };
         }
     };
 });
@@ -34,10 +42,17 @@ import { buildNote } from "../test/easy-froca";
 import { ParentComponent } from "./react/react_utils";
 import SearchResult from "./search_result";
 
+const realTabManager = appContext.tabManager;
 let container: HTMLElement;
 let parent: Component;
 
 beforeEach(() => {
+    shownTab.activeMainNtxId = "ntx1";
+    // Client tests run without app start-up, which is what creates the tab manager.
+    appContext.tabManager = {
+        getActiveMainContext: () => (shownTab.activeMainNtxId ? { ntxId: shownTab.activeMainNtxId } : null)
+    } as never;
+    window.glob.TRILIUM_SAFE_MODE = false;
     parent = new Component();
     shownNote.parentComponent = parent;
     container = document.createElement("div");
@@ -46,6 +61,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.restoreAllMocks();
+    appContext.tabManager = realTabManager;
     render(null, container);
     container.remove();
 });
@@ -88,6 +104,7 @@ describe("SearchResult", () => {
         });
         const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
         const triggerEvent = vi.spyOn(parent, "triggerEvent").mockImplementation((name, data) => parent.handleEvent(name, data));
+        window.glob.TRILIUM_SAFE_MODE = true;
 
         shownNote.current = savedSearch;
         await mount();
@@ -105,6 +122,7 @@ describe("SearchResult", () => {
         const result = buildNote({ id: "treeResult", title: "Result" });
         vi.spyOn(server, "get").mockResolvedValue({ searchResultNoteIds: [ result.noteId ], highlightedTokens: [], error: null });
         vi.spyOn(appContext, "triggerEvent").mockImplementation(async (name, data) => parent.handleEvent(name, data));
+        window.glob.TRILIUM_SAFE_MODE = true;
 
         shownNote.current = savedSearch;
         await mount();
@@ -120,12 +138,83 @@ describe("SearchResult", () => {
         const savedSearch = buildNote({ id: "badSearch", title: "Bad search", type: "search", "#searchString": "#" });
         vi.spyOn(froca, "loadSearchNote").mockResolvedValue({ error: "Invalid saved search" });
         const showError = vi.spyOn(toast, "showError").mockImplementation(() => {});
+        window.glob.TRILIUM_SAFE_MODE = true;
 
         shownNote.current = savedSearch;
         await mount();
         await settle(() => clickSearchNow());
 
         expect(showError).toHaveBeenCalledWith("Invalid saved search");
+    });
+});
+
+describe("running a saved search when it is shown", () => {
+    it("runs a saved search shown in the active tab, showing progress until it answers", async () => {
+        const savedSearch = buildNote({ id: "autoSearch", title: "Auto", type: "search", "#searchString": "#book" });
+        const result = buildNote({ id: "autoResult", title: "Auto result" });
+        let answer: (value: unknown) => void = () => {};
+        const get = vi.spyOn(server, "get").mockReturnValue(new Promise((resolve) => { answer = resolve; }) as never);
+        vi.spyOn(appContext, "triggerEvent").mockImplementation(async (name, data) => parent.handleEvent(name, data));
+
+        shownNote.current = savedSearch;
+        await mount();
+
+        expect(get).toHaveBeenCalledWith("search-note/autoSearch");
+        expect(container.querySelector(".no-items .bx-loader-alt")).not.toBeNull();
+        expect(container.querySelector("button")).toBeNull();
+
+        await settle(() => answer({ searchResultNoteIds: [ result.noteId ], highlightedTokens: [], error: null }));
+        expect(container.querySelector(".no-items")).toBeNull();
+        expect(container.textContent).toContain("Auto result");
+    });
+
+    it("waits for a background tab to be shown before running its saved search", async () => {
+        const savedSearch = buildNote({ id: "backgroundSearch", title: "Background", type: "search", "#searchString": "#book" });
+        const loadSearchNote = vi.spyOn(froca, "loadSearchNote").mockResolvedValue(undefined);
+        shownTab.activeMainNtxId = "otherTab";
+
+        shownNote.current = savedSearch;
+        await mount();
+        expect(loadSearchNote).not.toHaveBeenCalled();
+
+        await settle(() => {
+            shownTab.activeMainNtxId = "ntx1";
+            void parent.handleEvent("activeNoteChanged", { ntxId: "ntx1" });
+        });
+        expect(loadSearchNote).toHaveBeenCalledExactlyOnceWith("backgroundSearch");
+    });
+
+    it("leaves the search to \"Search now\" in safe mode and after a failed request", async () => {
+        const safeSearch = buildNote({ id: "safeSearch", title: "Safe", type: "search", "#searchString": "#book" });
+        const loadSearchNote = vi.spyOn(froca, "loadSearchNote").mockRejectedValue(new Error("Network down"));
+        vi.spyOn(toast, "showError").mockImplementation(() => {});
+        window.glob.TRILIUM_SAFE_MODE = true;
+
+        shownNote.current = safeSearch;
+        await mount();
+        expect(loadSearchNote).not.toHaveBeenCalled();
+        expect(container.querySelector(".no-items .bx-file-find")).not.toBeNull();
+
+        render(null, container);
+        window.glob.TRILIUM_SAFE_MODE = false;
+        const failingSearch = buildNote({ id: "failingSearch", title: "Failing", type: "search", "#searchString": "#book" });
+        shownNote.current = failingSearch;
+        await mount();
+
+        expect(loadSearchNote).toHaveBeenCalledExactlyOnceWith("failingSearch");
+        expect(container.querySelector(".no-items .bx-file-find")).not.toBeNull();
+        expect(container.querySelector("button")).not.toBeNull();
+
+        // Showing the note again, after another one, tries once more.
+        await settle(() => {
+            shownNote.current = buildNote({ id: "otherNote", title: "Other" });
+            shownNote.notify();
+        });
+        await settle(() => {
+            shownNote.current = failingSearch;
+            shownNote.notify();
+        });
+        expect(loadSearchNote).toHaveBeenCalledTimes(2);
     });
 });
 
