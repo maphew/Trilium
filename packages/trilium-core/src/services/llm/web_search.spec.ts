@@ -108,6 +108,31 @@ describe("searchWeb", () => {
         await expect(searchWeb({ provider: "brave", apiKey: "bk" }, "q")).rejects.toThrow("HTTP 500");
         await expect(searchWeb({ provider: "bing", apiKey: "" }, "q")).rejects.toThrow("Unknown search provider type: bing");
     });
+
+    it("names the SearXNG setting or the proxy behind a refusal, and the limiter behind a 429", async () => {
+        const searxng = (apiKey: string) => searchWeb({ provider: "searxng", apiKey, baseURL: "http://localhost:8888" }, "q");
+        const failure = async (status: number, apiKey: string) => {
+            respond({}, status);
+            const error = await searxng(apiKey).catch((e: unknown) => e);
+            expect(error).toBeInstanceOf(Error);
+            return (error as Error).message;
+        };
+
+        const formatsOnly = await failure(403, "");
+        expect(formatsOnly).toContain("search.formats");
+        expect(formatsOnly).not.toContain("API key");
+
+        const either = await failure(403, "xk");
+        expect(either).toContain("search.formats");
+        expect(either).toContain("API key");
+
+        const proxyOnly = await failure(401, "");
+        expect(proxyOnly).toContain("proxy");
+        expect(proxyOnly).not.toContain("search.formats");
+
+        expect(await failure(429, "")).toContain("limiter");
+        expect(await failure(500, "")).toBe("The search provider answered HTTP 500.");
+    });
 });
 
 describe("searchWeb overrides and sparse answers", () => {
@@ -142,7 +167,7 @@ describe("searchWeb overrides and sparse answers", () => {
         expect(await run()).toMatchObject({ searchProvider: { type: "tavily", name: "tavily" } });
 
         fetchMock.mockRejectedValueOnce("offline");
-        expect(await run()).toEqual({ error: "offline" });
+        expect(await run()).toMatchObject({ error: "offline" });
     });
 });
 
@@ -150,7 +175,7 @@ describe("createWebSearchTool", () => {
     const run = (tool: ReturnType<typeof createWebSearchTool>, query: string) =>
         tool.execute?.({ query }, { toolCallId: "1", messages: [], context: {} });
 
-    it("returns the query, the provider that ran it and its sources, or the failure for the model to report", async () => {
+    it("returns the query, the provider that ran it and its sources", async () => {
         const tool = createWebSearchTool({ provider: "tavily", name: "My Tavily", apiKey: "tk" });
 
         respond({ results: [ { ...PAGE, content: "Hit" } ] });
@@ -159,9 +184,27 @@ describe("createWebSearchTool", () => {
             searchProvider: { type: "tavily", name: "My Tavily" },
             sources: [ { ...PAGE, snippet: "Hit" } ]
         });
+    });
 
-        respond({}, 403);
-        expect(await run(tool, "trilium")).toEqual({ error: expect.stringContaining("HTTP 403") });
+    it("points the model at read_web_page after any failure, and has it report one only the user can fix", async () => {
+        const readPage = expect.stringContaining("read_web_page");
+        const userFix = expect.stringMatching(/tell the user.*read_web_page/s);
+        const failure = async (setup: Parameters<typeof createWebSearchTool>[0], status?: number) => {
+            if (status) {
+                respond({}, status);
+            }
+            return await run(createWebSearchTool(setup), "q");
+        };
+
+        expect(await failure({ provider: "brave", apiKey: "bad" }, 401)).toEqual({ error: expect.any(String), instruction: userFix });
+        expect(await failure({ provider: "searxng", apiKey: "", baseURL: "http://localhost:8888" }, 403))
+            .toEqual({ error: expect.stringContaining("search.formats"), instruction: userFix });
+        expect(await failure({ provider: "searxng", apiKey: "" }))
+            .toEqual({ error: expect.stringContaining("has no address"), instruction: userFix });
+
+        const transient = await failure({ provider: "brave", apiKey: "bk" }, 500);
+        expect(transient).toEqual({ error: expect.stringContaining("HTTP 500"), instruction: readPage });
+        expect(transient).not.toEqual(expect.objectContaining({ instruction: expect.stringContaining("tell the user") }));
     });
 
     it("cancels the search request when the turn is stopped", async () => {

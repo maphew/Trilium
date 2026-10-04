@@ -35,7 +35,8 @@ const SEARCH_TIMEOUT_MS = 30_000;
 /**
  * The `web_search` tool for `setup`. Its result has the `sources` the chat lists under the tool's
  * line and the `searchProvider` whose mark the line shows, and a failure is returned as
- * `{ error }` so the model can tell the user about it.
+ * `{ error, instruction }`: the chat shows `error` on the tool's line, and `instruction` directs the
+ * model to `read_web_page` and, for a {@link SearchSetupError}, to tell the user about it.
  */
 export function createWebSearchTool(setup: WebSearchSetup) {
     return tool({
@@ -51,11 +52,23 @@ export function createWebSearchTool(setup: WebSearchSetup) {
                     sources: await searchWeb(setup, query, options.abortSignal)
                 };
             } catch (e) {
-                return { error: e instanceof Error ? e.message : String(e) };
+                const error = e instanceof Error ? e.message : String(e);
+                return {
+                    error,
+                    instruction: e instanceof SearchSetupError ? `${SETUP_ERROR_INSTRUCTION} ${READ_PAGE_INSTRUCTION}` : READ_PAGE_INSTRUCTION
+                };
             }
         }
     });
 }
+
+const SETUP_ERROR_INSTRUCTION = "Only the user can fix this, in the search provider's settings or the search service itself. "
+    + "Don't retry the search; tell the user what the error says and how to fix it.";
+const READ_PAGE_INSTRUCTION = "The read_web_page tool fetches pages directly, without the search provider, "
+    + "so you can still use it to read a page whose URL you know or the user gives.";
+
+/** A search failure that only the user can fix, by changing the search provider or the service behind it. */
+class SearchSetupError extends Error {}
 
 /**
  * Run `query` against the search provider in `setup`. `signal` cancels the request along with the
@@ -108,12 +121,12 @@ export async function searchWeb(setup: WebSearchSetup, query: string, signal?: A
         }
         case "searxng": {
             if (!setup.baseURL) {
-                throw new Error("The SearXNG search provider has no address.");
+                throw new SearchSetupError("The SearXNG search provider has no address.");
             }
             const params = new URLSearchParams({ q: query, format: "json" });
             const payload = await requestJson(`${trimTrailingSlashes(setup.baseURL)}/search?${params}`, {
                 headers: { "Accept": "application/json", ...(setup.apiKey && { "Authorization": `Bearer ${setup.apiKey}` }) }
-            }, signal) as { results?: unknown[] };
+            }, signal, (status) => describeSearxngFailure(status, !!setup.apiKey)) as { results?: unknown[] };
             return toSources(payload.results, "content").slice(0, MAX_RESULTS);
         }
         default:
@@ -222,16 +235,50 @@ function htmlToMarkdown(html: string): string {
     return title ? `# ${title}\n\n${markdown}` : markdown;
 }
 
-async function requestJson(url: string, init: RequestInit, signal: AbortSignal | undefined): Promise<unknown> {
+/**
+ * `describeFailure` names the cause of an HTTP error status the provider's API documents, which the
+ * user must fix; when it returns `undefined`, the generic message for the status applies.
+ */
+async function requestJson(
+    url: string,
+    init: RequestInit,
+    signal: AbortSignal | undefined,
+    describeFailure?: (status: number) => string | undefined
+): Promise<unknown> {
     const timeout = AbortSignal.timeout(SEARCH_TIMEOUT_MS);
     const response = await llmFetch(url, { ...init, signal: signal ? AbortSignal.any([ signal, timeout ]) : timeout });
     if (!response.ok) {
+        const description = describeFailure?.(response.status);
+        if (description) {
+            throw new SearchSetupError(description);
+        }
         if (response.status === 401 || response.status === 403) {
-            throw new Error(`The search provider refused the request (HTTP ${response.status}); check its API key in the AI settings.`);
+            throw new SearchSetupError(`The search provider refused the request (HTTP ${response.status}); check its API key in the AI settings.`);
         }
         throw new Error(`The search provider answered HTTP ${response.status}.`);
     }
     return await response.json();
+}
+
+/**
+ * The cause of a SearXNG error status. SearXNG has no authentication: on `/search` it answers 403
+ * only for a format missing from `search.formats` and 429 from its limiter, so a 401, or a 403
+ * when an API key is set, can also come from a proxy in front of the instance.
+ */
+function describeSearxngFailure(status: number, hasApiKey: boolean): string | undefined {
+    if (status === 403 && !hasApiKey) {
+        return "The SearXNG instance doesn't allow JSON results (HTTP 403); add `json` to `search.formats` in its settings.yml.";
+    }
+    if (status === 403) {
+        return "The SearXNG instance refused the request (HTTP 403). Either `json` is missing from `search.formats` in its settings.yml, or a proxy in front of it refused the API key set in the AI settings.";
+    }
+    if (status === 401) {
+        return "A proxy in front of the SearXNG instance asked for credentials (HTTP 401); check the API key set for it in the AI settings.";
+    }
+    if (status === 429) {
+        return "The SearXNG instance's limiter blocked the request (HTTP 429); turn off `server.limiter` in its settings.yml, or add Trilium's address to the limiter's `pass_ip` list.";
+    }
+    return undefined;
 }
 
 /** The results that carry a web URL, read from `urlField`, with the excerpt read from `snippetField`. */

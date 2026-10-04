@@ -130,6 +130,15 @@
     whose services refuse requests made from a web page, so they're shown disabled
     there.</li>
 </ul>
+<p>To use SearXNG, enable its JSON output by adding <code>json</code> to the
+  search formats in the instance's <code>settings.yml</code>. SearXNG turns
+  JSON off by default, and without it every search fails.</p><pre><code class="language-text-x-yaml">search:
+  formats:
+    - html
+    - json</code></pre>
+<p>SearXNG doesn't use API keys, so leave the API key empty. Fill it in only
+  if your instance sits behind a proxy that requires a token; Trilium sends
+  it as a bearer token in the <code>Authorization</code> header.</p>
 <p>Whether web search is on is kept per chat; the search source is shared
   by all chats. A choice the current model can't use stays in the menu, disabled;
   hover the <span class="tn-icon bx bx-info-circle"></span> icon next to it
