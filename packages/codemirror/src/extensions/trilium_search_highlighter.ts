@@ -57,6 +57,8 @@ const OPERATOR = /\*=\*|~=|~\*|!=|>=|<=|%=|\*=|=\*|[=><]|[+\-](?=\d)/y;
 const BRACKET = /[()]/y;
 const NUMBER = /\d+(?:\.\d+)?/y;
 const WORD = /[^\s#~().,=<>*!%+\-'"`]+/y;
+// Matches text that ends at the start of a word, or after grouping `(`s that open one.
+const WORD_START = /(?:^|\s)\(*$/;
 
 /** Splits a search query into the tokens worth colouring, skipping over everything else. */
 export function tokenizeSearchQuery(text: string): SearchToken[] {
@@ -102,7 +104,7 @@ export function tokenizeSearchQuery(text: string): SearchToken[] {
         }
 
         const attribute = match(ATTRIBUTE);
-        if (attribute && !fulltextEnded && !/^\(*$/.test(wordBefore(text, pos))) {
+        if (attribute && !fulltextEnded && !WORD_START.test(text.slice(0, pos))) {
             // Inside a full-text word, `#` and `~` are text: `c#`, `towers#book`.
             pos++;
             continue;
@@ -156,11 +158,6 @@ export function tokenizeSearchQuery(text: string): SearchToken[] {
     }
 
     return tokens;
-}
-
-/** The non-whitespace run that ends at `pos`. */
-function wordBefore(text: string, pos: number) {
-    return /\S*$/.exec(text.slice(0, pos))?.[0] ?? "";
 }
 
 const MARKS: Record<SearchTokenKind, Decoration> = {
