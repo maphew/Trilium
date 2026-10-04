@@ -1,3 +1,4 @@
+import type { AccessibleInputHTMLAttributes } from "preact";
 import { useEffect, useRef, type InputHTMLAttributes, type RefObject } from "preact/compat";
 
 export interface FormTextBoxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "onBlur" | "value"> {
@@ -67,7 +68,6 @@ export default function FormTextBox({ inputRef, className, type, currentValue, o
                 if (inputRef) inputRef.current = element;
             }}
             className={`form-control ${className ?? ""}`}
-            type={type ?? "text"}
             value={currentValue}
             onInput={onChange && (e => {
                 const target = e.currentTarget;
@@ -81,7 +81,10 @@ export default function FormTextBox({ inputRef, className, type, currentValue, o
                 // fired where anything changed; committing here too would only say it twice.
                 if (type !== "number") onBlur?.(currentValue);
             })}
-            {...rest}
+            {...({
+                ...rest,
+                type: type ?? "text"
+            } as AccessibleInputHTMLAttributes<HTMLInputElement>)}
         />
     );
 }
