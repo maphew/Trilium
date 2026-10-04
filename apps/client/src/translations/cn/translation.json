@@ -3242,9 +3242,6 @@
   "llm": {
     "add_provider": "添加提供商",
     "feature_not_enabled": "在“设置”→“高级”→“实验性功能”中启用 LLM 实验性功能，即可使用 AI 集成。",
-    "add_provider_title": "添加AI提供商",
-    "configured_providers": "已配置的提供商",
-    "no_providers_configured": "尚未配置任何提供商。",
     "provider_name": "名称",
     "actions": "操作",
     "delete_provider": "删除",
@@ -3303,7 +3300,6 @@
     "models_select_all": "全选",
     "models_select_none": "全部取消选择",
     "models_reset_defaults": "重置为默认值",
-    "provider_model_count_other": "{{count}} 个模型",
     "beta": "Beta",
     "claude_agent_description": "通过 Claude Code 使用你的 Claude Pro/Max 订阅，因此无需 API 密钥。Claude Code 必须安装在运行 Trilium 的机器上（自托管时为服务器，桌面版为本机）；在该机器上运行「claude /login」登录一次即可。",
     "add_provider_title_named": "添加 {{- name}}",

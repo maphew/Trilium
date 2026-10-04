@@ -3889,7 +3889,6 @@
   "llm": {
     "feature_not_enabled": "설정 → 고급 → 실험 기능에서 LLM 실험 기능을 활성화하여 AI 통합을 활용하세요.",
     "add_provider": "공급자 추가",
-    "add_provider_title": "AI 공급자 추가",
     "edit_provider_title": "{{- name}} 편집",
     "edit_provider": "편집",
     "save": "저장",
@@ -3902,9 +3901,6 @@
     "models_select_all": "모두 선택",
     "models_select_none": "선택 해제",
     "models_reset_defaults": "기본값으로 초기화하기",
-    "provider_model_count_other": "모델 {{count}}개",
-    "configured_providers": "구성된 공급자",
-    "no_providers_configured": "아직 설정된 제공자가 없습니다.",
     "provider_name": "이름",
     "beta": "베타",
     "actions": "작업",

@@ -2220,7 +2220,6 @@
     "actions": "الإجراءات",
     "delete_provider": "حذف",
     "add_provider": "إضافة مزود",
-    "configured_providers": "المزوّدون المُهيّؤون",
     "api_key": "مفتاح API",
     "mcp_enabled": "خادم MCP",
     "mcp_endpoint_title": "رابط نقطة النهاية",
@@ -2249,8 +2248,6 @@
       "create_note": "إنشاء ملاحظة",
       "note_in_parent": "‎<Note/> في ‎<Parent/>‎"
     },
-    "add_provider_title": "إضافة مزوّد ذكاء اصطناعي",
-    "no_providers_configured": "لم يتم إعداد أي مزوّدين بعد.",
     "api_key_placeholder": "أدخل مفتاح API الخاص بك",
     "mcp_title": "بروتوكول سياق النموذج (MCP)",
     "base_url": "عنوان URL الأساسي",
