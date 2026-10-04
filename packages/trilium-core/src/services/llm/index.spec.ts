@@ -200,6 +200,17 @@ describe("llm/index provider registry", () => {
             setProviders(TWO);
             expect(hasConfiguredProviders()).toBe(true);
         });
+
+        it("leaves search providers out of the chat providers", async () => {
+            const search = { id: "s1", name: "Brave Search", provider: "brave", kind: "search", apiKey: "k" };
+            setProviders([ search ]);
+            expect(hasConfiguredProviders()).toBe(false);
+
+            setProviders([ search, ...TWO ]);
+            const first = await getProvider();
+            expect((first.constructor as any).lastArgs).toEqual(["k1", "https://proxy"]);
+            await expect(getProvider("s1")).rejects.toThrow("LLM provider not found: s1");
+        });
     });
 
     describe("getProviderByType", () => {

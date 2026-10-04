@@ -88,7 +88,7 @@ The AI can optionally search the web to find more information about a specific t
 This feature is on by default but it can easily be disabled by clicking on the model selector at the bottom of the chat and unchecking _Web search_.
 
 > [!NOTE]
-> Currently only the search native to the LLM provider is supported. External search providers such as Exa, Tavily & SearXNG are not yet supported.
+> Currently only the search native to the LLM provider is used. External search providers (Brave Search, Tavily, Exa and SearXNG) can already be added in the _Search Providers_ section of the AI settings, but the chat does not use them yet.
 
 ### Thinking
 

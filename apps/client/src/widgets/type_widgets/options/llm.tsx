@@ -1,6 +1,6 @@
 import "./llm.css";
 
-import type { NetworkAddressesResponse } from "@triliumnext/commons";
+import { isProviderOfKind, type LlmProviderKind, type NetworkAddressesResponse } from "@triliumnext/commons";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
 import dialog from "../../../services/dialog";
@@ -18,7 +18,7 @@ import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import MaskedIcon from "../../react/MaskedIcon";
 import NoItems from "../../react/NoItems";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import AddProviderModal, { type LlmProviderConfig, PROVIDER_TYPES } from "./llm/AddProviderModal";
+import AddProviderModal, { findProviderType, type LlmProviderConfig } from "./llm/AddProviderModal";
 
 export default function LlmSettings() {
     const [aiEnabled, setAiEnabled] = useTriliumOptionBool("aiEnabled");
@@ -43,7 +43,8 @@ export default function LlmSettings() {
 
             {aiEnabled && (
                 <>
-                    <ProviderSettings />
+                    <ProviderSettings kind="llm" />
+                    <ProviderSettings kind="search" />
                     <McpSettings />
                 </>
             )}
@@ -51,16 +52,18 @@ export default function LlmSettings() {
     );
 }
 
-function ProviderSettings() {
+/** The configured providers of one kind. Both kinds are stored in the `llmProviders` option. */
+function ProviderSettings({ kind }: { kind: LlmProviderKind }) {
     const [providersJson, setProvidersJson] = useTriliumOption("llmProviders");
-    const providers = useMemo<LlmProviderConfig[]>(() => {
+    const allProviders = useMemo<LlmProviderConfig[]>(() => {
         try {
             return providersJson ? JSON.parse(providersJson) : [];
         } catch {
             return [];
         }
     }, [providersJson]);
-    const setProviders = useCallback((newProviders: LlmProviderConfig[]) => {
+    const providers = useMemo(() => allProviders.filter(p => isProviderOfKind(p, kind)), [allProviders, kind]);
+    const setAllProviders = useCallback((newProviders: LlmProviderConfig[]) => {
         setProvidersJson(JSON.stringify(newProviders));
     }, [setProvidersJson]);
     // `undefined` while closed; the edited provider (or a fresh marker) while open.
@@ -77,31 +80,35 @@ function ProviderSettings() {
 
     // Upsert: editing replaces the config with the matching id, adding appends.
     const handleSaveProvider = useCallback((saved: LlmProviderConfig) => {
-        setProviders(providers.some(p => p.id === saved.id)
-            ? providers.map(p => (p.id === saved.id ? saved : p))
-            : [...providers, saved]);
-    }, [providers, setProviders]);
+        setAllProviders(allProviders.some(p => p.id === saved.id)
+            ? allProviders.map(p => (p.id === saved.id ? saved : p))
+            : [...allProviders, saved]);
+    }, [allProviders, setAllProviders]);
 
     const handleDeleteProvider = useCallback(async (providerId: string, providerName: string) => {
         if (!(await dialog.confirm(t("llm.delete_provider_confirmation", { name: providerName })))) {
             return;
         }
-        setProviders(providers.filter(p => p.id !== providerId));
-    }, [providers, setProviders]);
+        setAllProviders(allProviders.filter(p => p.id !== providerId));
+    }, [allProviders, setAllProviders]);
+
+    const isSearch = kind === "search";
 
     return (<>
-        <Card heading={t("llm.configured_providers")}>
+        <Card heading={isSearch ? t("llm.search_providers") : t("llm.configured_providers")}>
             <ProviderList
                 providers={providers}
+                emptyIcon={isSearch ? "bx bx-search" : "bx bx-bot"}
+                emptyText={isSearch ? t("llm.no_search_providers_configured") : t("llm.no_providers_configured")}
                 onEdit={openModal}
                 onDelete={handleDeleteProvider}
             />
 
             <CardSection className="llm-add-provider">
                 <Button
-                    name="add-llm-provider-button"
+                    name={isSearch ? "add-search-provider-button" : "add-llm-provider-button"}
                     size="micro" icon="bx-plus"
-                    text={t("llm.add_provider")}
+                    text={isSearch ? t("llm.add_search_provider") : t("llm.add_provider")}
                     onClick={() => openModal()}
                 />
             </CardSection>
@@ -111,6 +118,7 @@ function ProviderSettings() {
             key={openToken}
             show={modalOpen}
             existingProvider={modalProvider}
+            kind={kind}
             onHidden={() => setModalOpen(false)}
             onSave={handleSaveProvider}
         />
@@ -260,22 +268,24 @@ function getMcpEndpointUrl() {
 
 interface ProviderListProps {
     providers: LlmProviderConfig[];
+    emptyIcon: string;
+    emptyText: string;
     onEdit: (provider: LlmProviderConfig) => void;
     onDelete: (providerId: string, providerName: string) => Promise<void>;
 }
 
-function ProviderList({ providers, onEdit, onDelete }: ProviderListProps) {
+function ProviderList({ providers, emptyIcon, emptyText, onEdit, onDelete }: ProviderListProps) {
     if (!providers.length) {
         return (
             <CardSection>
-                <NoItems icon="bx bx-bot" text={t("llm.no_providers_configured")} />
+                <NoItems icon={emptyIcon} text={emptyText} />
             </CardSection>
         );
     }
 
     return <>
         {providers.map((provider) => {
-            const providerType = PROVIDER_TYPES.find(p => p.id === provider.provider);
+            const providerType = findProviderType(provider.provider);
             const modelCount = provider.selectedModels?.length ?? 0;
             return (
                 <OptionCardSection

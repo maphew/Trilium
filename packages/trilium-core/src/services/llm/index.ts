@@ -1,3 +1,5 @@
+import { isProviderOfKind, type LlmProviderKind } from "@triliumnext/commons";
+
 import { getLog } from "../../services/log.js";
 import optionService from "../../services/options.js";
 
@@ -14,6 +16,8 @@ export interface LlmProviderSetup {
     id: string;
     name: string;
     provider: string;
+    /** Absent in configurations saved before search providers existed, all of which are `"llm"`. */
+    kind?: LlmProviderKind;
     apiKey: string;
     /** Optional override for the SDK's default API endpoint (e.g. for self-hosted Ollama, vLLM, or proxies). */
     baseURL?: string;
@@ -92,7 +96,8 @@ let cachedProviders: Record<string, LlmProvider> = {};
 let cachedProvidersSource: string | null = null;
 
 /**
- * Get configured providers from the options.
+ * Get the configured chat providers from the options. Search providers share the option and are
+ * left out, so none of them is ever picked to answer a chat.
  */
 function getConfiguredProviders(): LlmProviderSetup[] {
     try {
@@ -104,7 +109,7 @@ function getConfiguredProviders(): LlmProviderSetup[] {
         if (!providersJson) {
             return [];
         }
-        return JSON.parse(providersJson) as LlmProviderSetup[];
+        return (JSON.parse(providersJson) as LlmProviderSetup[]).filter(c => isProviderOfKind(c, "llm"));
     } catch (e) {
         getLog().error(`Failed to parse llmProviders option: ${e}`);
         return [];

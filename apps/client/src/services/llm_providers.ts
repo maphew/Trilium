@@ -1,4 +1,4 @@
-import type { LlmAttachmentKind, LlmModelInfo } from "@triliumnext/commons";
+import { isProviderOfKind, type LlmAttachmentKind, type LlmModelInfo, type LlmProviderKind } from "@triliumnext/commons";
 
 import { formatModelCost } from "./llm_model_cost.js";
 import options from "./options.js";
@@ -32,7 +32,8 @@ export interface ModelProviderGroup {
  * chat's picker, the text editor's assistant — lists the same thing without a round-trip.
  */
 export function readSelectedModels(): { models: ModelOption[]; groups: ModelProviderGroup[]; hasProvider: boolean } {
-    const configs = (options.getJson("llmProviders") as StoredProviderConfig[] | null) ?? [];
+    const configs = ((options.getJson("llmProviders") as StoredProviderConfig[] | null) ?? [])
+        .filter(config => isProviderOfKind(config, "llm"));
     const groups: ModelProviderGroup[] = configs.map(config => ({
         id: config.id,
         name: config.name,
@@ -99,5 +100,6 @@ interface StoredProviderConfig {
     id: string;
     name: string;
     provider: string;
+    kind?: LlmProviderKind;
     selectedModels?: LlmModelInfo[];
 }

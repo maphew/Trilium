@@ -126,6 +126,17 @@ export interface LlmModelPricing {
 }
 
 /**
+ * What a configuration in the `llmProviders` option provides: chat models (`"llm"`) or web
+ * search (`"search"`). A configuration without a `kind` is `"llm"`.
+ */
+export type LlmProviderKind = "llm" | "search";
+
+/** Whether a stored provider configuration is of `kind`, treating a missing `kind` as `"llm"`. */
+export function isProviderOfKind(config: { kind?: LlmProviderKind }, kind: LlmProviderKind): boolean {
+    return (config.kind ?? "llm") === kind;
+}
+
+/**
  * Information about an available LLM model.
  */
 export interface LlmModelInfo {

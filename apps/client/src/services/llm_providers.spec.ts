@@ -1,7 +1,11 @@
 import type { LlmModelInfo } from "@triliumnext/commons";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { readsAttachmentKind, unreadableAttachments } from "./llm_providers.js";
+const mocks = vi.hoisted(() => ({ stored: [] as unknown[] }));
+
+vi.mock("./options.js", () => ({ default: { getJson: () => mocks.stored } }));
+
+import { readSelectedModels, readsAttachmentKind, unreadableAttachments } from "./llm_providers.js";
 
 const textOnly: LlmModelInfo = { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", attachmentKinds: [] };
 const imagesOnly: LlmModelInfo = { id: "codex", name: "Codex", attachmentKinds: [ "image" ] };
@@ -27,5 +31,21 @@ describe("attachment support", () => {
         expect(readsAttachmentKind(imagesOnly, "image")).toBe(true);
         expect(readsAttachmentKind(imagesOnly, "file")).toBe(false);
         expect(readsAttachmentKind(everything, "file")).toBe(true);
+    });
+});
+
+describe("readSelectedModels", () => {
+    it("lists chat providers only, leaving search providers out", () => {
+        mocks.stored = [
+            { id: "o1", name: "OpenAI", provider: "openai", selectedModels: [ { id: "gpt", name: "GPT" } ] },
+            { id: "s1", name: "Brave Search", provider: "brave", kind: "search" }
+        ];
+        const { groups, models, hasProvider } = readSelectedModels();
+        expect(groups.map(group => group.id)).toEqual([ "o1" ]);
+        expect(models.map(model => model.id)).toEqual([ "gpt" ]);
+        expect(hasProvider).toBe(true);
+
+        mocks.stored = [ { id: "s1", name: "Brave Search", provider: "brave", kind: "search" } ];
+        expect(readSelectedModels().hasProvider).toBe(false);
     });
 });

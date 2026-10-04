@@ -1,4 +1,4 @@
-import type { LlmModelInfo } from "@triliumnext/commons";
+import type { LlmModelInfo, LlmProviderKind } from "@triliumnext/commons";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -81,7 +81,7 @@ afterEach(() => {
     mocks.antigravityDownload = {};
 });
 
-function open(existingProvider?: LlmProviderConfig) {
+function open(existingProvider?: LlmProviderConfig, kind?: LlmProviderKind) {
     act(() => {
         render(null, host);
         render(
@@ -90,6 +90,7 @@ function open(existingProvider?: LlmProviderConfig) {
                 onHidden={mocks.onHidden}
                 onSave={mocks.onSave}
                 existingProvider={existingProvider}
+                kind={kind}
             />,
             host
         );
@@ -259,6 +260,28 @@ describe("what gets saved", () => {
         expect(saved.apiKey).toBe("sk-new");
         // The stored selection is carried through rather than reset by reopening the editor.
         expect(saved.selectedModels).toEqual(existing.selectedModels);
+    });
+
+    it("offers search services for a search provider, and saves one at the connection step", () => {
+        open(undefined, "search");
+        expect(providerCard("OpenAI")).toBeUndefined();
+        act(() => providerCard("SearXNG")?.click());
+        expect(textBoxes()[0]?.value).toBe("http://localhost:8888");
+        act(() => void nextButton()?.click());
+
+        expect(document.querySelector(".model-selection-stub")).toBeNull();
+        const [ saved ] = mocks.onSave.mock.calls[0] as [ LlmProviderConfig ];
+        expect(saved).toMatchObject({ provider: "searxng", name: "SearXNG", kind: "search", baseURL: "http://localhost:8888" });
+        expect(saved).not.toHaveProperty("selectedModels");
+    });
+
+    it("keeps the kind of the search provider being edited", () => {
+        open({ id: "brave_1", name: "Brave Search", provider: "brave", kind: "search", apiKey: "old" });
+        type(textBoxes()[0], "new");
+        act(() => void nextButton()?.click());
+
+        const [ saved ] = mocks.onSave.mock.calls[0] as [ LlmProviderConfig ];
+        expect(saved).toMatchObject({ id: "brave_1", kind: "search", apiKey: "new" });
     });
 
     it("puts the dialog away once it has saved", () => {

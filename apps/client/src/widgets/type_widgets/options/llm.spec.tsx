@@ -51,7 +51,7 @@ vi.mock("./components/OptionsPageHeader", () => ({
     default: ({ below }: { below?: preact.ComponentChildren }) => <div className="header-stub">{below}</div>
 }));
 // Carries a bootstrap modal into the tree, and the MCP card below it is what is being read here.
-vi.mock("./llm/AddProviderModal", () => ({ default: () => null, PROVIDER_TYPES: [] }));
+vi.mock("./llm/AddProviderModal", () => ({ default: () => null, findProviderType: () => undefined }));
 
 import LlmSettings, { buildMcpClientConfig, buildMcpClientCommand } from "./llm";
 
@@ -204,7 +204,7 @@ describe("the configured providers", () => {
     const providers = () => [ ...host.querySelectorAll(".tn-card-option") ]
         .filter((option) => option.querySelector(".llm-provider-name"));
 
-    function withProviders(configured: { id: string; name: string; provider: string; apiKey: string; selectedModels?: unknown[] }[]) {
+    function withProviders(configured: { id: string; name: string; provider: string; kind?: string; apiKey: string; selectedModels?: unknown[] }[]) {
         mocks.stored = { ...mocks.stored, llmProviders: JSON.stringify(configured) };
     }
 
@@ -260,6 +260,27 @@ describe("the configured providers", () => {
         await act(async () => remove.click());
 
         expect(mocks.saved.some(([ name ]) => name === "llmProviders")).toBe(false);
+    });
+
+    it("lists search providers in a card of their own, and deleting one keeps the chat providers", async () => {
+        withProviders([
+            { id: "a", name: "My OpenAI", provider: "openai", apiKey: "sk" },
+            { id: "s", name: "Brave Search", provider: "brave", kind: "search", apiKey: "bk" }
+        ]);
+        open();
+
+        const card = (heading: string) => [ ...host.querySelectorAll(".tn-card") ]
+            .find((c) => c.querySelector(".tn-card-heading")?.textContent === heading);
+        const names = (heading: string) => [ ...card(heading)?.querySelectorAll(".llm-provider-name") ?? [] ]
+            .map((name) => name.textContent);
+        expect(names("llm.configured_providers")).toEqual([ "My OpenAI" ]);
+        expect(names("llm.search_providers")).toEqual([ "Brave Search" ]);
+
+        const remove = card("llm.search_providers")?.querySelectorAll(".tn-card-option-actions button")[1];
+        expect(remove).toBeDefined();
+        await act(async () => (remove as HTMLButtonElement).click());
+        const written = mocks.saved.find(([ name ]) => name === "llmProviders");
+        expect(JSON.parse(written?.[1] ?? "[]").map((provider: { id: string }) => provider.id)).toEqual([ "a" ]);
     });
 });
 
