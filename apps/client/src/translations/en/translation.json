@@ -4267,7 +4267,8 @@
     "model_providers": "Model Providers",
     "add_model_provider": "Add Model Provider",
     "no_model_providers_configured": "No model providers configured yet.",
-    "provider_no_models": "No models selected, so it isn't offered in the chat."
+    "provider_no_models": "No models selected, so it isn't offered in the chat.",
+    "search_provider_unavailable_standalone": "Unavailable in the browser version: this service refuses requests made from a web page, so it can only be used from the desktop or server version."
   },
   "common": {
     "save": "Save",

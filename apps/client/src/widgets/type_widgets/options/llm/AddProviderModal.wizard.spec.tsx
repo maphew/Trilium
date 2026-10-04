@@ -7,10 +7,19 @@ const mocks = vi.hoisted(() => ({
     onSave: vi.fn(),
     onHidden: vi.fn(),
     /** The Antigravity download found for the device running Trilium. */
-    antigravityDownload: {} as { version?: string; url?: string }
+    antigravityDownload: {} as { version?: string; url?: string },
+    standalone: false
 }));
 
 vi.mock("./antigravity_download", () => ({ useAntigravityDownload: () => mocks.antigravityDownload }));
+
+// `isStandalone` is a const in the target, read here through a getter so a case can flip it.
+vi.mock("../../../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../../services/utils")>()),
+    get isStandalone() {
+        return mocks.standalone;
+    }
+}));
 
 /** Messages whose text a case depends on; every other key renders as itself. */
 const MESSAGES = vi.hoisted<Record<string, string>>(() => ({
@@ -79,6 +88,7 @@ afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
     mocks.antigravityDownload = {};
+    mocks.standalone = false;
 });
 
 function open(existingProvider?: LlmProviderConfig, kind?: LlmProviderKind) {
@@ -282,6 +292,21 @@ describe("what gets saved", () => {
         const step = document.querySelector(".wizard-step")?.textContent;
         expect(step).toContain("llm.search_base_url_description");
         expect(step).not.toContain("llm.base_url_description");
+    });
+
+    it("disables, with the reason, the search services that refuse requests from a web page in the browser version", () => {
+        const cards = () => Object.fromEntries([ "Brave Search", "Tavily", "Exa", "Serper", "Perplexity", "SearXNG" ]
+            .map((name) => [ name, providerCard(name) ]));
+        open(undefined, "search");
+        expect(Object.values(cards()).every((card) => card && !(card as HTMLButtonElement).disabled)).toBe(true);
+
+        mocks.standalone = true;
+        open(undefined, "search");
+        const disabled = Object.entries(cards())
+            .filter(([ , card ]) => (card as HTMLButtonElement | undefined)?.disabled)
+            .map(([ name ]) => name);
+        expect(disabled).toEqual([ "Brave Search", "Exa", "Perplexity" ]);
+        expect(providerCard("Exa")?.textContent).toContain("llm.search_provider_unavailable_standalone");
     });
 
     it("keeps the kind of the search provider being edited", () => {

@@ -73,6 +73,12 @@ export interface ProviderType {
      */
     needsHostProcess?: boolean;
     /**
+     * The service's API refuses the CORS preflight of a request made from a web page, so the
+     * standalone build, which calls it with the page's own `fetch`, cannot reach it. Shown disabled
+     * there, as {@link needsHostProcess} is.
+     */
+    refusesBrowserRequests?: boolean;
+    /**
      * How the provider authenticates: a key it requires (vendor APIs), one it may
      * take (self-hosted endpoints that sit behind a proxy or gateway), or none at
      * all (subscription auth). Defaults to `"required"`.
@@ -164,11 +170,11 @@ export const PROVIDER_TYPES: ProviderType[] = [
 
 /** Web search services, configured in the same `llmProviders` option with `kind: "search"`. */
 export const SEARCH_PROVIDER_TYPES: ProviderType[] = [
-    { id: "brave", name: "Brave Search", group: "search-cloud", defaultBaseUrl: "https://api.search.brave.com/res/v1", iconUrl: PROVIDER_ICONS.brave },
+    { id: "brave", name: "Brave Search", group: "search-cloud", defaultBaseUrl: "https://api.search.brave.com/res/v1", iconUrl: PROVIDER_ICONS.brave, refusesBrowserRequests: true },
     { id: "tavily", name: "Tavily", group: "search-cloud", defaultBaseUrl: "https://api.tavily.com", iconUrl: PROVIDER_ICONS.tavily },
-    { id: "exa", name: "Exa", group: "search-cloud", defaultBaseUrl: "https://api.exa.ai", iconUrl: PROVIDER_ICONS.exa },
+    { id: "exa", name: "Exa", group: "search-cloud", defaultBaseUrl: "https://api.exa.ai", iconUrl: PROVIDER_ICONS.exa, refusesBrowserRequests: true },
     { id: "serper", name: "Serper", group: "search-cloud", defaultBaseUrl: "https://google.serper.dev", iconUrl: PROVIDER_ICONS.serper },
-    { id: "perplexity", name: "Perplexity", group: "search-cloud", defaultBaseUrl: "https://api.perplexity.ai", iconUrl: PROVIDER_ICONS.perplexity },
+    { id: "perplexity", name: "Perplexity", group: "search-cloud", defaultBaseUrl: "https://api.perplexity.ai", iconUrl: PROVIDER_ICONS.perplexity, refusesBrowserRequests: true },
     {
         id: "searxng", name: "SearXNG", group: "search-local", defaultBaseUrl: "http://localhost:8888", prefillBaseUrl: true,
         iconUrl: PROVIDER_ICONS.searxng,
@@ -512,9 +518,7 @@ function ProviderGroup({ heading, description, columns, providers, selectedProvi
                         // A provider this build can't run keeps its place in the list but
                         // states why in place of its blurb — the blurb describes a setup
                         // that isn't on offer here, so it would only mislead.
-                        const unavailableReason = provider.needsHostProcess && isStandalone
-                            ? t("llm.provider_unavailable_standalone")
-                            : undefined;
+                        const unavailableReason = standaloneUnavailableReason(provider);
                         return (
                             <SelectableCard
                                 key={provider.id}
@@ -533,6 +537,20 @@ function ProviderGroup({ heading, description, columns, providers, selectedProvi
             </CardSection>
         </Card>
     );
+}
+
+/** Why the standalone build cannot use `provider`, or `undefined` where it can or this is not that build. */
+function standaloneUnavailableReason(provider: ProviderType): string | undefined {
+    if (!isStandalone) {
+        return undefined;
+    }
+    if (provider.needsHostProcess) {
+        return t("llm.provider_unavailable_standalone");
+    }
+    if (provider.refusesBrowserRequests) {
+        return t("llm.search_provider_unavailable_standalone");
+    }
+    return undefined;
 }
 
 /**
