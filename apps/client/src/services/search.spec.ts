@@ -69,7 +69,7 @@ describe("search service", () => {
         expect(await searchService.runSearchNote(component, "search1", "ntx1")).toEqual({ error: undefined });
         expect(showError).not.toHaveBeenCalled();
 
-        // A failed request says nothing about the query, so it returns no result to replace its error.
+        // `runSearchNote()` returns `undefined` after a failed request, so the caller keeps the query error.
         loadSearchNote.mockRejectedValueOnce(new Error("Network down"));
         expect(await searchService.runSearchNote(component, "search1", "ntx1")).toBeUndefined();
         expect(showError).toHaveBeenCalledWith("Network down");
