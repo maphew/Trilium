@@ -27,19 +27,19 @@ async function searchInSubtree(searchString: string, ancestorNoteId: string) {
 }
 
 /**
- * Runs a saved search and triggers `searchRefreshed` so the tab shows its results. A failed request
- * is shown as a toast; an error in the query itself is returned for the caller to show.
+ * Runs a saved search and triggers `searchRefreshed` so the tab shows its results. Returns the
+ * query's error for the caller to show, or `undefined` after showing a failed request as a toast.
  */
 async function runSearchNote(component: Component | null | undefined, noteId: string, ntxId: string | null | undefined) {
-    let error: string | undefined;
+    let result: { error: string | undefined } | undefined;
     try {
-        error = (await froca.loadSearchNote(noteId))?.error ?? undefined;
+        result = { error: (await froca.loadSearchNote(noteId))?.error ?? undefined };
     } catch (e: unknown) {
         toast.showError(getErrorMessage(e));
     }
 
     component?.triggerEvent("searchRefreshed", { ntxId });
-    return error;
+    return result;
 }
 
 export default {

@@ -54,8 +54,10 @@ export default function SearchDefinitionTab({ note, ntxId, hidden }: Pick<TabCon
             return;
         }
 
-        const error = await search.runSearchNote(parentComponent, noteId, ntxId);
-        setError(error ? { message: error } : undefined);
+        const result = await search.runSearchNote(parentComponent, noteId, ntxId);
+        if (result) {
+            setError(result.error ? { message: result.error } : undefined);
+        }
     }
 
     // Refresh the list of available and active options.

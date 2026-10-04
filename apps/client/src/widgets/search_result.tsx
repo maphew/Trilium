@@ -37,9 +37,9 @@ export default function SearchResult() {
             return;
         }
 
-        const error = await search.runSearchNote(parentComponent, note.noteId, ntxId);
-        if (error) {
-            toast.showError(error);
+        const result = await search.runSearchNote(parentComponent, note.noteId, ntxId);
+        if (result?.error) {
+            toast.showError(result.error);
         }
     }
 

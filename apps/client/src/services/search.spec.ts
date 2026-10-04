@@ -62,15 +62,19 @@ describe("search service", () => {
         const loadSearchNote = vi.spyOn(froca, "loadSearchNote");
 
         loadSearchNote.mockResolvedValueOnce({ error: "Bad query" });
-        expect(await searchService.runSearchNote(component, "search1", "ntx1")).toBe("Bad query");
+        expect(await searchService.runSearchNote(component, "search1", "ntx1")).toEqual({ error: "Bad query" });
         expect(loadSearchNote).toHaveBeenCalledWith("search1");
+
+        loadSearchNote.mockResolvedValueOnce(undefined);
+        expect(await searchService.runSearchNote(component, "search1", "ntx1")).toEqual({ error: undefined });
         expect(showError).not.toHaveBeenCalled();
 
+        // A failed request says nothing about the query, so it returns no result to replace its error.
         loadSearchNote.mockRejectedValueOnce(new Error("Network down"));
         expect(await searchService.runSearchNote(component, "search1", "ntx1")).toBeUndefined();
         expect(showError).toHaveBeenCalledWith("Network down");
 
-        expect(triggerEvent).toHaveBeenCalledTimes(2);
+        expect(triggerEvent).toHaveBeenCalledTimes(3);
         expect(triggerEvent).toHaveBeenCalledWith("searchRefreshed", { ntxId: "ntx1" });
     });
 });
