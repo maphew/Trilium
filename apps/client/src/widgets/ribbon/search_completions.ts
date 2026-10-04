@@ -51,7 +51,7 @@ export function searchCompletionAt(before: string, explicit: boolean): SearchCom
 
     const path = matchBefore(context, PROPERTY_PATH);
     if (path) {
-        return pathCompletion(path.text, context.pos);
+        return pathCompletion(path.text, context.pos, orderingPosition(context) !== "none");
     }
 
     // `~=` and `~*` reach the operators below instead: an attribute name cannot be spelled with
@@ -324,7 +324,7 @@ function escapeInQuotes(value: string, quote: string) {
  * `note.relations.` that is an attribute name; after `note.title.` it is nothing at all, a
  * terminal property having nothing to walk onto.
  */
-function pathCompletion(path: string, pos: number): SearchCompletion | null {
+function pathCompletion(path: string, pos: number, sortKey: boolean): SearchCompletion | null {
     const segments = path.split(".");
     const typed = segments[segments.length - 1];
     const previous = segments[segments.length - 2];
@@ -344,7 +344,8 @@ function pathCompletion(path: string, pos: number): SearchCompletion | null {
         return null;
     }
 
-    return { kind: "entries", key: "segments", from, query: typed, entries: segmentEntries, preselect: false };
+    const key = sortKey ? "segments:sort" : "segments";
+    return { kind: "entries", key, from, query: typed, entries: () => segmentEntries(sortKey), preselect: false };
 }
 
 /**
@@ -422,8 +423,19 @@ function orderingPosition(context: Context): OrderingPosition {
     return written ? "sorted" : "key";
 }
 
-function segmentEntries(): SearchEntry[] {
-    return Object.values(SEARCH_NOTE_PATH).flat().map((segment) => {
+/** The traversals `ValueExtractor.validate()` accepts in an `orderBy` key; it reads no content either. */
+const SORT_KEY_TRAVERSALS: ReadonlySet<string> = new Set([ "parents", "children" ]);
+
+function segmentEntries(sortKey: boolean): SearchEntry[] {
+    const segments = sortKey
+        ? [
+            ...SEARCH_NOTE_PATH.properties,
+            ...SEARCH_NOTE_PATH.traversals.filter((segment) => SORT_KEY_TRAVERSALS.has(segment)),
+            ...SEARCH_NOTE_PATH.attributeSegments
+        ]
+        : Object.values(SEARCH_NOTE_PATH).flat();
+
+    return segments.map((segment) => {
         const { icon, detail } = SEGMENTS[segment];
         return entry(segment, detail ? t(detail) : undefined, `bx ${icon}`);
     });

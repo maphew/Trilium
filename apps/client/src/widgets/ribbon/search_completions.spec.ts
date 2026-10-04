@@ -117,6 +117,20 @@ describe("searchCompletionAt", () => {
         expect(await titlesOf(complete("~author.relations.son."))).toContain("title");
     });
 
+    it("offers a sort key only the segments ValueExtractor can sort on", async () => {
+        const everywhere = await titlesOf(complete("#book AND note."));
+        expect(everywhere).toEqual(expect.arrayContaining([ "ancestors", "links", "backlinks", "content", "text" ]));
+
+        const sortKey = await titlesOf(complete("#book orderBy note."));
+        expect(sortKey).toEqual(expect.arrayContaining([ "title", "parents", "children", "labels", "relations" ]));
+        for (const unsortable of [ "ancestors", "links", "backlinks", "content", "rawContent", "text" ]) {
+            expect(sortKey).not.toContain(unsortable);
+        }
+
+        expect(await titlesOf(complete("#book orderBy note.title, note.parents."))).not.toContain("links");
+        expect(await titlesOf(complete("#book orderBy note.title limit 10 AND note."))).toContain("links");
+    });
+
     it("stops where a terminal property ends the path", () => {
         expect(complete("note.title.")).toBeNull();
         expect(complete("note.labels.publicationYear.")).toBeNull();
