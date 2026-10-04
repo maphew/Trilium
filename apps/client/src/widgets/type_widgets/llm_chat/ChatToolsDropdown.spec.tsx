@@ -35,8 +35,9 @@ afterEach(() => {
 
 const TAVILY = { id: "s1", name: "Tavily", provider: "tavily" };
 
-function renderMenu({ enableNoteTools = false, webSearch = { choice: "disabled", enableWebSearch: false } }: {
+function renderMenu({ enableNoteTools = false, modelProvider, webSearch = { choice: "disabled", enableWebSearch: false } }: {
     enableNoteTools?: boolean;
+    modelProvider?: string;
     webSearch?: WebSearchState;
 } = {}) {
     const onNoteToolsChange = vi.fn();
@@ -47,6 +48,7 @@ function renderMenu({ enableNoteTools = false, webSearch = { choice: "disabled",
         <ChatToolsDropdown
             enableNoteTools={enableNoteTools}
             onNoteToolsChange={onNoteToolsChange}
+            modelProvider={modelProvider}
             webSearch={webSearch}
             searchProviders={[ TAVILY ]}
             onWebSearchChoose={onWebSearchChoose}
@@ -105,6 +107,19 @@ describe("ChatToolsDropdown", () => {
 
         await act(async () => menu.row("llm_chat.manage_search_providers")?.click());
         expect(mocks.triggerCommand).toHaveBeenCalledExactlyOnceWith("showOptions", { section: "_optionsLlm" });
+    });
+
+    it("gives every web search choice an icon, the model's own mark standing for its built-in search", () => {
+        const icons = (menu: ReturnType<typeof renderMenu>) => [ "llm_chat.web_search_disabled", "llm_chat.web_search_builtin", "Tavily" ]
+            .map((text) => menu.row(text)?.querySelector(".llm-chat-tools-choice-icon"));
+
+        const [ disabled, builtIn, tavily ] = icons(renderMenu({ modelProvider: "anthropic" }));
+        expect(disabled?.classList.contains("bx-block")).toBe(true);
+        expect(builtIn?.classList.contains("masked-icon")).toBe(true);
+        expect(tavily?.classList.contains("masked-icon")).toBe(true);
+
+        // No model picked yet: nobody's mark to show.
+        expect(icons(renderMenu())[1]?.classList.contains("bx-globe")).toBe(true);
     });
 
     it("keeps a choice the model can't use listed, disabled, with the reason on an info icon", async () => {

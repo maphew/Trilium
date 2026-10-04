@@ -478,6 +478,7 @@ export default function ChatInputBar({
                         <ChatToolsDropdown
                             enableNoteTools={chat.enableNoteTools}
                             onNoteToolsChange={handleNoteToolsToggle}
+                            modelProvider={currentModel?.provider}
                             webSearch={webSearch}
                             searchProviders={searchProviders}
                             onWebSearchChoose={handleWebSearchChoose}

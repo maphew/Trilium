@@ -10,15 +10,17 @@ import Dropdown from "../../react/Dropdown.js";
 import { FormDropdownDivider, FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList.js";
 import Icon from "../../react/Icon.js";
 import MaskedIcon from "../../react/MaskedIcon.js";
-import { SEARCH_PROVIDER_ICON } from "../options/llm/provider_icons.js";
+import { providerIconUrl, SEARCH_PROVIDER_ICON } from "../options/llm/provider_icons.js";
 
 /**
  * The Tools menu of the chat input bar: what the model can reach this turn, one section per group
  * of tools. Its rows leave the menu open, so several can be changed in one visit. Its toggle
  * shares the compact combo box styling of the model picker beside it.
  */
-export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, webSearch, searchProviders, onWebSearchChoose, disabled }: {
+export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, modelProvider, webSearch, searchProviders, onWebSearchChoose, disabled }: {
     enableNoteTools: boolean;
+    /** The provider type of the current model, whose mark stands for its built-in search. */
+    modelProvider: string | undefined;
     onNoteToolsChange: (newValue: boolean) => void;
     webSearch: WebSearchState;
     searchProviders: SearchProviderOption[];
@@ -50,6 +52,7 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
             <FormDropdownDivider />
             <FormListHeader text={t("llm_chat.web_search")} />
             <WebSearchChoice choice="disabled" webSearch={webSearch} onChoose={onWebSearchChoose}>
+                <Icon icon="bx bx-block" className="llm-chat-tools-choice-icon" />
                 {t("llm_chat.web_search_disabled")}
             </WebSearchChoice>
             <WebSearchChoice
@@ -58,6 +61,9 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
                 onChoose={onWebSearchChoose}
                 unavailableReason={webSearch.builtInUnavailableKey && t(webSearch.builtInUnavailableKey)}
             >
+                {modelProvider
+                    ? <MaskedIcon url={providerIconUrl(modelProvider)} className="llm-chat-tools-choice-icon" />
+                    : <Icon icon="bx bx-globe" className="llm-chat-tools-choice-icon" />}
                 {t("llm_chat.web_search_builtin")}
             </WebSearchChoice>
             {searchProviders.map(provider => (
@@ -68,7 +74,7 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
                     onChoose={onWebSearchChoose}
                     unavailableReason={searchProviderUnavailable}
                 >
-                    <MaskedIcon url={SEARCH_PROVIDER_ICON} className="llm-chat-tools-provider-icon" />
+                    <MaskedIcon url={SEARCH_PROVIDER_ICON} className="llm-chat-tools-choice-icon" />
                     {provider.name}
                 </WebSearchChoice>
             ))}

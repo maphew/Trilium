@@ -12,9 +12,10 @@
         white-space: normal;
     }
 
-    .llm-chat-tools-provider-icon {
+    .llm-chat-tools-choice-icon {
         --masked-icon-size: 1em;
 
+        font-size: 1em;
         margin-inline-end: 0.4em;
         opacity: 0.8;
     }
