@@ -2583,7 +2583,8 @@
     "result_count_few": "{{count}} результата",
     "result_count_many": "{{count}} результатов",
     "page_size": "На страницу",
-    "snippet_unavailable": "Предпросмотр недоступен."
+    "snippet_unavailable": "Предпросмотр недоступен.",
+    "searching": "Поиск..."
   },
   "empty": {
     "search_placeholder": "поиск заметки по её названию",
@@ -3349,9 +3350,6 @@
   },
   "llm": {
     "add_provider": "Добавить провайдера",
-    "add_provider_title": "Добавить провайдера ИИ",
-    "configured_providers": "Настроенные провайдеры",
-    "no_providers_configured": "Поставщики пока не настроены.",
     "provider_name": "Название",
     "actions": "Действия",
     "delete_provider": "Удалить",
@@ -3435,9 +3433,6 @@
     "provider_group_local_description": "Ключ API не требуется, плата за использование отсутствует. Ваши заметки попадают только на компьютер, на котором запущена модель.",
     "provider_group_subscription": "Подписка",
     "provider_group_subscription_description": "Использует учётную запись, которая у вас уже есть, вместо ключа API, без дополнительной платы: Claude Pro/Max, GitHub Copilot или учётная запись Google. Программа поставщика должна быть установлена на устройстве, на котором запущен Trilium, а ваши заметки отправляются на серверы поставщика.",
-    "provider_model_count_one": "{{count}} модель",
-    "provider_model_count_few": "{{count}} модели",
-    "provider_model_count_many": "{{count}} моделей",
     "provider_openai_compatible": "Совместимый с OpenAI",
     "provider_unavailable_standalone": "Недоступно в браузерной версии: этот провайдер работает за счет запуска отдельной программы на компьютере, а здесь нет компьютера, на котором она могла бы работать.",
     "select_models": "Выберите модели",
@@ -4629,7 +4624,9 @@
     "label_marker": "Указывает метку. Нажмите Enter, чтобы увидеть список меток",
     "label_marker_negated": "Исключает метку. Нажмите Enter, чтобы увидеть список меток",
     "relation_marker": "Указывает отношение. Нажмите Enter, чтобы увидеть список отношений",
-    "relation_marker_negated": "Исключает отношение. Нажмите Enter, чтобы увидеть список отношений"
+    "relation_marker_negated": "Исключает отношение. Нажмите Enter, чтобы увидеть список отношений",
+    "property_backlinks": "Продолжается в заметках, ссылающихся на эту заметку",
+    "property_links": "Продолжается в заметках, на которые ссылается эта заметка"
   },
   "lightbox": {
     "image": "Изображение",

@@ -3431,9 +3431,6 @@
   "llm": {
     "feature_not_enabled": "Aktifkan fitur eksperimental LLM di Pengaturan → Lanjutan → Fitur eksperimental untuk menggunakan integrasi AI.",
     "add_provider": "Tambahkan Provider",
-    "add_provider_title": "Tambahkan Provider AI",
-    "configured_providers": "Provider yang Dikonfigurasi",
-    "no_providers_configured": "Belum ada provider yang dikonfigurasi.",
     "provider_name": "Nama",
     "actions": "Tindakan",
     "delete_provider": "Hapus",
@@ -3492,7 +3489,6 @@
     "models_select_all": "Pilih semua",
     "models_select_none": "Batalkan semua pilihan",
     "models_reset_defaults": "Kembalikan ke bawaan",
-    "provider_model_count_other": "{{count}} model",
     "beta": "Beta",
     "claude_agent_description": "Menggunakan langganan Claude Pro/Max Anda melalui Claude Code, sehingga tidak memerlukan kunci API. Claude Code harus terpasang pada mesin yang menjalankan Trilium (server jika self-hosting, atau komputer ini pada aplikasi desktop); masuklah sekali dengan menjalankan \"claude /login\" di sana.",
     "add_provider_title_named": "Tambahkan {{- name}}",

@@ -2477,9 +2477,6 @@
   },
   "llm": {
     "add_provider": "Ajouter le fournisseur",
-    "add_provider_title": "Ajouter le fournisseur d'IA",
-    "configured_providers": "Fournisseurs configurés",
-    "no_providers_configured": "Aucun fournisseur n'est encore configuré.",
     "provider_name": "Nom",
     "actions": "Actions",
     "delete_provider": "Supprimer",
