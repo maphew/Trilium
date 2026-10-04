@@ -3,7 +3,7 @@ import { ExcalidrawElement, NonDeletedExcalidrawElement } from "@excalidraw/exca
 import { AppState, BinaryFileData, BinaryFiles, ExcalidrawImperativeAPI, ExcalidrawInitialDataState, ExcalidrawProps, LibraryItem } from "@excalidraw/excalidraw/types";
 import { deferred, type DeferredPromise } from "@triliumnext/commons";
 import { RefObject } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import NoteContext from "../../../components/note_context";
 import type FAttachment from "../../../entities/fattachment";
@@ -379,7 +379,9 @@ export function useCanvasDrawingPersistence(
         };
     });
 
-    useEffect(() => () => editor?.release(attachment.attachmentId), [ editor, attachment ]);
+    // A layout cleanup runs during the unmount, before Excalidraw's `componentWillUnmount()` empties
+    // the scene that `release()` reads; a passive one runs after paint.
+    useLayoutEffect(() => () => editor?.release(attachment.attachmentId), [ editor, attachment ]);
 
     return {
         initialData,

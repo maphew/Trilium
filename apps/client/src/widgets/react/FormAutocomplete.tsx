@@ -239,7 +239,9 @@ export function useForwardedKeys<T>(
     const onActiveDescendantRef = useRef(onActiveDescendant);
     onActiveDescendantRef.current = onActiveDescendant;
     useEffect(() => onActiveDescendantRef.current?.(activeId), [ activeId ]);
-    useEffect(() => () => onActiveDescendantRef.current?.(null), []);
+    // A layout cleanup runs during the unmount itself; a passive one runs after paint, by which
+    // time `createHostedList()` has already let go of the host it would report to.
+    useLayoutEffect(() => () => onActiveDescendantRef.current?.(null), []);
 
     useLayoutEffect(() => {
         handleRef.current = {
