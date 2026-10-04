@@ -24,8 +24,8 @@ import { resolveToolRegistries } from "./tools/index.js";
  * ends with a `done` chunk only when the turn completed — an errored one stops
  * after its `error` chunk, so a caller that needs a terminator must add its own.
  *
- * @param abortSignal stops the turn early; for a chunk-native provider it aborts
- *     the agent loop itself, otherwise the stream is simply left at the next chunk.
+ * @param abortSignal stops the turn early: the provider aborts its completion and any tool
+ *     call in progress, and the stream is left at the next chunk.
  */
 export async function* runChat(
     messages: LlmMessage[],
@@ -70,7 +70,7 @@ export async function* runChat(
         // and produces LlmStreamChunks directly, including honouring the abort.
         const chunks = provider.chatChunks
             ? provider.chatChunks(messages, config, abortSignal)
-            : streamToChunks(provider.chat(messages, config), { model: modelDisplayName, provider: provider.name, pricing });
+            : streamToChunks(provider.chat(messages, config, abortSignal), { model: modelDisplayName, provider: provider.name, pricing });
 
         for await (const chunk of chunks) {
             if (abortSignal?.aborted) {

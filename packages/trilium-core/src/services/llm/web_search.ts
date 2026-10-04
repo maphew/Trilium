@@ -43,12 +43,12 @@ export function createWebSearchTool(setup: WebSearchSetup) {
         inputSchema: z.object({
             query: z.string().describe("The search query")
         }),
-        execute: async ({ query }) => {
+        execute: async ({ query }, options) => {
             try {
                 return {
                     query,
                     searchProvider: { type: setup.provider, name: setup.name ?? setup.provider },
-                    sources: await searchWeb(setup, query)
+                    sources: await searchWeb(setup, query, options.abortSignal)
                 };
             } catch (e) {
                 return { error: e instanceof Error ? e.message : String(e) };
@@ -58,19 +58,20 @@ export function createWebSearchTool(setup: WebSearchSetup) {
 }
 
 /**
- * Run `query` against the search provider in `setup`.
+ * Run `query` against the search provider in `setup`. `signal` cancels the request along with the
+ * chat turn that made it.
  *
  * A switch over literal cases, as `createProviderInstance()` is, because the provider type is
  * user-controlled.
  */
-export async function searchWeb(setup: WebSearchSetup, query: string): Promise<WebSearchSource[]> {
+export async function searchWeb(setup: WebSearchSetup, query: string, signal?: AbortSignal): Promise<WebSearchSource[]> {
     switch (setup.provider) {
         case "brave": {
             const base = setup.baseURL ?? "https://api.search.brave.com/res/v1";
             const params = new URLSearchParams({ q: query, count: String(MAX_RESULTS) });
             const payload = await requestJson(`${base}/web/search?${params}`, {
                 headers: { "Accept": "application/json", "X-Subscription-Token": setup.apiKey }
-            }) as { web?: { results?: unknown[] } };
+            }, signal) as { web?: { results?: unknown[] } };
             return toSources(payload.web?.results, "description");
         }
         case "tavily": {
@@ -78,7 +79,7 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${setup.apiKey}` },
                 body: JSON.stringify({ query, max_results: MAX_RESULTS })
-            }) as { results?: unknown[] };
+            }, signal) as { results?: unknown[] };
             return toSources(payload.results, "content");
         }
         case "exa": {
@@ -86,7 +87,7 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-api-key": setup.apiKey },
                 body: JSON.stringify({ query, numResults: MAX_RESULTS, contents: { text: { maxCharacters: 1000 } } })
-            }) as { results?: unknown[] };
+            }, signal) as { results?: unknown[] };
             return toSources(payload.results, "text");
         }
         case "serper": {
@@ -94,7 +95,7 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-API-KEY": setup.apiKey },
                 body: JSON.stringify({ q: query, num: MAX_RESULTS })
-            }) as { organic?: unknown[] };
+            }, signal) as { organic?: unknown[] };
             return toSources(payload.organic, "snippet", "link");
         }
         case "perplexity": {
@@ -102,7 +103,7 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${setup.apiKey}` },
                 body: JSON.stringify({ query, max_results: MAX_RESULTS })
-            }) as { results?: unknown[] };
+            }, signal) as { results?: unknown[] };
             return toSources(payload.results, "snippet");
         }
         case "searxng": {
@@ -112,7 +113,7 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
             const params = new URLSearchParams({ q: query, format: "json" });
             const payload = await requestJson(`${trimTrailingSlashes(setup.baseURL)}/search?${params}`, {
                 headers: { "Accept": "application/json", ...(setup.apiKey && { "Authorization": `Bearer ${setup.apiKey}` }) }
-            }) as { results?: unknown[] };
+            }, signal) as { results?: unknown[] };
             return toSources(payload.results, "content").slice(0, MAX_RESULTS);
         }
         default:
@@ -221,8 +222,9 @@ function htmlToMarkdown(html: string): string {
     return title ? `# ${title}\n\n${markdown}` : markdown;
 }
 
-async function requestJson(url: string, init: RequestInit): Promise<unknown> {
-    const response = await llmFetch(url, { ...init, signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) });
+async function requestJson(url: string, init: RequestInit, signal: AbortSignal | undefined): Promise<unknown> {
+    const timeout = AbortSignal.timeout(SEARCH_TIMEOUT_MS);
+    const response = await llmFetch(url, { ...init, signal: signal ? AbortSignal.any([ signal, timeout ]) : timeout });
     if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
             throw new Error(`The search provider refused the request (HTTP ${response.status}); check its API key in the AI settings.`);

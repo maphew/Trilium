@@ -127,6 +127,18 @@ describe("createWebSearchTool", () => {
         respond({}, 403);
         expect(await run(tool, "trilium")).toEqual({ error: expect.stringContaining("HTTP 403") });
     });
+
+    it("cancels the search request when the turn is stopped", async () => {
+        const tool = createWebSearchTool({ provider: "tavily", apiKey: "tk" });
+        const controller = new AbortController();
+        respond({ results: [] });
+        await tool.execute?.({ query: "q" }, { toolCallId: "1", messages: [], context: {}, abortSignal: controller.signal });
+
+        const { signal } = request().init;
+        expect(signal?.aborted).toBe(false);
+        controller.abort();
+        expect(signal?.aborted).toBe(true);
+    });
 });
 
 describe("readWebPage", () => {

@@ -414,7 +414,7 @@ export abstract class BaseProvider implements LlmProvider {
         return tools;
     }
 
-    chat(messages: LlmMessage[], config: LlmProviderConfig): StreamResult {
+    chat(messages: LlmMessage[], config: LlmProviderConfig, signal?: AbortSignal): StreamResult {
         const systemPrompt = this.buildSystemPrompt(messages, config);
         const chatMessages = this.applyNoteHint(messages.filter(m => m.role !== "system"), config);
         const modelId = config.model || this.defaultModel;
@@ -432,7 +432,8 @@ export abstract class BaseProvider implements LlmProvider {
             // `fullStream`, where `streamToChunks` turns it into a detailed message that
             // the chat route logs — so suppress the unstructured stdout dump here.
             onError: () => {},
-            telemetry: TELEMETRY_OFF
+            telemetry: TELEMETRY_OFF,
+            abortSignal: signal
         };
         const providerOptions = this.chatProviderOptions(config);
         if (providerOptions) {

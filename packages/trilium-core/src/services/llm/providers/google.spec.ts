@@ -128,6 +128,14 @@ describe("GoogleProvider message building", () => {
         // Extended thinking forwards Gemini's thinkingConfig.
         expect(opts.providerOptions.google.thinkingConfig.thinkingBudget).toBe(10000);
     });
+
+    it("chat() with extended thinking passes the turn's abort signal to streamText", () => {
+        const provider = new GoogleProvider("test-key");
+        const signal = new AbortController().signal;
+        provider.chat([{ role: "user", content: "hello" }], { enableExtendedThinking: true }, signal);
+
+        expect((streamTextMock.mock.calls[0][0] as any).abortSignal).toBe(signal);
+    });
 });
 
 describe("GoogleProvider tool handling", () => {

@@ -13,14 +13,17 @@ const state = vi.hoisted(() => ({
     providerIdRequested: undefined as string | undefined,
     providerTypeRequested: undefined as string | undefined,
     /** The config the provider's `chat()` was handed. */
-    chatConfig: undefined as unknown
+    chatConfig: undefined as unknown,
+    /** The abort signal the provider's `chat()` was handed. */
+    chatSignal: undefined as AbortSignal | undefined
 }));
 
 vi.mock("./index.js", () => {
     const makeProvider = () => ({
         name: "fake",
-        chat: (_messages: unknown, config: unknown) => {
+        chat: (_messages: unknown, config: unknown, signal?: AbortSignal) => {
             state.chatConfig = config;
+            state.chatSignal = signal;
             if (state.chatThrows !== undefined) throw state.chatThrows;
             return {};
         },
@@ -154,6 +157,12 @@ describe("runChat", () => {
         const controller = new AbortController();
         expect(await collect(HELLO, { provider: "claude-agent" }, controller.signal)).toEqual(state.chunks);
         expect(state.chunkSignal).toBe(controller.signal);
+    });
+
+    it("hands the abort signal to an AI SDK provider too, so its tool calls stop with the turn", async () => {
+        const controller = new AbortController();
+        await collect(HELLO, {}, controller.signal);
+        expect(state.chatSignal).toBe(controller.signal);
     });
 
     it("stops at the next chunk once aborted", async () => {

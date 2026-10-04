@@ -77,10 +77,13 @@ export interface LlmProvider {
     /**
      * Create a streaming chat completion.
      * Returns the AI SDK StreamResult which is provider-agnostic.
+     *
+     * @param signal stops the completion and any tool call in progress when the user stops the turn
      */
     chat(
         messages: LlmMessage[],
-        config: LlmProviderConfig
+        config: LlmProviderConfig,
+        signal?: AbortSignal
     ): StreamResult;
 
     /**
