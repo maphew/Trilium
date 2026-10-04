@@ -115,7 +115,7 @@ const PROVIDER_GROUPS = [
 
 const SEARCH_PROVIDER_GROUPS = [
     { id: "search-cloud", columns: 2, headingKey: "llm.search_provider_group_cloud", descriptionKey: "llm.search_provider_group_cloud_description" },
-    { id: "search-local", columns: 1, headingKey: "llm.search_provider_group_local", descriptionKey: "llm.search_provider_group_local_description" }
+    { id: "search-local", columns: 2, headingKey: "llm.search_provider_group_local", descriptionKey: "llm.search_provider_group_local_description" }
 ] as const;
 
 type ProviderGroupId = (typeof PROVIDER_GROUPS)[number]["id"] | (typeof SEARCH_PROVIDER_GROUPS)[number]["id"];
