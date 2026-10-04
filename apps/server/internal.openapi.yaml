@@ -1942,23 +1942,6 @@ paths:
         '400':
           description: Missing or empty search string
 
-  /api/search/{searchString}:
-    get:
-      tags: [Search]
-      summary: Full text search with a path parameter
-      description: Deprecated. Use `/api/search` with the `searchString` query parameter.
-      operationId: searchLegacy
-      deprecated: true
-      parameters:
-        - name: searchString
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Search results
-                  
   /api/quick-search:
     get:
       tags: [Search]
@@ -1983,23 +1966,6 @@ paths:
         '400':
           description: Missing or empty search string
 
-  /api/quick-search/{searchString}:
-    get:
-      tags: [Search]
-      summary: Quick search with a path parameter
-      description: Deprecated. Use `/api/quick-search` with the `searchString` query parameter.
-      operationId: quickSearchLegacy
-      deprecated: true
-      parameters:
-        - name: searchString
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Quick search results
-                  
   /api/search-note/{noteId}:
     get:
       tags: [Search]

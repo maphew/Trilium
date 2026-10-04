@@ -18,7 +18,8 @@ async function createSearchNote(searchString: string): Promise<string> {
 
 /** Runs a quick search as a client hoisted into `hoistedNoteId`, or unhoisted when it is omitted. */
 function quickSearch(searchString: string, hoistedNoteId?: string) {
-    return api.get<{ searchResultNoteIds: string[] }>(`/api/quick-search/${searchString}`, {
+    return api.get<{ searchResultNoteIds: string[] }>("/api/quick-search", {
+        query: { searchString },
         headers: hoistedNoteId ? { "trilium-hoisted-note-id": hoistedNoteId } : undefined
     });
 }
@@ -48,21 +49,21 @@ describe("Search API (core)", () => {
         const inside = await createTextNote(api, { parentNoteId: board.noteId, title: `${token} inside` });
         const outside = await createTextNote(api, { title: `${token} outside` });
 
-        const scoped = await api.get<string[]>(`/api/search/${token}`, {
-            query: { ancestorNoteId: board.noteId }
+        const scoped = await api.get<string[]>("/api/search", {
+            query: { searchString: token, ancestorNoteId: board.noteId }
         });
         expect(scoped.status).toBe(200);
         expect(scoped.body).toContain(inside.noteId);
         expect(scoped.body).not.toContain(outside.noteId);
 
-        const unscoped = await api.get<string[]>(`/api/search/${token}`);
+        const unscoped = await api.get<string[]>("/api/search", { query: { searchString: token } });
         expect(unscoped.body).toContain(inside.noteId);
         expect(unscoped.body).toContain(outside.noteId);
     });
 
     it("returns note ids with token infos and the error when includeTokens is set", async () => {
-        const withTokens = await api.get<SearchWithTokensResponse>(`/api/search/${UNIQUE_TOKEN}`, {
-            query: { includeTokens: "true" }
+        const withTokens = await api.get<SearchWithTokensResponse>("/api/search", {
+            query: { searchString: UNIQUE_TOKEN, includeTokens: "true" }
         });
         expect(withTokens.status).toBe(200);
         expect(withTokens.body.searchResultNoteIds).toContain(createdNoteId);
@@ -75,8 +76,8 @@ describe("Search API (core)", () => {
         // A query the parser rejects still answers 200, with the parse error in the body for the
         // client to show inline.
         const broken = await api.get<SearchWithTokensResponse>(
-            `/api/search/${encodeURIComponent("#label = ")}`,
-            { query: { includeTokens: "true" } }
+            "/api/search",
+            { query: { searchString: "#label = ", includeTokens: "true" } }
         );
         expect(broken.status).toBe(200);
         expect(broken.body.error).toBeTruthy();
@@ -108,7 +109,8 @@ describe("Search API (core)", () => {
         // pattern would match nothing there (silent no-op), so the server must drop regex tokens.
         const pattern = "ZzRegexQwerty";
         const res = await api.get<{ highlightedTokens: string[]; error: string | null }>(
-            `/api/quick-search/${encodeURIComponent(`note.content %= '${pattern}'`)}`
+            "/api/quick-search",
+            { query: { searchString: `note.content %= '${pattern}'` } }
         );
 
         expect(res.status).toBe(200);
@@ -162,29 +164,9 @@ describe("Search API (core)", () => {
         }
     });
 
-    it("keeps path parameters compatible with existing clients", async () => {
-        const legacyFull = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`);
-        expect(legacyFull.status).toBe(200);
-        expect(legacyFull.body).toContain(createdNoteId);
-
-        const legacyQuick = await api.get<{ searchResultNoteIds: string[] }>(
-            `/api/quick-search/${UNIQUE_TOKEN}`
-        );
-        expect(legacyQuick.status).toBe(200);
-        expect(legacyQuick.body.searchResultNoteIds).toContain(createdNoteId);
-
-        const full = await api.get<string[]>(`/api/search/${UNIQUE_TOKEN}`, {
-            query: { searchString: "" }
-        });
-        expect(full.status).toBe(200);
-        expect(full.body).toContain(createdNoteId);
-
-        const quick = await api.get<{ searchResultNoteIds: string[] }>(
-            `/api/quick-search/${UNIQUE_TOKEN}`,
-            { query: { searchString: "" } }
-        );
-        expect(quick.status).toBe(200);
-        expect(quick.body.searchResultNoteIds).toContain(createdNoteId);
+    it("takes the search string only from the query", async () => {
+        expect((await api.get(`/api/search/${UNIQUE_TOKEN}`)).status).toBe(404);
+        expect((await api.get(`/api/quick-search/${UNIQUE_TOKEN}`)).status).toBe(404);
     });
 
     it("lists template note ids including a freshly-labelled template", async () => {

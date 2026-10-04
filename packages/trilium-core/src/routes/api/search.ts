@@ -126,7 +126,7 @@ function lintSearchString(req: Request): SearchLintResponse {
     return { error: searchService.validateSearchQuery(searchString) };
 }
 
-function quickSearch(req: Request<{ searchString?: string }, { searchString?: string }>): QuickSearchResponse {
+function quickSearch(req: Request<{}, { searchString?: string }>): QuickSearchResponse {
     const searchString = getSearchString(req);
 
     const searchContext = new SearchContext({
@@ -155,7 +155,7 @@ function quickSearch(req: Request<{ searchString?: string }, { searchString?: st
 }
 
 function search(
-    req: Request<{ searchString?: string }, { searchString?: string, ancestorNoteId?: string, includeTokens?: string }>
+    req: Request<{}, { searchString?: string, ancestorNoteId?: string, includeTokens?: string }>
 ): string[] | SearchWithTokensResponse {
     const searchString = getSearchString(req);
     const { ancestorNoteId, includeTokens } = req.query;
@@ -184,8 +184,8 @@ function search(
     };
 }
 
-function getSearchString(req: Request<{ searchString?: string }, { searchString?: string, ancestorNoteId?: string, includeTokens?: string }>): string {
-    const searchString = req.params.searchString ?? req.query.searchString;
+function getSearchString(req: Request<{}, { searchString?: string }>): string {
+    const { searchString } = req.query;
 
     if (typeof searchString !== "string" || searchString.length === 0) {
         throw new ValidationError("Search string must be a non-empty string.");

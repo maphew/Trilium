@@ -239,16 +239,12 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     //#endregion
 
     apiRoute(GET, "/api/quick-search", searchRoute.quickSearch);
-    apiRoute(GET, "/api/quick-search/:searchString", searchRoute.quickSearch);
     apiRoute(GET, "/api/search-note/:noteId", searchRoute.searchFromNote);
     apiRoute(PST, "/api/search-note/:noteId/result-details", searchRoute.getSearchResultDetails);
     apiRoute(PST, "/api/search-and-execute-note/:noteId", searchRoute.searchAndExecute);
     apiRoute(PST, "/api/search-related", searchRoute.getRelatedNotes);
-    // Ahead of the `:searchString` catch-all below, which would otherwise claim the literal path
-    // were it ever given a POST handler too.
     apiRoute(PST, "/api/search/lint", searchRoute.lintSearchString);
     apiRoute(GET, "/api/search", searchRoute.search);
-    apiRoute(GET, "/api/search/:searchString", searchRoute.search);
     apiRoute(GET, "/api/search-templates", searchRoute.searchTemplates);
 
     // Streaming a chat is not here — it has no single form every runtime can serve.
