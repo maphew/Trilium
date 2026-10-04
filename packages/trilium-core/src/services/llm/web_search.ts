@@ -96,6 +96,14 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
             }) as { organic?: unknown[] };
             return toSources(payload.organic, "snippet", "link");
         }
+        case "perplexity": {
+            const payload = await requestJson(`${setup.baseURL ?? "https://api.perplexity.ai"}/search`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${setup.apiKey}` },
+                body: JSON.stringify({ query, max_results: MAX_RESULTS })
+            }) as { results?: unknown[] };
+            return toSources(payload.results, "snippet");
+        }
         case "searxng": {
             if (!setup.baseURL) {
                 throw new Error("The SearXNG search provider has no address.");

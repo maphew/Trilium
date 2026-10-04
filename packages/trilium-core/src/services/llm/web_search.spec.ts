@@ -74,6 +74,18 @@ describe("searchWeb", () => {
         expect(sources).toEqual([ { ...PAGE, snippet: "From Google" } ]);
     });
 
+    it("posts to Perplexity's Search API with its key and reads its snippets", async () => {
+        respond({ id: "r1", results: [ { ...PAGE, snippet: "From Perplexity", date: "2026-10-01" } ] });
+        const sources = await searchWeb({ provider: "perplexity", apiKey: "pk" }, "q");
+
+        const { url, init, headers, body } = request();
+        expect(url).toBe("https://api.perplexity.ai/search");
+        expect(init.method).toBe("POST");
+        expect(headers.Authorization).toBe("Bearer pk");
+        expect(body).toEqual({ query: "q", max_results: 8 });
+        expect(sources).toEqual([ { ...PAGE, snippet: "From Perplexity" } ]);
+    });
+
     it("asks SearXNG for JSON, sends a key only when there is one, and keeps web URLs only", async () => {
         respond({ results: [ { ...PAGE, content: "Hit" }, { title: "Local", url: "file:///etc/passwd" }, { url: "https://untitled.example" } ] });
         const sources = await searchWeb({ provider: "searxng", apiKey: "", baseURL: "http://localhost:8888/" }, "q");

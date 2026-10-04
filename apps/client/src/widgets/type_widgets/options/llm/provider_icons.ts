@@ -23,6 +23,7 @@ import githubCopilotIcon from "./icons/github-copilot.svg?url";
 import lmStudioIcon from "./icons/lmstudio.svg?url";
 import ollamaIcon from "./icons/ollama.svg?url";
 import openaiIcon from "./icons/openai.svg?url";
+import perplexityIcon from "./icons/perplexity.svg?url";
 import openAiCompatibleIcon from "./icons/robot.svg?url";
 import searchIcon from "./icons/search.svg?url";
 import searxngIcon from "./icons/searxng.svg?url";
@@ -42,6 +43,7 @@ export const PROVIDER_ICONS: Record<string, string> = {
     ollama: ollamaIcon,
     openai: openaiIcon,
     "openai-compatible": openAiCompatibleIcon,
+    perplexity: perplexityIcon,
     searxng: searxngIcon,
     serper: searchIcon,
     tavily: tavilyIcon
