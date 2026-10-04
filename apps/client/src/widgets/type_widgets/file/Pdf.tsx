@@ -4,6 +4,7 @@ import appContext from "../../../components/app_context";
 import type NoteContext from "../../../components/note_context";
 import FBlob from "../../../entities/fblob";
 import FNote from "../../../entities/fnote";
+import { copyReferenceWithToast } from "../../../services/clipboard_ext";
 import open from "../../../services/open";
 import options from "../../../services/options";
 import { useViewModeConfig } from "../../collections/NoteList";
@@ -16,6 +17,13 @@ import PdfViewer, { getPdfUrl } from "./PdfViewer";
  */
 const SAVE_INTERVAL = 5_000;
 
+/**
+ * The form of the id pdf.js gives an annotation stored in the document: its object reference,
+ * such as `12R`. An annotation drawn in this session has an editor id instead, which the next load
+ * of the document does not reuse.
+ */
+const STORED_ANNOTATION_ID = /^\d+R\d*$/;
+
 export default function PdfPreview({ note, blob, componentId, noteContext }: {
     note: FNote;
     noteContext: NoteContext;
@@ -25,6 +33,30 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const isReadOnly = useEffectiveReadOnly(note, noteContext);
     const historyConfig = useViewModeConfig<HistoryData>(note, "pdfHistory");
+    /**
+     * The note whose viewer has listed its annotations, which it does once it can scroll to one.
+     * Holds a note id rather than a flag, because the component is reused when the pane switches
+     * to another PDF.
+     */
+    const viewerReadyForRef = useRef<string | null>(null);
+
+    /** Scrolls to the page or annotation a link opened the note at, once the viewer can. */
+    function revealLinkTarget() {
+        const viewScope = noteContext.viewScope;
+        if (viewerReadyForRef.current !== note.noteId || !viewScope?.page) return;
+
+        const pageNumber = Number.parseInt(viewScope.page, 10);
+        const annotationId = viewScope.annotation;
+        viewScope.page = undefined;
+        viewScope.annotation = undefined;
+        if (!(pageNumber >= 1)) return;
+
+        iframeRef.current?.contentWindow?.postMessage({
+            type: "trilium-scroll-to-annotation",
+            annotationId,
+            pageNumber
+        }, window.location.origin);
+    }
 
     const spacedUpdate = useBlobEditorSpacedUpdate({
         note,
@@ -57,6 +89,7 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
         },
         onContentChange() {
             if (iframeRef.current?.contentWindow) {
+                viewerReadyForRef.current = null;
                 iframeRef.current.contentWindow.location.reload();
             }
         },
@@ -136,6 +169,9 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
                             type: "trilium-request-thumbnail",
                             pageNumber: page
                         }, window.location.origin);
+                    },
+                    copyReference: (page: number) => {
+                        void copyReferenceWithToast(pdfReference(getNotePath(), page));
                     }
                 });
             }
@@ -184,8 +220,14 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
                             annotationId,
                             pageNumber
                         }, window.location.origin);
+                    },
+                    copyReference: (annotationId: string, pageNumber: number) => {
+                        void copyReferenceWithToast(pdfReference(getNotePath(), pageNumber, annotationId));
                     }
                 });
+
+                viewerReadyForRef.current = note.noteId;
+                revealLinkTarget();
             }
 
             if (event.data.type === "pdfjs-viewer-layers") {
@@ -202,11 +244,22 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
             }
         }
 
+        function getNotePath() {
+            return noteContext.notePath ?? note.noteId;
+        }
+
         window.addEventListener("message", handleMessage);
         return () => {
             window.removeEventListener("message", handleMessage);
         };
     }, [ note, historyConfig, componentId, blob, noteContext, isReadOnly, spacedUpdate ]);
+
+    // A link to the PDF this pane already shows changes no content, so nothing else re-reads it.
+    useTriliumEvent("noteSwitched", ({ noteContext: switchedContext }) => {
+        if (switchedContext.ntxId !== noteContext.ntxId) return;
+        if (switchedContext.note?.noteId !== note.noteId) return;
+        revealLinkTarget();
+    });
 
     useTriliumEvent("customDownload", async ({ ntxId }) => {
         if (ntxId !== noteContext.ntxId) return;
@@ -257,6 +310,18 @@ export default function PdfPreview({ note, blob, componentId, noteContext }: {
             ntxId={noteContext.ntxId}
         />
     );
+}
+
+/**
+ * The link that opens a PDF note at `pageNumber`, and at the annotation `annotationId` on it when
+ * the document already stores that annotation.
+ */
+export function pdfReference(notePath: string, pageNumber: number, annotationId?: string) {
+    let reference = `#${notePath}?page=${pageNumber}`;
+    if (annotationId && STORED_ANNOTATION_ID.test(annotationId)) {
+        reference += `&annotation=${encodeURIComponent(annotationId)}`;
+    }
+    return reference;
 }
 
 interface PdfHeading {

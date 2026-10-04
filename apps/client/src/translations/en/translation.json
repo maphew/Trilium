@@ -4014,7 +4014,9 @@
     "annotation_drawing": "Drawing on page {{pageNumber}}",
     "annotation_highlight": "Highlight on page {{pageNumber}}",
     "annotation_note": "Note on page {{pageNumber}}",
-    "annotation_text_box": "Text box on page {{pageNumber}}"
+    "annotation_text_box": "Text box on page {{pageNumber}}",
+    "copy_reference": "Copy reference",
+    "page_reference": "Page {{pageNumber}}"
   },
   "platform_indicator": {
     "available_on": "Available on {{platform}}"

@@ -25,6 +25,8 @@ declare global {
             pdfDocument: PDFDocumentProxy;
             pdfViewer: {
                 currentPageNumber: number;
+                /** Settles once every page has been sized. */
+                pagesPromise: Promise<void>;
                 /**
                  * pdf.js' own type, rather than a local restatement of it — the previous
                  * hand-written shape declared the config object directly and omitted the
@@ -40,7 +42,7 @@ declare global {
                 goToDestination(dest: PdfJsDestination);
             };
             eventBus: {
-                on(event: string, listener: (...args: any[]) => void): void;
+                on(event: string, listener: (...args: any[]) => void, options?: { once?: boolean }): void;
                 dispatch(event: string, data?: any): void;
             };
             findBar?: {

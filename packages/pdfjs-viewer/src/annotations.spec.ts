@@ -6,7 +6,8 @@ import {
     processAnnotation,
     rgbToHex,
     setupAnnotationLiveUpdates,
-    setupPdfAnnotations
+    setupPdfAnnotations,
+    trackInitialView
 } from "./annotations";
 import { allFeaturesPdf } from "./test/fixture_pdf";
 import { InstalledViewer, installViewerApp, uninstallViewerApp } from "./test/viewer_app";
@@ -418,5 +419,42 @@ describe("scrolling to an annotation", () => {
         // Once pdf.js renders the annotation, the observer picks it up.
         renderAnnotation("14R");
         await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
+    });
+
+    it("turns to the page alone when no annotation is named", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        await setupPdfAnnotations();
+
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", pageNumber: 2 });
+
+        await vi.waitFor(() => expect(window.PDFViewerApplication?.pdfViewer.currentPageNumber).toBe(2));
+        // A page reference ends at the top of the page. Nothing is looked up by id, not even the
+        // literal "undefined" a missing id turns into.
+        renderAnnotation("undefined");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(viewer.scrollRequests).not.toHaveBeenCalled();
+    });
+
+    it("waits for pdf.js to apply its initial view, which would undo an earlier scroll", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        const app = window.PDFViewerApplication;
+        if (!app) throw new Error("viewer not installed");
+        let pagesLoaded = () => {};
+        (app.pdfViewer as any).pagesPromise = new Promise<void>((resolve) => { pagesLoaded = resolve; });
+        trackInitialView(app);
+        await setupPdfAnnotations();
+
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "14R", pageNumber: 2 });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(app.pdfViewer.currentPageNumber).toBe(1);
+
+        // pdf.js restores the last-read position at `documentinit`, and again once every page is
+        // sized when the pages differ in size.
+        viewer.eventBus.dispatch("documentinit", { source: null });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(app.pdfViewer.currentPageNumber).toBe(1);
+
+        pagesLoaded();
+        await vi.waitFor(() => expect(app.pdfViewer.currentPageNumber).toBe(2));
     });
 });

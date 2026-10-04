@@ -47,6 +47,8 @@ const download = vi.hoisted(() => vi.fn());
 vi.mock("../../../services/open", () => ({
     default: { download, getUrlForDownload: (path: string) => `/${path}` }
 }));
+const copyReferenceWithToast = vi.hoisted(() => vi.fn());
+vi.mock("../../../services/clipboard_ext", () => ({ copyReferenceWithToast }));
 
 const { default: PdfPreview } = await import("./Pdf");
 
@@ -61,6 +63,8 @@ beforeEach(() => {
     contextData = {};
     noteContext = {
         ntxId: "ntx-1",
+        notePath: "root/parent/note-1",
+        viewScope: {},
         setContextData: vi.fn((key: string, value: unknown) => { contextData[key] = value; }),
         getContextData: vi.fn((key: string) => contextData[key]),
         isActive: () => true
@@ -151,6 +155,52 @@ describe("PdfPreview", () => {
         fromThisViewer({ type: "pdfjs-viewer-annotations", annotations: [ { id: "5R", pageNumber: 2 } ] });
         (contextData.pdfAnnotations as any).scrollToAnnotation("5R", 2);
         expect(posted).toHaveBeenLastCalledWith({ type: "trilium-scroll-to-annotation", annotationId: "5R", pageNumber: 2 }, window.location.origin);
+    });
+
+    it("scrolls to the place a link names once the viewer lists its annotations, and only once", () => {
+        const posted = recordPostsToViewer();
+        noteContext.viewScope = { page: "5", annotation: "12R" };
+
+        // A switch that arrives while the viewer is still loading has nothing to talk to yet.
+        eventHandlers.get("noteSwitched")?.({ noteContext: { ntxId: "ntx-1", note: NOTE } });
+        expect(posted).not.toHaveBeenCalled();
+
+        fromThisViewer({ type: "pdfjs-viewer-annotations", annotations: [] });
+        expect(posted).toHaveBeenCalledExactlyOnceWith(
+            { type: "trilium-scroll-to-annotation", annotationId: "12R", pageNumber: 5 }, window.location.origin);
+        expect(noteContext.viewScope).toEqual({ page: undefined, annotation: undefined });
+
+        // The list is sent again on every edit; the link is not followed again.
+        fromThisViewer({ type: "pdfjs-viewer-annotations", annotations: [] });
+        expect(posted).toHaveBeenCalledOnce();
+    });
+
+    it("follows a link to the PDF it already shows, but not one meant for another pane", () => {
+        const posted = recordPostsToViewer();
+        fromThisViewer({ type: "pdfjs-viewer-annotations", annotations: [] });
+
+        noteContext.viewScope = { page: "3" };
+        eventHandlers.get("noteSwitched")?.({ noteContext: { ntxId: "ntx-2", note: NOTE } });
+        expect(posted).not.toHaveBeenCalled();
+
+        eventHandlers.get("noteSwitched")?.({ noteContext: { ntxId: "ntx-1", note: NOTE } });
+        expect(posted).toHaveBeenCalledExactlyOnceWith(
+            { type: "trilium-scroll-to-annotation", annotationId: undefined, pageNumber: 3 }, window.location.origin);
+    });
+
+    it("copies a reference to a page, or to an annotation the document already holds", () => {
+        fromThisViewer({ type: "pdfjs-viewer-page-info", totalPages: 12, currentPage: 1 });
+        (contextData.pdfPages as any).copyReference(7);
+        expect(copyReferenceWithToast).toHaveBeenLastCalledWith("#root/parent/note-1?page=7");
+
+        fromThisViewer({ type: "pdfjs-viewer-annotations", annotations: [] });
+        (contextData.pdfAnnotations as any).copyReference("12R", 5);
+        expect(copyReferenceWithToast).toHaveBeenLastCalledWith("#root/parent/note-1?page=5&annotation=12R");
+
+        // An annotation drawn in this session has only its editor's id, which the next load of
+        // the document does not reuse, so its reference names the page alone.
+        (contextData.pdfAnnotations as any).copyReference("pdfjs_internal_editor_0", 5);
+        expect(copyReferenceWithToast).toHaveBeenLastCalledWith("#root/parent/note-1?page=5");
     });
 
     it("leaves a page-tracking update alone until the page info has arrived", () => {

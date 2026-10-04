@@ -97,6 +97,17 @@ export interface ViewScope {
      * is.
      */
     card?: string;
+    /**
+     * The PDF page a reference points at, which the PDF viewer turns to once it has opened the
+     * document. Consumed once, as `bookmark` is.
+     */
+    page?: string;
+    /**
+     * The id of the PDF annotation a reference points at, which the viewer scrolls to on
+     * {@link page}. A reference to an annotation always carries its page too, so a deleted
+     * annotation still leaves the reader on the right page.
+     */
+    annotation?: string;
 }
 
 /**
@@ -120,7 +131,7 @@ const MAX_SPLIT_PANES_IN_HASH = 8;
 
 /** Hash parameters that belong to a pane's view scope rather than to the window as a whole. */
 const VIEW_SCOPE_PARAMS = ["viewMode", "attachmentId", "bookmark", "column", "columnTitle",
-    "columnIcon", "columnColor", "card"];
+    "columnIcon", "columnColor", "card", "page", "annotation"];
 
 interface CreateLinkOptions {
     title?: string;
@@ -262,6 +273,8 @@ export function calculateHash(
         viewScope.columnIcon ? { columnIcon: viewScope.columnIcon } : null,
         viewScope.columnColor ? { columnColor: viewScope.columnColor } : null,
         viewScope.card ? { card: viewScope.card } : null,
+        viewScope.page ? { page: viewScope.page } : null,
+        viewScope.annotation ? { annotation: viewScope.annotation } : null,
         viewScope.searchTerms?.length
             ? { searchTerms: viewScope.searchTerms.map(encodeURIComponent).join(",") }
             : null,
@@ -687,6 +700,13 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
         ));
     }
 
+    if (viewScope?.page) {
+        $el.append($("<small>").append(
+            $("<span>").addClass("bx bx-file"),
+            document.createTextNode(t("pdf.page_reference", { pageNumber: viewScope.page }))
+        ));
+    }
+
     if (viewScope?.columnTitle) {
         $el.append($("<small>")
             .addClass(cssClassManager.createClassForColor(viewScope.columnColor ?? null))
@@ -754,6 +774,10 @@ function getReferenceLinkTitleSync(href: string) {
 
     if (viewScope?.bookmark) {
         return `${note.title} - ${viewScope.bookmark}`;
+    }
+
+    if (viewScope?.page) {
+        return `${note.title} - ${t("pdf.page_reference", { pageNumber: viewScope.page })}`;
     }
 
     return note.title;

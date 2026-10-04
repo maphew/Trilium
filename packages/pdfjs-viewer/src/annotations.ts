@@ -19,6 +19,13 @@ const COMMENT_TYPES = new Set<number>([
     AnnotationType.INK,
 ]);
 
+/**
+ * Settles once pdf.js has applied the document's initial view, which restores the last-read
+ * position and would undo a scroll made before it. Already settled unless
+ * {@link trackInitialView} was called.
+ */
+let initialViewApplied: Promise<void> = Promise.resolve();
+
 const TYPE_NAMES: Record<number, string> = {
     [AnnotationType.TEXT]: "text",
     [AnnotationType.FREETEXT]: "freetext",
@@ -67,6 +74,19 @@ function resolveTypeName(ann: Record<string, any>): string {
     return TYPE_NAMES[ann.annotationType];
 }
 
+/**
+ * Holds back {@link scrollToAnnotation} until pdf.js has applied the initial view. pdf.js applies
+ * it at `documentinit` and, when the pages differ in size, once more after `pagesPromise`. Must be
+ * called before the document loads.
+ */
+export function trackInitialView(app: NonNullable<Window["PDFViewerApplication"]>) {
+    initialViewApplied = new Promise((resolve) => {
+        app.eventBus.on("documentinit", () => {
+            void app.pdfViewer.pagesPromise.then(() => requestAnimationFrame(() => resolve()));
+        }, { once: true });
+    });
+}
+
 export async function setupPdfAnnotations() {
     await extractAndSendAnnotations();
 
@@ -74,7 +94,7 @@ export async function setupPdfAnnotations() {
         if (event.origin !== window.location.origin) return;
 
         if (event.data?.type === "trilium-scroll-to-annotation") {
-            scrollToAnnotation(event.data.annotationId, event.data.pageNumber);
+            void scrollToAnnotation(event.data.annotationId, event.data.pageNumber);
         }
     });
 }
@@ -221,9 +241,17 @@ function sendAnnotations(annotations: PdfAnnotationInfo[]) {
     } satisfies PdfViewerAnnotationsMessage, window.location.origin);
 }
 
-function scrollToAnnotation(annotationId: string, pageNumber: number) {
+/** Scrolls to an annotation, or to the top of `pageNumber` when `annotationId` is not given. */
+async function scrollToAnnotation(annotationId: string | undefined, pageNumber: number) {
+    await initialViewApplied;
     const app = window.PDFViewerApplication;
-    const container = app.pdfViewer.container as HTMLElement;
+    if (!app) return;
+    const container = app.pdfViewer.container;
+
+    if (!annotationId) {
+        app.pdfViewer.currentPageNumber = pageNumber;
+        return;
+    }
 
     function scrollToEl(el: Element) {
         const containerRect = container.getBoundingClientRect();
@@ -237,13 +265,13 @@ function scrollToAnnotation(annotationId: string, pageNumber: number) {
 
     // An annotation the document holds renders with its id in an attribute; one that so far
     // exists only in the editor renders as an element carrying the editor id directly.
-    function findRendered() {
-        return document.querySelector(`[data-annotation-id="${CSS.escape(annotationId)}"]`)
-            ?? document.getElementById(annotationId);
+    function findRendered(id: string) {
+        return document.querySelector(`[data-annotation-id="${CSS.escape(id)}"]`)
+            ?? document.getElementById(id);
     }
 
     // Try to find the element directly (nearby pages are pre-rendered)
-    const el = findRendered();
+    const el = findRendered(annotationId);
     if (el) {
         scrollToEl(el);
         return;
@@ -252,7 +280,7 @@ function scrollToAnnotation(annotationId: string, pageNumber: number) {
     // Element not in DOM yet — jump to the page and wait for it to render
     app.pdfViewer.currentPageNumber = pageNumber;
     const observer = new MutationObserver(() => {
-        const el = findRendered();
+        const el = findRendered(annotationId);
         if (el) {
             observer.disconnect();
             scrollToEl(el);
