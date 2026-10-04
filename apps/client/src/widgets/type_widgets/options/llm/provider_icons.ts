@@ -25,8 +25,8 @@ import ollamaIcon from "./icons/ollama.svg?url";
 import openaiIcon from "./icons/openai.svg?url";
 import perplexityIcon from "./icons/perplexity.svg?url";
 import openAiCompatibleIcon from "./icons/robot.svg?url";
-import searchIcon from "./icons/search.svg?url";
 import searxngIcon from "./icons/searxng.svg?url";
+import serperIcon from "./icons/serper.svg?url";
 import tavilyIcon from "./icons/tavily.svg?url";
 
 export const PROVIDER_ICONS: Record<string, string> = {
@@ -45,7 +45,7 @@ export const PROVIDER_ICONS: Record<string, string> = {
     "openai-compatible": openAiCompatibleIcon,
     perplexity: perplexityIcon,
     searxng: searxngIcon,
-    serper: searchIcon,
+    serper: serperIcon,
     tavily: tavilyIcon
 };
 
