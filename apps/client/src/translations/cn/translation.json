@@ -267,7 +267,8 @@
     "box_size_medium": "中型 (显示大约30行)",
     "box_size_full": "完整显示（完整文本框）",
     "button_include": "包含笔记",
-    "box_size_expandable": "可展开（默认折叠）"
+    "box_size_expandable": "可展开（默认折叠）",
+    "box_size_tiny": "紧凑"
   },
   "info": {
     "modalTitle": "信息消息",
@@ -3528,7 +3529,13 @@
       "table_column": "第{{number}}列"
     },
     "page_break": "插入分页符（用于打印）",
-    "table": "插入表格"
+    "table": "插入表格",
+    "titles": {
+      "date": "插入日期/时间",
+      "include": "包含笔记",
+      "image": "上传图片",
+      "link": "内部链接"
+    }
   },
   "mobile_note_navigator": {
     "back": "返回上一级",
