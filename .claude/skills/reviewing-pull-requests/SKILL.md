@@ -64,6 +64,14 @@ State these plainly in a report when the author or a bot leans on them:
    by hand and the most common substantive review comment is "it doesn't fix the issue" / "it
    crashes on `00:aa:00`" / "doesn't work on this theme". A fix at the place a symptom is *seen*
    rather than *produced* is `REWORK`.
+   **Is the new behavior the right one?** When the old behavior is plainly broken (a dropped word,
+   a crash, an empty result) but the input is ambiguous, the fix has to *choose* what the input
+   means — and a red/green spec only proves the PR's own choice. Settle the intended semantics
+   before reading the diff: what the reporter meant, what the User Guide shows, what similar apps
+   do. Search syntax, parsers, link and date formats, and defaults are where this hides: #11596
+   split `towers#book` into a word plus a `#book` filter, while the convention elsewhere (Obsidian,
+   hashtags, Gmail operators) is that a sigil opens syntax only at a word start and is literal
+   inside one (`C#`). With no issue to say what the user meant, the choice is `YOUR CALL`.
 3. **Targeting and scope.** A bugfix changes the cause and nothing else: no riding feature ("not
    part of the fix, it's a completely separate feature so it deserves its own PR"), no reformatting
    ("makes it really hard to see what actually got changed"), no "while I was here", no labels or
@@ -181,6 +189,7 @@ maintainer answers.
 | "No user-facing change" | `verify`'s docs impact; grep the diff for `t("`, JSX, CSS, keyboard actions, options, hidden-subtree launchers. |
 | "Small change", `size:S` | Production lines and files from the dossier, not the total; then count abstractions. |
 | "Added tests" | `verify`'s red run. Tests that pass without the production change do not test it. |
+| "Now behaves like X" (a parser, syntax or default fix) | Red/green proves the PR does what the PR decided. Decide independently what the input should mean (issue, User Guide, other apps); a finding like "now matches its spaced form" is the design choice restated, not evidence for it. |
 | "Refactor, no behavior change" | Every call site of what moved; a capability quietly lost (folders-at-the-bottom in #11424). |
 | "Docs updated" | Both the Markdown and the generated help, produced by `edit-docs`/`docs.mjs sync`, not hand-edited HTML. |
 | "Will add docs/tests/UI in a follow-up" | It is a gap now; the PR is judged as it is. The maintainer sometimes allows "a separate PR if needed" — that is his call to make, not the author's. |
