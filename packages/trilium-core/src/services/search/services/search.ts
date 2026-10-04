@@ -273,10 +273,8 @@ function loadNeededInfoFromDatabase() {
         noteBlobs[noteId][blobId] = length;
 
         if (isNoteRevision) {
-            const noteRevision = becca.notes[noteId];
-            if (noteRevision && noteRevision.revisionCount) {
-                noteRevision.revisionCount++;
-            }
+            const note = becca.notes[noteId];
+            note.revisionCount = (note.revisionCount ?? 0) + 1;
         }
     }
 
@@ -286,10 +284,6 @@ function loadNeededInfoFromDatabase() {
 }
 
 function findResultsWithExpression(expression: Expression, searchContext: SearchContext): SearchResult[] {
-    if (searchContext.dbLoadNeeded) {
-        loadNeededInfoFromDatabase();
-    }
-
     // If there's an explicit orderBy clause, skip progressive search
     // as it would interfere with the ordering
     if (searchContext.orderBy) {
@@ -539,6 +533,10 @@ function findResultsWithQuery(query: string, searchContext: SearchContext): Sear
     // Don't use progressive search for these as they may have complex
     // ordering or other logic that shouldn't be interfered with.
     const isPureExpressionQuery = query.trim().startsWith('#');
+
+    if (searchContext.dbLoadNeeded) {
+        loadNeededInfoFromDatabase();
+    }
 
     if (isPureExpressionQuery) {
         // For pure expression queries, use standard search without progressive phases
