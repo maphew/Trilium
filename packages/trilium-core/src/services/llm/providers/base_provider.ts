@@ -7,6 +7,7 @@ import { LLM_ATTACHMENT_KINDS, type LlmAttachmentKind, type LlmMessage, type Llm
 import { type FilePart, generateText, type ImagePart, type LanguageModel, type ModelMessage, stepCountIs, streamText, type SystemModelMessage, type TextPart, type ToolSet } from "ai";
 
 import { getLog } from "../../log.js";
+import { trimTrailingSlashes } from "../../utils/index.js";
 import { attachmentPlaceholder, resolveAttachmentPart } from "../attachment_content.js";
 import { llmFetch } from "./fetch.js";
 import { buildNoteHint } from "../note_hint.js";
@@ -213,20 +214,9 @@ export function mergeModelLists(curated: ModelInfo[], remote: RemoteModel[]): Mo
 /**
  * Normalize a custom endpoint override: strip trailing slashes, and treat an
  * empty result as "no override".
- *
- * Written as an index scan rather than `replace(/\/+$/, "")`: that pattern
- * backtracks polynomially on a value ending in many slashes, and the base URL
- * arrives straight from a request body (CodeQL js/polynomial-redos).
  */
 function normalizeBaseUrl(baseURL: string | undefined): string | undefined {
-    if (!baseURL) {
-        return undefined;
-    }
-    let end = baseURL.length;
-    while (end > 0 && baseURL.charAt(end - 1) === "/") {
-        end--;
-    }
-    return baseURL.slice(0, end) || undefined;
+    return baseURL ? trimTrailingSlashes(baseURL) || undefined : undefined;
 }
 
 export abstract class BaseProvider implements LlmProvider {

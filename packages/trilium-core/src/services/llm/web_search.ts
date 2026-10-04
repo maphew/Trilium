@@ -11,6 +11,7 @@ import { z } from "zod";
 import markdownExport from "../export/markdown.js";
 import request, { validateFetchableUrl } from "../request.js";
 import { decodeUtf8 } from "../utils/binary.js";
+import { trimTrailingSlashes } from "../utils/index.js";
 import { llmFetch } from "./providers/fetch.js";
 
 /** A configured search provider, as stored in the `llmProviders` option. */
@@ -109,7 +110,7 @@ export async function searchWeb(setup: WebSearchSetup, query: string): Promise<W
                 throw new Error("The SearXNG search provider has no address.");
             }
             const params = new URLSearchParams({ q: query, format: "json" });
-            const payload = await requestJson(`${setup.baseURL.replace(/\/+$/, "")}/search?${params}`, {
+            const payload = await requestJson(`${trimTrailingSlashes(setup.baseURL)}/search?${params}`, {
                 headers: { "Accept": "application/json", ...(setup.apiKey && { "Authorization": `Bearer ${setup.apiKey}` }) }
             }) as { results?: unknown[] };
             return toSources(payload.results, "content").slice(0, MAX_RESULTS);
