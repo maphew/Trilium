@@ -702,8 +702,8 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
 
     if (viewScope?.page) {
         $el.append($("<small>").append(
-            $("<span>").addClass("bx bx-file"),
-            document.createTextNode(t("pdf.page_reference", { pageNumber: viewScope.page }))
+            $("<span>").addClass(viewScope.annotation ? "bx bx-comment-detail" : "bx bx-file"),
+            document.createTextNode(getPdfReferenceLabel(viewScope.page, viewScope.annotation))
         ));
     }
 
@@ -777,10 +777,15 @@ function getReferenceLinkTitleSync(href: string) {
     }
 
     if (viewScope?.page) {
-        return `${note.title} - ${t("pdf.page_reference", { pageNumber: viewScope.page })}`;
+        return `${note.title} - ${getPdfReferenceLabel(viewScope.page, viewScope.annotation)}`;
     }
 
     return note.title;
+}
+
+/** What a reference to a PDF says after the title: the page, or the annotation on it. */
+function getPdfReferenceLabel(pageNumber: string, annotation: string | undefined) {
+    return t(annotation ? "pdf.annotation_reference" : "pdf.page_reference", { pageNumber });
 }
 
 /* v8 ignore next -- the `print` device branch is evaluated once at module load; under test glob.device is undefined, so the false arm cannot be exercised */

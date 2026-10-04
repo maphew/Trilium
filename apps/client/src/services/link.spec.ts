@@ -910,12 +910,14 @@ describe("getReferenceLinkTitle / getReferenceLinkTitleSync", () => {
         expect(linkService.getReferenceLinkTitleSync(href)).toBe("Board: To Do");
     });
 
-    it("names the PDF a page reference points at, and the page after it", async () => {
+    it("names the PDF a reference points at, and the page or the annotation after it", async () => {
         const pdf = buildNote({ title: "Paper" });
         const href = `#root/${pdf.noteId}?page=5&annotation=12R`;
 
         expect(await linkService.getReferenceLinkTitle(href)).toBe("Paper");
-        expect(linkService.getReferenceLinkTitleSync(href)).toBe("Paper - pdf.page_reference");
+        expect(linkService.getReferenceLinkTitleSync(href)).toBe("Paper - pdf.annotation_reference");
+        expect(linkService.getReferenceLinkTitleSync(`#root/${pdf.noteId}?page=5`))
+            .toBe("Paper - pdf.page_reference");
     });
 
     it("getReferenceLinkTitleSync returns [missing note] when the note is not in cache", () => {
@@ -1006,14 +1008,18 @@ describe("loadReferenceLinkTitle", () => {
         expect($column.hasClass("color-FF8800")).toBe(true);
     });
 
-    it("appends the page a PDF reference points at", async () => {
+    it("appends the page a PDF reference points at, or says it is an annotation on it", async () => {
         const pdf = buildNote({ title: "Paper" });
-        const $el = $("<span>");
+        const $page = $("<span>");
+        const $annotation = $("<span>");
 
-        await linkService.loadReferenceLinkTitle($el, `#root/${pdf.noteId}?page=5&annotation=12R`);
+        await linkService.loadReferenceLinkTitle($page, `#root/${pdf.noteId}?page=5`);
+        await linkService.loadReferenceLinkTitle($annotation, `#root/${pdf.noteId}?page=5&annotation=12R`);
 
-        expect($el.text()).toBe("Paperpdf.page_reference");
-        expect($el.find("small span").hasClass("bx-file")).toBe(true);
+        expect($page.text()).toBe("Paperpdf.page_reference");
+        expect($page.find("small span").hasClass("bx-file")).toBe(true);
+        expect($annotation.text()).toBe("Paperpdf.annotation_reference");
+        expect($annotation.find("small span").hasClass("bx-comment-detail")).toBe(true);
     });
 
     it("falls back to a column glyph for a reference carrying no icon of its own", async () => {
