@@ -1,7 +1,7 @@
 import "./AddProviderModal.css";
 
 import type { LlmModelInfo } from "@triliumnext/commons";
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import { Trans } from "react-i18next";
 

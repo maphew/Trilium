@@ -4,8 +4,9 @@ import "./NoteAutocomplete.css";
 import type { ReferenceElement } from "@floating-ui/dom";
 import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
-import { type ComponentChildren, type RefObject, render, type VNode } from "preact";
-import { createPortal, type CSSProperties } from "preact/compat";
+import {
+    type ComponentChildren, createPortal, type CSSProperties, type RefObject, render, type VNode
+} from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";

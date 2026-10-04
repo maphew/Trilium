@@ -2,8 +2,7 @@ import "./Popover.css";
 
 import { autoUpdate, type Placement, type VirtualElement } from "@floating-ui/dom";
 import clsx from "clsx";
-import { ComponentChildren } from "preact";
-import { createPortal } from "preact/compat";
+import { ComponentChildren, createPortal } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
 import { FLOATING_LAYER_SELECTOR, isWithinFloatingLayer } from "./floating_layers";

@@ -1,4 +1,4 @@
-import { RefObject, TextareaHTMLAttributes } from "preact/compat";
+import { RefObject, TextareaHTMLAttributes } from "preact";
 
 interface FormTextAreaProps extends Omit<TextareaHTMLAttributes, "onBlur" | "onChange"> {
     id?: string;

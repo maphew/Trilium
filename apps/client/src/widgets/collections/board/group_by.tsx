@@ -1,6 +1,6 @@
 import { DEFAULT_BOARD_GROUP_BY, normalizeBoardGroupBy } from "@triliumnext/commons";
 
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { useCallback, useRef, useState } from "preact/hooks";
 
 import type FNote from "../../../entities/fnote";

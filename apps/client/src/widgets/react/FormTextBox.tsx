@@ -1,5 +1,5 @@
-import type { AccessibleInputHTMLAttributes } from "preact";
-import { useEffect, useRef, type InputHTMLAttributes, type RefObject } from "preact/compat";
+import type { AccessibleInputHTMLAttributes, InputHTMLAttributes, RefObject } from "preact";
+import { useEffect, useRef } from "preact/hooks";
 
 export interface FormTextBoxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "onBlur" | "value"> {
     id?: string;

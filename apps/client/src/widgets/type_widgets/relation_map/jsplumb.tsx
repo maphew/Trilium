@@ -1,6 +1,5 @@
 import { jsPlumb, Defaults, jsPlumbInstance, DragOptions, OnConnectionBindInfo } from "jsplumb";
-import { ComponentChildren, createContext, RefObject } from "preact";
-import { HTMLProps } from "preact/compat";
+import { ComponentChildren, createContext, HTMLAttributes, RefObject } from "preact";
 import { useContext, useEffect, useRef } from "preact/hooks";
 
 const JsPlumbInstance = createContext<RefObject<jsPlumbInstance | null> | undefined>(undefined);
@@ -63,7 +62,7 @@ export function JsPlumbItem({ x, y, children, draggable, sourceConfig, targetCon
     draggable?: DragOptions;
     sourceConfig?: object;
     targetConfig?: object;
-} & Pick<HTMLProps<HTMLDivElement>, "id" | "className" | "onContextMenu">) {
+} & Pick<HTMLAttributes<HTMLDivElement>, "id" | "className" | "onContextMenu">) {
     const containerRef = useRef<HTMLDivElement>(null);
     const apiRef = useContext(JsPlumbInstance);
 

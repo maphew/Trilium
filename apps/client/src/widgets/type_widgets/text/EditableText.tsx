@@ -10,7 +10,7 @@ import {
     SnippetDefinition
 } from "@triliumnext/ckeditor5";
 import { deferred } from "@triliumnext/commons";
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";

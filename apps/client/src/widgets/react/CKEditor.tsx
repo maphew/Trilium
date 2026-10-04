@@ -1,7 +1,7 @@
 import type { CKTextEditor, AttributeEditor, EditorConfig, ModelPosition } from "@triliumnext/ckeditor5";
 import type { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
 import { RefObject } from "preact";
-import { useEffect, useImperativeHandle, useRef } from "preact/compat";
+import { useEffect, useImperativeHandle, useRef } from "preact/hooks";
 
 export interface CKEditorApi {
     focus(): void;

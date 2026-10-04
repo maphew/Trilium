@@ -4,8 +4,7 @@ import "./MindMap.css";
 import { NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import { t } from "i18next";
 import { DARK_THEME, default as VanillaMindElixir, MindElixirData, MindElixirInstance, NodeObj, Operation, Theme, THEME as LIGHT_THEME } from "mind-elixir";
-import { ComponentChildren, HTMLAttributes, RefObject } from "preact";
-import { createPortal } from "preact/compat";
+import { ComponentChildren, createPortal, HTMLAttributes, RefObject } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";

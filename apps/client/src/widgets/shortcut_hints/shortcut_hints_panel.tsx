@@ -3,7 +3,7 @@ import "./shortcut_hints_panel.css";
 
 import { autoUpdate } from "@floating-ui/dom";
 import clsx from "clsx";
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n.js";

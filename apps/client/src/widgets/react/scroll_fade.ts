@@ -1,8 +1,7 @@
 import "./scroll_fade.css";
 
 import clsx from "clsx";
-import { RefObject } from "preact";
-import { CSSProperties } from "preact/compat";
+import { CSSProperties, RefObject } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { useTrackedElement } from "./hooks";

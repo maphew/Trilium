@@ -1,8 +1,9 @@
 import type { Placement } from "@floating-ui/dom";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
-import { ButtonHTMLAttributes, ComponentChildren, RefObject } from "preact";
-import { CSSProperties, HTMLProps } from "preact/compat";
+import {
+    ButtonHTMLAttributes, ComponentChildren, CSSProperties, HTMLAttributes, RefObject
+} from "preact";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { isMobile, isNarrowLayout, onNarrowLayoutChange } from "../../services/utils";
@@ -16,7 +17,7 @@ type DataAttributes = {
     [key: `data-${string}`]: string | number | boolean | undefined;
 };
 
-export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "className"> {
+export interface DropdownProps extends Pick<HTMLAttributes<HTMLDivElement>, "id" | "className"> {
     buttonClassName?: string;
     buttonProps?: Partial<ButtonHTMLAttributes<HTMLButtonElement> & DataAttributes>;
     children: ComponentChildren;

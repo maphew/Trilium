@@ -1,5 +1,4 @@
-import type { AccessibleImgHTMLAttributes } from "preact";
-import { type ImgHTMLAttributes } from "preact/compat";
+import type { AccessibleImgHTMLAttributes, ImgHTMLAttributes } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 /**

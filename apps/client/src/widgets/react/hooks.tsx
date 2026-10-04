@@ -2,8 +2,8 @@ import type { CKTextEditor } from "@triliumnext/ckeditor5";
 import { FilterLabelsByType, HighlightedTokenInfo, KeyboardActionNames, NoteType, OptionNames, RelationNames } from "@triliumnext/commons";
 import { Tooltip } from "bootstrap";
 import Mark from "mark.js";
-import { Ref, RefObject, VNode } from "preact";
-import { CSSProperties, useSyncExternalStore } from "preact/compat";
+import { CSSProperties, Ref, RefObject, VNode } from "preact";
+import { useSyncExternalStore } from "preact/compat";
 import { useCallback, useContext, useDebugValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext, { EventData, EventNames } from "../../components/app_context";

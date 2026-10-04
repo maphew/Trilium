@@ -3,8 +3,7 @@ import "./AttributeList.css";
 
 import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import clsx from "clsx";
-import { ComponentChildren } from "preact";
-import { createPortal } from "preact/compat";
+import { ComponentChildren, createPortal } from "preact";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import FAttribute from "../../entities/fattribute";

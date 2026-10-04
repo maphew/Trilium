@@ -3,10 +3,10 @@ import "./index.css";
 import clsx from "clsx";
 
 import {
-    ComponentChildren, createContext, Fragment, TargetedFocusEvent, TargetedKeyboardEvent,
-    TargetedMouseEvent, TargetedPointerEvent
+    ComponentChildren, createContext, createPortal, Fragment, RefObject, TargetedFocusEvent,
+    TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent
 } from "preact";
-import { createPortal, RefObject, useSyncExternalStore } from "preact/compat";
+import { useSyncExternalStore } from "preact/compat";
 import {
     Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";

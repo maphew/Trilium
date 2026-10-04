@@ -1,6 +1,7 @@
 import { CKTextEditor, ClassicEditor, EditorWatchdog, PopupEditor, SnippetDefinition, type WatchdogConfig } from "@triliumnext/ckeditor5";
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
-import { HTMLProps, RefObject, useEffect, useImperativeHandle, useRef, useState } from "preact/compat";
+import { HTMLAttributes, RefObject } from "preact";
+import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
 import froca from "../../../services/froca";
 import link from "../../../services/link";
@@ -41,7 +42,7 @@ export interface NotificationEventData {
     title: string;
 }
 
-interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "className" | "tabIndex"> {
+interface CKEditorWithWatchdogProps extends Pick<HTMLAttributes<HTMLDivElement>, "className" | "tabIndex"> {
     contentLanguage: string | null | undefined;
     isClassicEditor?: boolean;
     watchdogRef: RefObject<EditorWatchdog | null>;

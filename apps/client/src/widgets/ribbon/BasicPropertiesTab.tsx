@@ -1,7 +1,7 @@
 import "./BasicPropertiesTab.css";
 
 import { MimeType, NoteType, ToggleInParentResponse } from "@triliumnext/commons";
-import { createPortal } from "preact/compat";
+import { createPortal } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
 import FNote from "../../entities/fnote";

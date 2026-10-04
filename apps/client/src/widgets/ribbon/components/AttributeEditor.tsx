@@ -3,8 +3,7 @@ import "./AttributeEditor.css";
 import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
 import clsx from "clsx";
-import { RefObject } from "preact";
-import { createPortal } from "preact/compat";
+import { createPortal, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
 
 import type { CommandData, FilteredCommandNames } from "../../../components/app_context";

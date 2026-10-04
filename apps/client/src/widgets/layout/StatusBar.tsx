@@ -2,8 +2,7 @@ import "./StatusBar.css";
 
 import { Locale, NOTE_TYPE_ICONS, NoteType } from "@triliumnext/commons";
 import clsx from "clsx";
-import { type ComponentChildren, RefObject } from "preact";
-import { createPortal } from "preact/compat";
+import { type ComponentChildren, createPortal, RefObject } from "preact";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext, { CommandNames } from "../../components/app_context";

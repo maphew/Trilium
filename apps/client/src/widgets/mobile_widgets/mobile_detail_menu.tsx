@@ -1,6 +1,7 @@
 import "./mobile_detail_menu.css";
 
-import { createPortal, useRef, useState } from "preact/compat";
+import { createPortal } from "preact";
+import { useRef, useState } from "preact/hooks";
 
 import FNote, { NotePathRecord } from "../../entities/fnote";
 import { t } from "../../services/i18n";

@@ -2,8 +2,9 @@ import "./Popup.css";
 
 import { arrow, autoUpdate, computePosition, flip, hide, offset, type OffsetOptions, type Placement, type ReferenceElement, shift, size } from "@floating-ui/dom";
 import clsx from "clsx";
-import { type ComponentChildren, createContext, type HTMLAttributes, type Ref } from "preact";
-import { createPortal } from "preact/compat";
+import {
+    type ComponentChildren, createContext, createPortal, type HTMLAttributes, type Ref
+} from "preact";
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
 /**

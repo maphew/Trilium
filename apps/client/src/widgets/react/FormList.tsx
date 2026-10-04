@@ -4,8 +4,8 @@ import { autoUpdate } from "@floating-ui/dom";
 import type { KeyboardActionNames } from "@triliumnext/commons";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
-import { ComponentChildren, RefObject } from "preact";
-import { createPortal, type CSSProperties, useContext, useLayoutEffect, useMemo, useRef } from "preact/compat";
+import { ComponentChildren, createPortal, type CSSProperties, RefObject } from "preact";
+import { useContext, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";

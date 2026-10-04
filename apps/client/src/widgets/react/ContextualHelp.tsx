@@ -1,8 +1,7 @@
 import "./ContextualHelp.css";
 
 import { Tooltip } from "bootstrap";
-import type { RefObject } from "preact";
-import { createPortal } from "preact/compat";
+import { createPortal, type RefObject } from "preact";
 import { useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";

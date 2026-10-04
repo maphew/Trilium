@@ -1,5 +1,4 @@
-import { cloneElement, ComponentChildren, RefObject, VNode } from "preact";
-import { CSSProperties } from "preact/compat";
+import { cloneElement, ComponentChildren, CSSProperties, RefObject, VNode } from "preact";
 
 import { useUniqueName } from "./hooks";
 

@@ -6,8 +6,7 @@ import { jsPlumbInstance, OnConnectionBindInfo } from "jsplumb";
 // handful of calls the map made when it was written and knows nothing of the rest — the ends of the
 // zoom range, or unsubscribing from a report.
 import panzoom, { PanZoom, PanZoomOptions } from "panzoom";
-import { RefObject } from "preact";
-import { HTMLProps } from "preact/compat";
+import { HTMLAttributes, RefObject } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
@@ -377,7 +376,7 @@ function useNoteCreation({ ntxId, note, containerRef, mapApiRef }: {
 function useNoteDragging({ containerRef, mapApiRef }: {
     containerRef: RefObject<HTMLDivElement | null>;
     mapApiRef: RefObject<RelationMapApi | null>;
-}): Pick<HTMLProps<HTMLDivElement>, "onDrop" | "onDragOver"> {
+}): Pick<HTMLAttributes<HTMLDivElement>, "onDrop" | "onDragOver"> {
     const dragProps = useMemo(() => ({
         onDrop(ev: DragEvent) {
             const container = containerRef.current;
