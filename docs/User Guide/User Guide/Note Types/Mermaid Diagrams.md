@@ -22,7 +22,7 @@ Depending on the chart being edited and user preference, there are two layouts s
 *   Horizontal, where the source code (editable part) is on the left side of the screen and the preview is to the right.
 *   Vertical, where the source code is at the bottom of the screen and the preview is at the top.
 
-It's possible to switch between the two layouts at any time by pressing the ![](1_Mermaid%20Diagrams_image.png) icon in the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Floating%20buttons.md">Floating buttons</a> area.
+It's possible to switch between the two layouts at any time by pressing the <span class="tn-icon bx bxs-dock-left"></span> icon in the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Floating%20buttons.md">Floating buttons</a> area.
 
 ## Interaction
 

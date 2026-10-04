@@ -60,6 +60,7 @@ export function bootstrap(req: Request, res: Response) {
         isElectron: isElectronRenderer,
         isDev,
         platform: process.platform,
+        arch: process.arch,
         triliumVersion: packageJson.version,
         device: view,
         TRILIUM_SAFE_MODE: !!process.env.TRILIUM_SAFE_MODE,

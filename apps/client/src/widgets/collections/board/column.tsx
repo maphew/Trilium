@@ -1,10 +1,9 @@
 import clsx from "clsx";
-import { Fragment } from "preact";
+import { Fragment, TargetedMouseEvent, TargetedWheelEvent } from "preact";
 import { flushSync } from "preact/compat";
 import {
     useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
-import { JSX } from "preact/jsx-runtime";
 
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
@@ -22,6 +21,7 @@ import { IconPickerButton } from "../../react/IconPicker";
 import { useIsOnScreen, useLingeringTrue, useStaticTooltip } from "../../react/hooks";
 import { useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
+import { useSelection } from "../../react/selection";
 
 /** How long a field waits for the card it made, after which it is taken down regardless. */
 const HAND_OVER_MS = 2000;
@@ -213,6 +213,8 @@ export default function Column({
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn } =
         useContext(BoardDragStateContext);
+    // Read for the `Select all cards` menu entry, which calls `selection.selectAll`.
+    const selection = useSelection();
     // Every card on the move. The one under the pointer is taken out of the flow by the gesture
     // itself; the rest of a carried selection stay where they are drawn and are dimmed instead.
     const carriedNoteIds = draggedCard
@@ -245,7 +247,7 @@ export default function Column({
     // Cards slide to follow the drop gap opening and closing. Measured only when the column's own
     // cards have changed: reading one position costs a layout of the whole board, and anything
     // else that redraws it would have every column read one per card.
-    const measured = useRef<unknown>();
+    const measured = useRef<unknown>(undefined);
     const cardsChanged = measured.current !== columnItems;
     measured.current = columnItems;
     useFlip(contentRef, {
@@ -400,7 +402,7 @@ export default function Column({
     // Reported on the way in only. A column opened by being selected closes when another one is
     // selected, so nothing here watches for focus leaving: the menu, the icon picker and the limit
     // dialog all render outside the column, and each would otherwise close it as it opened.
-    const select = useCallback(() => {
+    const expand = useCallback(() => {
         setActiveColumn(column);
 
         // Opening the strip by hand opens the column for good, unless `keepCollapsed` says it
@@ -410,6 +412,20 @@ export default function Column({
             api.setColumnCollapsed(column, false);
         }
     }, [ api, column, isCollapsed, keepCollapsed, setActiveColumn ]);
+
+    /**
+     * What a press on the column does. On a touch screen a collapsed strip only takes the focus,
+     * which brings its rail up: the rail carries the button that opens it, so a tap aimed at the
+     * rail cannot open the column on the way.
+     */
+    const select = useCallback(() => {
+        if (isMobile() && isCollapsed) {
+            headerRef.current?.focus();
+            return;
+        }
+
+        expand();
+    }, [ expand, isCollapsed ]);
 
     /**
      * Whether the collapse now being drawn is one the reader asked for, which runs faster than a
@@ -483,6 +499,7 @@ export default function Column({
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
             onSetLimit: () => setColumnLimitToEdit(column),
+            onSelectAll: () => selection.selectAll(api.getColumnNoteIds(column)),
             onCollapse: collapse,
             onKeepCollapsed: (keep) => {
                 setIsCollapsingByHand(keep);
@@ -502,7 +519,7 @@ export default function Column({
         });
     }, [
         api, column, color, archived, collapsed, keepCollapsed, isCollapseVolatile, collapse,
-        isCollapsed, nested,
+        isCollapsed, nested, selection,
         columns, columnIndex, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
         onMoveColumn, onFocusColumn
     ]);
@@ -563,7 +580,7 @@ export default function Column({
     const isRailDrawn = useLingeringTrue(isRailShown, RAIL_EXIT_MS);
 
     /** Allow using mouse wheel to scroll inside card, while also maintaining column horizontal scrolling. */
-    const handleScroll = useCallback((event: JSX.TargetedWheelEvent<HTMLDivElement>) => {
+    const handleScroll = useCallback((event: TargetedWheelEvent<HTMLDivElement>) => {
         const el = event.currentTarget;
         if (!el) return;
 
@@ -708,6 +725,7 @@ export default function Column({
                 className={`${isEditing ? "editing" : ""}`}
                 // A collapsed header opens the column, so it is announced as a button. Open, it
                 // is a heading, and Space collapses it as a board shortcut like F2.
+                // @ts-expect-error Preact allows no `button` role on a heading element.
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
                 aria-keyshortcuts="Space"
@@ -854,7 +872,7 @@ export default function Column({
                     isLeaving={!isRailShown}
                     isCollapsed={isCollapsed}
                     onRename={() => setColumnNameToEdit(column)}
-                    onToggleCollapse={isCollapsed ? select : collapse}
+                    onToggleCollapse={isCollapsed ? expand : collapse}
                     onSort={(e) => openColumnSortMenu(api, e.pageX, e.pageY, column)}
                     onFocusOut={handleHeaderFocusOut}
                 />
@@ -885,7 +903,7 @@ export default function Column({
  * Where a menu opened from a button stands: at the pointer for a press, and below the button for a
  * keyboard, which reports no position of its own.
  */
-function menuOrigin(e: JSX.TargetedMouseEvent<HTMLElement>): [ number, number ] {
+function menuOrigin(e: TargetedMouseEvent<HTMLElement>): [ number, number ] {
     if (e.detail) {
         return [ e.pageX, e.pageY ];
     }

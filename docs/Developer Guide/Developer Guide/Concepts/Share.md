@@ -25,7 +25,7 @@ The share subsystem is in `packages/trilium-core/src/share`, so that every runti
 
 What differs per platform goes through the `ShareProvider` (`share_provider.ts`): where the rows come from, where the EJS templates come from, and whether a note is allowed to supply its own template.
 
-| | Server / desktop | Standalone / mobile |
+|  | Server / desktop | Standalone / mobile |
 | --- | --- | --- |
 | Rows | a second, read-only `better-sqlite3` connection (`apps/server/src/share/sql.ts`) | the one sqlite-wasm connection, shared with every other route |
 | Templates | read from disk | bundled into the build with `?raw` |

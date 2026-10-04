@@ -25,13 +25,6 @@ vi.mock("../../../services/branches", () => ({
     }
 }));
 
-/** What Preact registers each handler as where the DOM knows no property of that name. */
-const PREACT_DRAG_EVENTS = {
-    dragover: "DragOver",
-    dragleave: "DragLeave",
-    drop: "Drop"
-} as const;
-
 // Hoisted with the mock, which is lifted above everything a test file declares.
 const layout = vi.hoisted(() => ({ onMobile: false }));
 
@@ -55,9 +48,10 @@ describe("Board drag and drop", () => {
 
     afterEach(() => {
         (document.activeElement as HTMLElement | null)?.blur?.();
-        if (container) {
-            render(null, container);
-            container.remove();
+        const mounted = container;
+        if (mounted) {
+            act(() => render(null, mounted));
+            mounted.remove();
             container = undefined;
         }
     });
@@ -584,10 +578,7 @@ describe("Board drag and drop", () => {
         clipboard: { types: string[], data?: Record<string, string> },
         clientY = 0
     ) {
-        // happy-dom defines no `ondragover`/`ondrop` on elements, and Preact falls back to the
-        // prop's own casing where the DOM knows no lowercase one. A `dragover` reaches nothing.
-        const known = `on${type}` in document.createElement("div");
-        const event = new Event(known ? type : PREACT_DRAG_EVENTS[type], {
+        const event = new Event(type, {
             bubbles: true,
             cancelable: true
         });
@@ -632,9 +623,10 @@ describe("Board column reordering", () => {
 
     afterEach(() => {
         (document.activeElement as HTMLElement | null)?.blur?.();
-        if (container) {
-            render(null, container);
-            container.remove();
+        const mounted = container;
+        if (mounted) {
+            act(() => render(null, mounted));
+            mounted.remove();
             container = undefined;
         }
     });
@@ -957,10 +949,7 @@ describe("Board column reordering", () => {
         type: "dragstart" | "dragover" | "dragend" | "drop",
         clientX = 0
     ) {
-        const cased = {
-            dragstart: "DragStart", dragover: "DragOver", dragend: "DragEnd", drop: "Drop"
-        }[type];
-        const event = new Event(`on${type}` in target ? type : cased, {
+        const event = new Event(type, {
             bubbles: true,
             cancelable: true
         });

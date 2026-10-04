@@ -88,6 +88,21 @@ describe("share handlers", () => {
         expect(request("/share/:shareId", { params: { shareId: "openNote" }, query: { raw: "" } }).body).toBe("<p>public body</p>");
     });
 
+    it("lists only the children visible in the tree in a note's JSON", () => {
+        buildShareTree([ {
+            id: "jsonParent",
+            content: "<p>Parent</p>",
+            children: [
+                { id: "jsonVisible", content: "<p>Visible</p>" },
+                { "id": "jsonHidden", "content": "<p>Hidden</p>", "#shareHiddenFromTree": "" }
+            ]
+        } ]);
+
+        const reply = request("/share/api/notes/:noteId", { params: { noteId: "jsonParent" } });
+        expect(reply.status).toBe(200);
+        expect(JSON.parse(String(reply.body))).toMatchObject({ childNoteIds: [ "jsonVisible" ] });
+    });
+
     it("asks for credentials until matching HTTP Basic ones arrive", () => {
         buildShareTree([ { id: "lockedNote", content: "<p>classified</p>", "#shareCredentials": "root:hunter2" } ]);
 

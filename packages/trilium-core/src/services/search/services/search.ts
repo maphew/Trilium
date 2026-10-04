@@ -587,6 +587,9 @@ function getTextRepresentationForNote(note: BNote): string | null {
     return row?.textRepresentation ?? null;
 }
 
+/** Closing tags of the block elements the text editor writes, each of which ends a line. */
+const BLOCK_END_TAG_RE = /<\/(?:p|h[1-6]|li|blockquote|pre|tr|figcaption|div)>/gi;
+
 function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInfo[] | string[], maxLength: number = 200): string {
     const note = becca.notes[noteId];
     if (!note) {
@@ -622,7 +625,10 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
             // whole block. The newlines become paragraph breaks in the snippet (rendered as <br>).
             content = content
                 .replace(/<\/summary>/gi, "</summary>\n")
-                .replace(/<\/details>/gi, "</details>\n");
+                .replace(/<\/details>/gi, "</details>\n")
+                // The same goes for soft line breaks (Shift+Enter) and the end of every block.
+                .replace(/<br\s*\/?>/gi, "$&\n")
+                .replace(BLOCK_END_TAG_RE, "$&\n");
             // Link previews (link-embed / link-mention) keep their url/title/description in data
             // attributes that striptags would drop; surface them as separate lines instead.
             content = content.replace(/<(section|span)\b[^>]*\bclass="[^"]*\blink-(?:embed|mention)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi, (element) => {
@@ -643,6 +649,8 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
             // Decode HTML entities so the snippet shows real characters instead of escape codes
             // (e.g. "&lt;", "&amp;", "&nbsp;") — attribute-sourced text above is entity-encoded too.
             content = unescapeHtml(content).replace(/&nbsp;/g, " ");
+            // Nested blocks (`</p></li>`, `</p></details>`) end several lines at once; keep one.
+            content = content.replace(/\n\s*\n/g, "\n");
         } else if (note.type === "llmChat") {
             // The note stores the whole conversation as a JSON blob; show the readable prose only.
             content = extractLlmChatText(content);
@@ -740,6 +748,12 @@ function extractContentSnippet(noteId: string, searchTokens: HighlightedTokenInf
     }
 }
 
+/**
+ * Labels left out of the attribute snippet: the help notes' `docName` and `docUrl` spell out the
+ * page's own path and address, which match a search for its title and repeat it.
+ */
+const SNIPPET_HIDDEN_LABELS = new Set([ "docName", "docUrl" ]);
+
 function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenInfo[] | string[], maxLength: number = 200): string {
     const note = becca.notes[noteId];
     if (!note) {
@@ -759,6 +773,10 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
 
         // Look for attributes that match the search tokens
         for (const attr of attributes) {
+            if (attr.type === "label" && SNIPPET_HIDDEN_LABELS.has(attr.name)) {
+                continue;
+            }
+
             const attrName = attr.name?.toLowerCase() || "";
             const attrValue = attr.value?.toLowerCase() || "";
             const attrType = attr.type || "";
@@ -772,7 +790,8 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
             if (hasMatch) {
                 matchingAttributes.push({
                     name: attr.name || "",
-                    value: attr.value || "",
+                    // One line per attribute: the lines are joined with newlines, which become `<br>`.
+                    value: (attr.value || "").replace(/\s*[\r\n]+\s*/g, " "),
                     type: attrType
                 });
             }
@@ -830,7 +849,8 @@ function extractAttributeSnippet(noteId: string, searchTokens: HighlightedTokenI
 // response, so the limit follows what a dropdown shows rather than what the query matched.
 const AUTOCOMPLETE_RESULT_LIMIT = 25;
 
-function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
+/** Searches for the notes a dropdown lists, the first `limit` of them, at most {@link AUTOCOMPLETE_RESULT_LIMIT}. */
+function searchNotesForAutocomplete(query: string, fastSearch: boolean = true, limit = AUTOCOMPLETE_RESULT_LIMIT) {
     const searchContext = new SearchContext({
         fastSearch,
         includeArchivedNotes: false,
@@ -846,7 +866,7 @@ function searchNotesForAutocomplete(query: string, fastSearch: boolean = true) {
         rankInTwoPasses: true
     });
 
-    const trimmed = findResultsWithQuery(query, searchContext).slice(0, AUTOCOMPLETE_RESULT_LIMIT);
+    const trimmed = findResultsWithQuery(query, searchContext).slice(0, Math.min(limit, AUTOCOMPLETE_RESULT_LIMIT));
 
     return buildSearchResultDetails(trimmed, searchContext);
 }
@@ -870,6 +890,7 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
             : tokenInfos;
 
         result.contentSnippet = extractContentSnippet(result.noteId, noteTokenInfos);
+        result.matchedTerms = findMatchedTerms(result.contentSnippet, noteTokenInfos);
         result.attributeSnippet = extractAttributeSnippet(result.noteId, noteTokenInfos);
         highlightSearchResults([ result ], noteTokenInfos, searchContext.ignoreInternalAttributes);
     }
@@ -882,14 +903,18 @@ function buildSearchResultDetails(results: SearchResult[], searchContext: Search
             noteTitle: title,
             notePathTitle: result.notePathTitle,
             highlightedNotePathTitle: result.highlightedNotePathTitle,
+            highlightedNoteTitle: result.highlightedNoteTitle,
+            highlightedParentPathTitle: result.highlightedParentPathTitle,
             contentSnippet: result.contentSnippet,
             highlightedContentSnippet: result.highlightedContentSnippet,
             attributeSnippet: result.attributeSnippet,
             highlightedAttributeSnippet: result.highlightedAttributeSnippet,
+            matchedTerms: result.matchedTerms,
             icon: icon ?? "bx bx-note"
         };
     });
 }
+
 
 /**
  * @param tokens the tokens to highlight, either legacy plain strings or structured
@@ -906,6 +931,8 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     // The only characters that have to go are the { } markers themselves.
     for (const result of searchResults) {
         result.highlightedNotePathTitle = result.notePathTitle.replace(MARKER_CHARS, "");
+        result.highlightedNoteTitle = result.noteTitleSegment.replace(MARKER_CHARS, "");
+        result.highlightedParentPathTitle = result.parentPathTitle.replace(MARKER_CHARS, "");
 
         // Initialize highlighted content snippet, preserving newlines for later conversion to <br>
         if (result.contentSnippet) {
@@ -921,6 +948,8 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     for (const tokenInfo of tokenInfos) {
         for (const result of searchResults) {
             result.highlightedNotePathTitle = highlightField(result.highlightedNotePathTitle, tokenInfo);
+            result.highlightedNoteTitle = highlightField(result.highlightedNoteTitle, tokenInfo);
+            result.highlightedParentPathTitle = highlightField(result.highlightedParentPathTitle, tokenInfo);
             result.highlightedContentSnippet = highlightField(result.highlightedContentSnippet, tokenInfo);
             result.highlightedAttributeSnippet = highlightField(result.highlightedAttributeSnippet, tokenInfo);
         }
@@ -929,6 +958,14 @@ function highlightSearchResults(searchResults: SearchResult[], tokens: Highlight
     for (const result of searchResults) {
         if (result.highlightedNotePathTitle) {
             result.highlightedNotePathTitle = renderHighlights(result.highlightedNotePathTitle);
+        }
+
+        if (result.highlightedNoteTitle) {
+            result.highlightedNoteTitle = renderHighlights(result.highlightedNoteTitle);
+        }
+
+        if (result.highlightedParentPathTitle) {
+            result.highlightedParentPathTitle = renderHighlights(result.highlightedParentPathTitle);
         }
 
         if (result.highlightedContentSnippet) {
@@ -976,6 +1013,37 @@ function tokenInfoFirstIndex(info: HighlightedTokenInfo, normalizedText: string)
     }
 
     return normalizedText.indexOf(normalizePreservingLength(info.token));
+}
+
+/**
+ * The text each token matched in `snippet`, cut from the snippet as written: matching runs on the
+ * normalized text, whose positions map 1:1 onto the original. Regex tokens are left out, as the
+ * find bar looks for plain text.
+ */
+function findMatchedTerms(snippet: string | undefined, tokenInfos: HighlightedTokenInfo[]): string[] {
+    if (!snippet) {
+        return [];
+    }
+
+    const normalizedSnippet = normalizePreservingLength(snippet);
+    const terms: string[] = [];
+    for (const info of tokenInfos) {
+        if (info.type === "regex" || !info.token) {
+            continue;
+        }
+
+        const index = tokenInfoFirstIndex(info, normalizedSnippet);
+        if (index === -1) {
+            continue;
+        }
+
+        const term = snippet.slice(index, index + info.token.length);
+        if (!terms.includes(term)) {
+            terms.push(term);
+        }
+    }
+
+    return terms;
 }
 
 /**

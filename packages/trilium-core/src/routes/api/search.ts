@@ -1,7 +1,7 @@
 import {
-    dayjs, type SearchLintRequest, type SearchLintResponse, type SearchResultDetails,
-    type SearchResultDetailsRequest, type SearchResultDetailsResponse, type SearchWithTokensResponse,
-    type TemplatesResponse
+    dayjs, type QuickSearchResponse, type SearchLintRequest, type SearchLintResponse,
+    type SearchResultDetails, type SearchResultDetailsRequest, type SearchResultDetailsResponse,
+    type SearchWithTokensResponse, type TemplatesResponse
 } from "@triliumnext/commons";
 import type { Request } from "../../http_interface";
 
@@ -126,7 +126,7 @@ function lintSearchString(req: Request): SearchLintResponse {
     return { error: searchService.validateSearchQuery(searchString) };
 }
 
-function quickSearch(req: Request<{ searchString: string }>) {
+function quickSearch(req: Request<{ searchString: string }>): QuickSearchResponse {
     const { searchString } = req.params;
 
     const searchContext = new SearchContext({

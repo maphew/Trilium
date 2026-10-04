@@ -777,6 +777,22 @@ describe("goToLinkExt", () => {
         expect(triggerCommand).not.toHaveBeenCalled();
     });
 
+    it("opens nothing on a right click on a target=_blank link, leaving it to the context menu", () => {
+        const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+        // Browsers fire auxclick for the right button as well as the middle one.
+        const rightClick = () => ({ type: "auxclick", which: 3, preventDefault: vi.fn(), stopPropagation: vi.fn() }) as any;
+
+        goToLinkExt(rightClick(), "https://example.com", $("<a>").attr({ href: "https://example.com", target: "_blank" }));
+        goToLinkExt(rightClick(), "#root/aaaaaaaaaaaa", $("<a>").attr({ href: "#root/aaaaaaaaaaaa", target: "_blank" }));
+        expect(openSpy).not.toHaveBeenCalled();
+        expect(openTabWithNoteWithHoisting).not.toHaveBeenCalled();
+
+        // A left click on the same link still opens it in a new tab.
+        goToLinkExt(leftClick(), "#root/aaaaaaaaaaaa", $("<a>").attr({ href: "#root/aaaaaaaaaaaa", target: "_blank" }));
+        expect(openTabWithNoteWithHoisting).toHaveBeenCalledWith("root/aaaaaaaaaaaa", expect.objectContaining({ activate: true }));
+        openSpy.mockRestore();
+    });
+
     it("does not handle a non-root hash anchor that does not resolve to an element", () => {
         const $link = $("<a>").attr("href", "#missing-anchor");
         // no .ck-content ancestor containing #missing-anchor => handleAnchor returns false
@@ -810,18 +826,27 @@ describe("getReferenceLinkTitle / getReferenceLinkTitleSync", () => {
         expect(await linkService.getReferenceLinkTitle(`#root/${note.noteId}`)).toBe("Referenced");
     });
 
-    it("getReferenceLinkTitle resolves attachment titles", async () => {
+    it("getReferenceLinkTitle resolves an attachment among those of the linked note", async () => {
         const note = buildNote({ title: "WithAtt" });
-        note.getAttachmentById = vi.fn(async () => ({ title: "Att" }) as any);
-        const title = await linkService.getReferenceLinkTitle(`#root/${note.noteId}?viewMode=attachments&attachmentId=a1`);
+        note.attachments = [];
+        const getAttachmentOfNote = vi.spyOn(froca, "getAttachmentOfNote")
+            .mockResolvedValue({ title: "Att" } as any);
+        const title = await linkService.getReferenceLinkTitle(
+            `#root/${note.noteId}?viewMode=attachments&attachmentId=a1`
+        );
         expect(title).toBe("Att");
+        expect(getAttachmentOfNote).toHaveBeenCalledWith(note.noteId, "a1");
+        getAttachmentOfNote.mockRestore();
     });
 
     it("getReferenceLinkTitle returns [missing attachment] when attachment not found", async () => {
         const note = buildNote({ title: "WithAtt2" });
-        note.getAttachmentById = vi.fn(async () => null as any);
-        const title = await linkService.getReferenceLinkTitle(`#root/${note.noteId}?viewMode=attachments&attachmentId=a2`);
+        const getAttachmentOfNote = vi.spyOn(froca, "getAttachmentOfNote").mockResolvedValue(null);
+        const title = await linkService.getReferenceLinkTitle(
+            `#root/${note.noteId}?viewMode=attachments&attachmentId=a2`
+        );
         expect(title).toBe("[missing attachment]");
+        getAttachmentOfNote.mockRestore();
     });
 
     it("getReferenceLinkTitleSync covers missing note, attachments and bookmark variants", () => {

@@ -216,9 +216,28 @@ describe("Text (HTML) preprocessing", () => {
         expect(result).toContain("a 1984 science fiction film.");
     });
 
+    it("makes the searchable body the text the editor displays", () => {
+        // `extractContentSnippet()` decodes the same set to render a hit, so the spelling on screen
+        // is what a query has to be able to reach.
+        const ampersand = "<p>AT&amp;T reported earnings.</p>";
+        const entities = "<p>if a &lt; b &amp;&amp; b &gt; c, then&nbsp;done</p>";
+        const href = `<p>see <a href="https://example.com/?a=1&amp;b=2">docs</a></p>`;
+        const shown = "<p>use &amp;amp; to write one</p>";
+
+        expect(preprocessContent(ampersand, type, mime)).toEqual("at&t reported earnings.");
+        expect(preprocessContent(entities, type, mime)).toEqual("if a < b && b > c, then done");
+        expect(preprocessContent(href, type, mime)).toContain("https://example.com/?a=1&b=2");
+        // Decoded once: this body shows "&amp;", where a second pass would leave a bare "&".
+        expect(preprocessContent(shown, type, mime)).toContain("use &amp; to write one");
+    });
+
     it("keeps the markup but still unescapes entities when raw is requested", () => {
-        const result = preprocessContent("<p>Hello&nbsp;world</p>", type, mime, true);
-        expect(result).toEqual("<p>hello world</p>");
+        const spacing = preprocessContent("<p>Hello&nbsp;world</p>", type, mime, true);
+        // `note.rawContent` searches the stored markup, so the basic entities stay encoded there.
+        const markup = preprocessContent("<p>AT&amp;T</p>", type, mime, true);
+
+        expect(spacing).toEqual("<p>hello world</p>");
+        expect(markup).toEqual("<p>at&amp;t</p>");
     });
 });
 

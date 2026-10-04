@@ -23,6 +23,10 @@ export default function preprocessContent(rawContent: string | Uint8Array, type:
             // Content size already filtered at DB level, safe to process
             content = stripTags(content);
 
+            // The body is decoded so a query can reach the text the editor shows, and before the
+            // injected link text is appended, since that arrives decoded already.
+            content = unescapeHtml(content);
+
             if (injectedText) {
                 // The body above was normalized, and matchesContent() compares a lowercased query
                 // token against the raw string, so the injected text must be normalized too.

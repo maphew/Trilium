@@ -10,7 +10,7 @@ import { t } from "../../services/i18n";
 import server from "../../services/server";
 import SpacedUpdate from "../../services/spaced_update";
 import { openInAppHelpFromUrl } from "../../services/utils";
-import Admonition from "../react/Admonition";
+import { ExtendedAdmonition } from "../react/Admonition";
 import FormSelect from "../react/FormSelect";
 import FormTextBox from "../react/FormTextBox";
 import HelpRemoveButtons from "../react/HelpRemoveButtons";
@@ -159,7 +159,7 @@ function SearchStringOption({ note, refreshResults, error, ...restProps }: Searc
         }
     }, [ note, setSearchString ]);
 
-    const spacedUpdateRef = useRef<SpacedUpdate<string>>();
+    const spacedUpdateRef = useRef<SpacedUpdate<string> | undefined>(undefined);
     if (!spacedUpdateRef.current) {
         spacedUpdateRef.current = new SpacedUpdate<string>({ key: note.noteId, prepare, commit }, 1000);
     }
@@ -219,7 +219,13 @@ function SearchStringOption({ note, refreshResults, error, ...restProps }: Searc
         {error?.message && (
             <tr>
                 <td colspan={3}>
-                    <Admonition type="caution">{error.message}</Admonition>
+                    <ExtendedAdmonition
+                        type="caution"
+                        icon="bx bx-error-circle"
+                        title={t("search_string.error_title")}
+                    >
+                        {error.message}
+                    </ExtendedAdmonition>
                 </td>
             </tr>
         )}

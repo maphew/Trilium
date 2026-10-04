@@ -83,7 +83,6 @@ export interface ComboBoxProperty {
      */
     defaultValue?: string;
     options: (ComboBoxItem | Separator | ComboBoxGroup)[];
-    dropStart?: boolean;
 }
 
 export interface SubmenuProperty {
@@ -238,7 +237,7 @@ function NumberPropertyView({ note, property }: { note: FNote, property: NumberP
             <FormTextBox
                 type="number"
                 currentValue={value ?? ""} onChange={setValue}
-                style={{ width: (property.width ?? 100) }}
+                style={{ width: `${property.width ?? 100}px` }}
                 min={property.min ?? 0}
                 disabled={disabled}
             />
@@ -266,7 +265,6 @@ function ComboBoxPropertyView({ note, property }: { note: FNote, property: Combo
         <FormDropdownSubmenu
             title={<PropertyLabel property={property} />}
             icon={property.icon ?? "bx bx-empty"}
-            dropStart={property.dropStart}
         >
             {(property.options).map((option, index) => {
                 if ("items" in option) {

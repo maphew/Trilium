@@ -55,7 +55,8 @@
     the&nbsp;<a class="reference-link" href="#root/_help_YtSN43OrfzaA">Note tree contextual menu</a>&nbsp;or
     press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.</li>
   <li>Go to&nbsp;<a class="reference-link" href="#root/_help_F1r9QtzQLZqm">Jump to &amp; command palette</a>,
-    look for something then press <em>Search in full text</em> (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).</li>
+    look for something then press <em>Show in full search</em> below the results
+    (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).</li>
 </ul>
 <h2>Interaction</h2>
 <p>To search for notes, click on the magnifying glass icon on the toolbar
@@ -91,6 +92,16 @@
 <h3>Autocomplete</h3>
 <p>To help with the syntax, Trilium offers an autocomplete functionality
   which can be triggered by pressing <kbd>Ctrl</kbd>+<kbd>Space</kbd>.</p>
+<p>Some suggestions also open on their own as you type: label and relation
+  names after <code>#</code> and <code>~</code>, fields after <code>.</code>,
+  operators, values, and notes after <code>@</code>. Keywords such as <code>and</code>, <code>or</code>, <code>not</code>, <code>orderBy</code> and <code>limit</code> appear
+  only on <kbd>Ctrl</kbd>+<kbd>Space</kbd>, since a plain word is usually
+  a search term.</p>
+<p>No suggestion is selected when a list opens on its own, so <kbd>Enter</kbd> runs
+  the search as typed. To insert a suggestion, select it with <kbd>Down</kbd> and
+  press <kbd>Enter</kbd>. The list opened with <kbd>Ctrl</kbd>+<kbd>Space</kbd> and
+  the notes after <code>@</code> open on the best match instead, so <kbd>Enter</kbd> inserts
+  it.</p>
 <p>The autocomplete offers:</p>
 <ul>
   <li>
@@ -104,10 +115,9 @@
     <p>Contextual enumerations such as <code>note.type = "</code> or <code>note.mime = "</code>.</p>
   </li>
   <li>
-    <p><a href="#root/_help_HI6GBBIduIgv">Label</a> names by typing <code>#</code>,
-      with user-defined ones shown first.</p>
+    <p><a href="#root/_help_HI6GBBIduIgv">Label</a> names by typing <code>#</code>.</p>
     <ul>
-      <li>A gear icon indicates system attributes.</li>
+      <li>A small gear on the name's icon indicates a system attribute.</li>
       <li>After typing the label name, the value is also autocompleted with values
         that are present in the database.</li>
     </ul>
@@ -139,6 +149,10 @@
   <li>Search errors which are checked by the server, without indicating the
     exact place the error occurred.</li>
 </ul>
+<p>An error the search only runs into while running, such as an operator
+  that note content cannot be searched with, is shown in a <em>Search error</em> card
+  instead: below the search string, or at the top of the <a class="reference-link"
+  href="#root/_help_Ms1nauBra7gq">Quick search</a> results.</p>
 <h3>Multiline</h3>
 <p>Long or complicated searches can be formatted by using newlines, similar
   to SQL queries. Newlines are treated just like spaces.</p>
@@ -237,8 +251,11 @@
     (stored in the <code>searchResultsPageSize</code> option), so you do not
     have to reset it on every device.</li>
   <li><strong>Clicking a result</strong> opens the note and jumps straight to
-    the first match. The in-note find bar opens pre-filled with your search
-    terms, so you can step through the remaining matches with the find controls.</li>
+    the first match. The in-note find bar opens pre-filled with the first word
+    of your search, so you can step through its matches with the find controls.
+    To have the find bar look for a whole phrase instead, put the phrase in
+    quotes in the search, e.g. <code>"The Lord of the Rings"</code>. In read-only
+    notes, the other words of the search are highlighted as well.</li>
   <li>If a match is inside a <strong>collapsed section</strong> (for example a
     folded heading), that section is expanded automatically so the match is
     visible.</li>
@@ -253,6 +270,9 @@
     notes containing "rings" or "tolkien" in their content.</li>
   <li><code>towers #book</code>: Combine full-text and attribute search to find
     notes containing "towers" and having the "book" label.</li>
+  <li><code>c#</code> or <code>towers#book</code>: A <code>#</code> or <code>~</code> inside
+    a word is part of the text, so these find notes containing "c#" or "towers#book".
+    To start a label or relation, put a space before it.</li>
   <li><code>towers #book or #author</code>: Search for notes containing "towers"
     and having either the "book" or "author" label.</li>
   <li><code>towers #!book</code>: Search for notes containing "towers" and not
