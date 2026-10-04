@@ -6,6 +6,7 @@ import type { ComponentChildren } from "preact";
 import appContext from "../../../components/app_context.js";
 import { t } from "../../../services/i18n.js";
 import type { SearchProviderOption, WebSearchState } from "../../../services/llm_providers.js";
+import ActionButton from "../../react/ActionButton.js";
 import Dropdown from "../../react/Dropdown.js";
 import { FormDropdownDivider, FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList.js";
 import Icon from "../../react/Icon.js";
@@ -50,7 +51,16 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
             />
 
             <FormDropdownDivider />
-            <FormListHeader text={t("llm_chat.web_search")} />
+            <FormListHeader
+                text={t("llm_chat.web_search")}
+                action={
+                    <ActionButton
+                        icon="bx bx-cog"
+                        text={t("llm_chat.manage_search_providers")}
+                        onClick={() => appContext.triggerCommand("showOptions", { section: "_optionsLlm" })}
+                    />
+                }
+            />
             <WebSearchChoice choice="disabled" webSearch={webSearch} onChoose={onWebSearchChoose}>
                 <Icon icon="bx bx-block" className="llm-chat-tools-choice-icon" />
                 {t("llm_chat.web_search_disabled")}
@@ -78,12 +88,6 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
                     {provider.name}
                 </WebSearchChoice>
             ))}
-            <FormListItem
-                icon="bx bx-cog"
-                onClick={() => appContext.triggerCommand("showOptions", { section: "_optionsLlm" })}
-            >
-                {t("llm_chat.manage_search_providers")}
-            </FormListItem>
         </Dropdown>
     );
 }

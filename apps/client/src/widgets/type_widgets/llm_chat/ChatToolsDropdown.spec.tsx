@@ -105,7 +105,9 @@ describe("ChatToolsDropdown", () => {
         await act(async () => menu.row("llm_chat.note_tools")?.click());
         expect(menu.onNoteToolsChange).toHaveBeenCalledExactlyOnceWith(false);
 
-        await act(async () => menu.row("llm_chat.manage_search_providers")?.click());
+        const manage = host?.querySelector<HTMLButtonElement>(".dropdown-header button.bx-cog");
+        expect(manage).not.toBeNull();
+        await act(async () => manage?.click());
         expect(mocks.triggerCommand).toHaveBeenCalledExactlyOnceWith("showOptions", { section: "_optionsLlm" });
     });
 
