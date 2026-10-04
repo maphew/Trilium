@@ -1,10 +1,9 @@
 import clsx from "clsx";
-import { Fragment } from "preact";
+import { Fragment, TargetedMouseEvent, TargetedWheelEvent } from "preact";
 import { flushSync } from "preact/compat";
 import {
     useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
-import { JSX } from "preact/jsx-runtime";
 
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
@@ -581,7 +580,7 @@ export default function Column({
     const isRailDrawn = useLingeringTrue(isRailShown, RAIL_EXIT_MS);
 
     /** Allow using mouse wheel to scroll inside card, while also maintaining column horizontal scrolling. */
-    const handleScroll = useCallback((event: JSX.TargetedWheelEvent<HTMLDivElement>) => {
+    const handleScroll = useCallback((event: TargetedWheelEvent<HTMLDivElement>) => {
         const el = event.currentTarget;
         if (!el) return;
 
@@ -903,7 +902,7 @@ export default function Column({
  * Where a menu opened from a button stands: at the pointer for a press, and below the button for a
  * keyboard, which reports no position of its own.
  */
-function menuOrigin(e: JSX.TargetedMouseEvent<HTMLElement>): [ number, number ] {
+function menuOrigin(e: TargetedMouseEvent<HTMLElement>): [ number, number ] {
     if (e.detail) {
         return [ e.pageX, e.pageY ];
     }

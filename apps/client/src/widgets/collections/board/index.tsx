@@ -2,8 +2,10 @@ import "./index.css";
 
 import clsx from "clsx";
 
-import { ComponentChildren, createContext, Fragment, TargetedKeyboardEvent } from "preact";
-import { JSX } from "preact/jsx-runtime";
+import {
+    ComponentChildren, createContext, Fragment, TargetedFocusEvent, TargetedKeyboardEvent,
+    TargetedMouseEvent, TargetedPointerEvent
+} from "preact";
 import { createPortal, RefObject, useSyncExternalStore } from "preact/compat";
 import {
     Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
@@ -2021,7 +2023,7 @@ export function TitleEditor({
     }
 
     /** Offers both ends, saving what the field held when the menu was opened. */
-    function openPlacementMenu(e: JSX.TargetedMouseEvent<HTMLElement>) {
+    function openPlacementMenu(e: TargetedMouseEvent<HTMLElement>) {
         e.preventDefault();
         e.stopPropagation();
         cancelHold();
@@ -2031,7 +2033,7 @@ export function TitleEditor({
     }
 
     /** Opens the same menu for a finger, which has no second button to open it with. */
-    function holdToPlace(e: JSX.TargetedPointerEvent<HTMLElement>) {
+    function holdToPlace(e: TargetedPointerEvent<HTMLElement>) {
         if (e.pointerType === "mouse") {
             return;
         }
@@ -2052,14 +2054,14 @@ export function TitleEditor({
     }
 
     /** Gives up on a hold the finger has walked away from, which is a scroll and not a press. */
-    function holdMoved(e: JSX.TargetedPointerEvent<HTMLElement>) {
+    function holdMoved(e: TargetedPointerEvent<HTMLElement>) {
         const from = heldFrom.current;
         if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > HOLD_SLACK_PX) {
             cancelHold();
         }
     }
 
-    function pressed(e: JSX.TargetedMouseEvent<HTMLElement>) {
+    function pressed(e: TargetedMouseEvent<HTMLElement>) {
         cancelHold();
 
         // A hold ends in a click, which would reach the page and close the menu it just opened.
@@ -2100,7 +2102,7 @@ export function TitleEditor({
      * Ends the edit when focus moves outside `fieldRef`. A `relatedTarget` inside it is the field
      * itself; `isHoldingOpen` covers the picker's menu, which is drawn outside `fieldRef`.
      */
-    function iconFocusOut(e: JSX.TargetedFocusEvent<HTMLSpanElement>) {
+    function iconFocusOut(e: TargetedFocusEvent<HTMLSpanElement>) {
         isIconFocused.current = false;
 
         const next = e.relatedTarget;
@@ -2112,7 +2114,7 @@ export function TitleEditor({
     }
 
     /** Leaves the editor from the picker, which Escape does from the field itself. */
-    function iconKeyDown(e: JSX.TargetedKeyboardEvent<HTMLSpanElement>) {
+    function iconKeyDown(e: TargetedKeyboardEvent<HTMLSpanElement>) {
         if (e.key !== "Escape" || isHoldingOpen.current) {
             return;
         }
