@@ -194,6 +194,31 @@ describe("running a saved search when it is shown", () => {
         expect(container.querySelector("button")).toBeNull();
     });
 
+    it("does not run a search shown again while its first run is pending", async () => {
+        const savedSearch = searchNote("pendingSearch", "#book");
+        let fail: () => void = () => {};
+        const loadSearchNote = vi.spyOn(froca, "loadSearchNote").mockImplementation(() =>
+            new Promise((_, reject) => { fail = () => reject(new Error("Network down")); }));
+        vi.spyOn(toast, "showError").mockImplementation(() => {});
+
+        shownNote.current = savedSearch;
+        await mount();
+        await settle(() => {
+            shownNote.current = buildNote({ id: "otherNote", title: "Other" });
+            shownNote.notify();
+        });
+        await settle(() => {
+            shownNote.current = savedSearch;
+            shownNote.notify();
+        });
+
+        expect(loadSearchNote).toHaveBeenCalledOnce();
+        expect(container.querySelector(".no-items .bx-loader-alt")).not.toBeNull();
+
+        await settle(() => fail());
+        expect(container.querySelector("button")).not.toBeNull();
+    });
+
     it("waits for a background tab to be shown before running its saved search", async () => {
         const savedSearch = searchNote("backgroundSearch", "#book");
         const loadSearchNote = vi.spyOn(froca, "loadSearchNote").mockResolvedValue(undefined);

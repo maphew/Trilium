@@ -106,7 +106,8 @@ function useSavedSearchRun(
     { noteContext, ntxId, parentComponent }: SearchRunContext
 ) {
     const hasTabBeenShown = useHasTabBeenShown(noteContext);
-    const [ runningNoteId, setRunningNoteId ] = useState<string>();
+    // A note runs at most once at a time, so a finished run removes only its own note.
+    const [ runningNoteIds, setRunningNoteIds ] = useState<ReadonlySet<string>>(new Set());
     const autoRunNoteId = useRef<string | undefined>(undefined);
 
     async function runSearch() {
@@ -115,18 +116,22 @@ function useSavedSearchRun(
             return;
         }
 
-        setRunningNoteId(noteId);
+        setRunningNoteIds((running) => new Set(running).add(noteId));
         try {
             const result = await search.runSearchNote(parentComponent, noteId, ntxId);
             if (result?.error) {
                 toast.showError(result.error);
             }
         } finally {
-            // Another search can have started in this tab meanwhile, and it keeps its progress.
-            setRunningNoteId((current) => (current === noteId ? undefined : current));
+            setRunningNoteIds((running) => {
+                const remaining = new Set(running);
+                remaining.delete(noteId);
+                return remaining;
+            });
         }
     }
 
+    const isRunning = !!note && runningNoteIds.has(note.noteId);
     const runsOnShow = hasNotRun && hasTabBeenShown && !glob.TRILIUM_SAFE_MODE
         && !!note && autoRunNoteId.current !== note.noteId;
     useEffect(() => {
@@ -137,12 +142,15 @@ function useSavedSearchRun(
     useEffect(() => {
         if (!runsOnShow || !note) return;
 
+        // A run still in flight from an earlier showing counts as this showing's run.
         autoRunNoteId.current = note.noteId;
-        void runSearch();
+        if (!isRunning) {
+            void runSearch();
+        }
     }, [ runsOnShow, note ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return {
-        isSearching: hasNotRun && (runsOnShow || runningNoteId === note?.noteId),
+        isSearching: hasNotRun && (runsOnShow || isRunning),
         runSearch
     };
 }
