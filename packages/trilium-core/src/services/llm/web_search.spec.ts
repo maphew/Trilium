@@ -166,6 +166,26 @@ describe("readWebPage", () => {
         await expect(readWebPage("https://a.example/doc.pdf")).rejects.toThrow("application/pdf");
     });
 
+    it("refuses a local or private-network host before fetching, on every runtime", async () => {
+        const local = [
+            "http://localhost:8080/", "http://app.localhost/", "http://router/", "http://nas.local/",
+            "http://box.lan/", "http://db.internal/", "http://printer.home.arpa/", "http://localhost./",
+            "http://127.0.0.1/", "http://2130706433/", "http://0.0.0.0/", "http://10.1.2.3/",
+            "http://172.16.0.1/", "http://172.31.255.255/", "http://192.168.1.1/", "http://169.254.169.254/",
+            "http://100.64.0.1/", "http://[::1]/", "http://[::]/", "http://[fd00::1]/", "http://[fe80::1]/",
+            "http://[::ffff:127.0.0.1]/", "http://[::ffff:192.168.0.1]/"
+        ];
+        for (const url of local) {
+            await expect(readWebPage(url), url).rejects.toThrow("private/internal networks");
+        }
+        expect(fetchResourceMock).not.toHaveBeenCalled();
+
+        for (const url of [ "http://172.32.0.1/", "http://100.128.0.1/", "http://8.8.8.8/", "http://[2606:4700::1111]/", "http://[fc::1]/", "https://example.com/" ]) {
+            serve("ok", "text/plain");
+            expect(await readWebPage(url), url).toBe("ok");
+        }
+    });
+
     it("hands the model a refused address as an error to report", async () => {
         fetchResourceMock.mockRejectedValueOnce(new Error("URLs pointing to private/internal networks are not allowed"));
         const tool = createReadWebPageTool();

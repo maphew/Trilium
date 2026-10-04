@@ -152,10 +152,16 @@ export function createReadWebPageTool() {
  *
  * The URL is the model's to choose, and a note or a search result can steer it, so the page is
  * fetched with `fetchResource()`: the policy for addresses that arrive in content, which refuses
- * private networks, vets each redirect and caps the body.
+ * private networks, vets each redirect and caps the body. The mobile app's `fetchResource()` has no
+ * resolver to make that check, so {@link isLocalHost} refuses the hosts it can recognize by name
+ * first.
  */
 export async function readWebPage(url: string): Promise<string> {
-    const response = await request.fetchResource(validateFetchableUrl(url).toString(), {
+    const parsed = validateFetchableUrl(url);
+    if (isLocalHost(parsed.hostname)) {
+        throw new Error("URLs pointing to private/internal networks are not allowed");
+    }
+    const response = await request.fetchResource(parsed.toString(), {
         maxBytes: MAX_PAGE_BYTES,
         headers: { "Accept": "text/html, application/xhtml+xml, text/plain;q=0.9" }
     });
@@ -174,6 +180,33 @@ export async function readWebPage(url: string): Promise<string> {
     return content.length > MAX_PAGE_CHARS
         ? `${content.slice(0, MAX_PAGE_CHARS)}\n\n[The page continues; only its first ${MAX_PAGE_CHARS} characters are shown.]`
         : content;
+}
+
+/** Name suffixes that only resolve on a local network. */
+const LOCAL_NAME = /(^|\.)(localhost|local|lan|internal|home\.arpa)$/;
+/** IPv4 ranges a public page is never served from: this host, private, CGNAT, link-local, multicast and reserved. */
+const LOCAL_IPV4 = /^(0|10|127|169\.254|172\.(1[6-9]|2\d|3[01])|192\.168|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])|22[4-9]|2[3-5]\d)\./;
+
+/**
+ * Whether `hostname`, as `URL.hostname` serializes it, names this machine or a private network: a
+ * single-label or local-only name, or an address in a non-public range. A name that resolves to a
+ * private address passes, since no resolver is available on every runtime.
+ */
+function isLocalHost(hostname: string): boolean {
+    const host = hostname.replace(/\.$/, "").toLowerCase();
+    if (host.startsWith("[")) {
+        const ipv6 = host.slice(1, -1);
+        const mapped = /^::ffff:([\da-f]{1,4}):([\da-f]{1,4})$/.exec(ipv6);
+        if (mapped) {
+            const [ high, low ] = [ parseInt(mapped[1], 16), parseInt(mapped[2], 16) ];
+            return isLocalHost(`${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`);
+        }
+        return ipv6 === "::" || ipv6 === "::1" || /^(f[cd][\da-f]{2}|fe[89ab][\da-f]|ff[\da-f]{2}):/.test(ipv6);
+    }
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+        return LOCAL_IPV4.test(host);
+    }
+    return !host.includes(".") || LOCAL_NAME.test(host);
 }
 
 /** The content of a page as Markdown, headed by its title: its `main` or `article` where it has one. */
