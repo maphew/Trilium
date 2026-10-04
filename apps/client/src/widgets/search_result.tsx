@@ -6,10 +6,12 @@ import { useState } from "preact/hooks";
 
 import type FNote from "../entities/fnote";
 import { t } from "../services/i18n";
+import search from "../services/search";
+import toast from "../services/toast";
 import { SearchNoteList, useNoteViewType } from "./collections/NoteList";
 import SearchResultsList from "./collections/search/SearchResultsList";
 import Button from "./react/Button";
-import { useNoteContext,  useTriliumEvent } from "./react/hooks";
+import { useNoteContext, useTriliumEvent } from "./react/hooks";
 import NoItems from "./react/NoItems";
 
 enum SearchResultState {
@@ -19,7 +21,7 @@ enum SearchResultState {
 }
 
 export default function SearchResult() {
-    const { note, notePath, ntxId } = useNoteContext();
+    const { note, notePath, ntxId, parentComponent } = useNoteContext();
     const viewType = useNoteViewType(note);
     const [ , setRefreshCount ] = useState(0);
     const state = getSearchResultState(note);
@@ -28,6 +30,17 @@ export default function SearchResult() {
     // The search note is updated in place, so a re-render picks up the new results.
     function refresh() {
         setRefreshCount((count) => count + 1);
+    }
+
+    async function executeSearch() {
+        if (!note?.noteId) {
+            return;
+        }
+
+        const result = await search.runSearchNote(parentComponent, note.noteId, ntxId);
+        if (result?.error) {
+            toast.showError(result.error);
+        }
     }
 
     useTriliumEvent("searchRefreshed", ({ ntxId: eventNtxId }) => {
@@ -45,7 +58,7 @@ export default function SearchResult() {
         <div className={clsx("search-result-widget", state === undefined && "hidden-ext")}>
             {state === SearchResultState.NOT_EXECUTED && (
                 <NoItems icon="bx bx-file-find" text={t("search_result.search_not_executed")}>
-                    <Button text={t("search_result.search_now")} triggerCommand="searchNotes" />
+                    <Button text={t("search_result.search_now")} onClick={executeSearch} />
                 </NoItems>
             )}
 

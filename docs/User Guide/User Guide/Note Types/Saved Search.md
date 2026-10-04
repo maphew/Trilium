@@ -3,6 +3,8 @@ Trilium allows you to save common searches as notes within the note tree. The se
 
 <figure class="image image_resized image-style-align-center" style="width:50%;"><img style="aspect-ratio:812/585;" src="Saved Search_saved-search.gif" width="812" height="585"></figure>
 
+A saved search that has not run yet shows a _Search now_ button, which runs that search and lists its results in place. If the query has an error, it appears as a notification.
+
 ## Location
 
 By default, saved searches are stored in the day note. However, you can designate a different note to store saved searches by marking it with the `#searchHome` label. Additionally, for [workspaces](../Basic%20Concepts%20and%20Features/Navigation/Workspaces.md), you can use the `#workspaceSearchHome` label to specify a storage location for saved searches within that workspace.
