@@ -126,8 +126,8 @@ function lintSearchString(req: Request): SearchLintResponse {
     return { error: searchService.validateSearchQuery(searchString) };
 }
 
-function quickSearch(req: Request<{ searchString: string }>): QuickSearchResponse {
-    const { searchString } = req.params;
+function quickSearch(req: Request<{}, { searchString?: string }>): QuickSearchResponse {
+    const searchString = getSearchString(req);
 
     const searchContext = new SearchContext({
         fastSearch: false,
@@ -155,9 +155,9 @@ function quickSearch(req: Request<{ searchString: string }>): QuickSearchRespons
 }
 
 function search(
-    req: Request<{ searchString: string }, { ancestorNoteId?: string, includeTokens?: string }>
+    req: Request<{}, { searchString?: string, ancestorNoteId?: string, includeTokens?: string }>
 ): string[] | SearchWithTokensResponse {
-    const { searchString } = req.params;
+    const searchString = getSearchString(req);
     const { ancestorNoteId, includeTokens } = req.query;
 
     const searchContext = new SearchContext({
@@ -182,6 +182,16 @@ function search(
         highlightedTokens: searchContext.getHighlightedTokenInfos(),
         error: searchContext.getError()
     };
+}
+
+function getSearchString(req: Request<{}, { searchString?: string }>): string {
+    const { searchString } = req.query;
+
+    if (typeof searchString !== "string" || searchString.length === 0) {
+        throw new ValidationError("Search string must be a non-empty string.");
+    }
+
+    return searchString;
 }
 
 function getRelatedNotes(req: Request) {

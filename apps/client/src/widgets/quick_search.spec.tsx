@@ -61,7 +61,7 @@ describe("QuickSearch", () => {
         typeQuery(editor, "  hello ");
         pressEnter(editor);
 
-        expect(get).toHaveBeenCalledWith("quick-search/hello");
+        expect(get).toHaveBeenCalledWith("quick-search?searchString=hello");
         const [ first ] = await waitForResults(30);
 
         expect(first.getAttribute("href")).toBe(calculateHash({
@@ -76,6 +76,16 @@ describe("QuickSearch", () => {
         const values = [ ...badges ].map((badge) => badge.querySelector(".attribute-badge-value")?.textContent);
         expect(values).toEqual([ "1954", "tolkien" ]);
         expect(first.querySelector(".search-result-content")?.innerHTML).toBe("about <b>hello</b>");
+    });
+
+    it("sends a query with a slash as a query parameter", async () => {
+        const get = vi.spyOn(server, "get").mockResolvedValue(response(0, []));
+        const { editor } = await mount();
+
+        typeQuery(editor, "中/英");
+        pressEnter(editor);
+
+        expect(get).toHaveBeenCalledWith(`quick-search?searchString=${encodeURIComponent("中/英")}`);
     });
 
     it("links to the plain note path when the search highlighted nothing", async () => {
@@ -186,7 +196,7 @@ describe("QuickSearch", () => {
         typeQuery(editor, "hello");
         await act(async () => button.click());
         await waitForResults(3);
-        expect(get).toHaveBeenCalledWith("quick-search/hello");
+        expect(get).toHaveBeenCalledWith("quick-search?searchString=hello");
         expect(button.classList.contains("active")).toBe(true);
 
         await act(async () => button.click());

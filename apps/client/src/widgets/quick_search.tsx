@@ -84,7 +84,7 @@ export default function QuickSearch() {
         const requestId = ++requestIdRef.current;
         setSearchState({ status: "searching" });
         const { searchResults, highlightedTokens, error } = await server.get<QuickSearchResponse>(
-            `quick-search/${encodeURIComponent(query)}`
+            `quick-search?searchString=${encodeURIComponent(query)}`
         );
         if (requestId !== requestIdRef.current) return;
 
