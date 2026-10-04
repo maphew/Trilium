@@ -64,6 +64,8 @@ export function tokenizeSearchQuery(text: string): SearchToken[] {
     let pos = 0;
     // Set by `note` and by a relation, both of which a dotted property path can follow.
     let inPath = false;
+    // Set by the first attribute or `note.`, which end the full-text part as they do in `lex()`.
+    let fulltextEnded = false;
 
     const match = (pattern: RegExp) => {
         pattern.lastIndex = pos;
@@ -100,16 +102,24 @@ export function tokenizeSearchQuery(text: string): SearchToken[] {
         }
 
         const attribute = match(ATTRIBUTE);
+        if (attribute && !fulltextEnded && !/^\(*$/.test(wordBefore(text, pos))) {
+            // Inside a full-text word, `#` and `~` are text: `c#`, `towers#book`.
+            pos++;
+            continue;
+        }
+
         if (attribute) {
             const isLabel = attribute[1] === "#";
             take(isLabel ? "label" : "relation", ATTRIBUTE);
             inPath = !isLabel;
+            fulltextEnded = true;
             continue;
         }
 
         if (match(NOTE_PREFIX)) {
             take("property", NOTE_PREFIX);
             inPath = true;
+            fulltextEnded = true;
             continue;
         }
 
@@ -146,6 +156,11 @@ export function tokenizeSearchQuery(text: string): SearchToken[] {
     }
 
     return tokens;
+}
+
+/** The non-whitespace run that ends at `pos`. */
+function wordBefore(text: string, pos: number) {
+    return /\S*$/.exec(text.slice(0, pos))?.[0] ?? "";
 }
 
 const MARKS: Record<SearchTokenKind, Decoration> = {

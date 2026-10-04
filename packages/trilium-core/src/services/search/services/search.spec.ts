@@ -413,6 +413,19 @@ describe("Search", () => {
         expect(searchResults.length).toEqual(5);
     });
 
+    it("a # inside a full-text word is searched literally", () => {
+        rootNote
+            .child(note("Learning C# basics"))
+            .child(note("C basics").label("book"));
+
+        const searchContext = new SearchContext();
+        const literal = searchService.findResultsWithQuery("c# basics", searchContext);
+        expect(searchContext.error).toBeNull();
+        expect(literal.map((r) => becca.notes[r.noteId].title)).toEqual(["Learning C# basics"]);
+
+        expect(searchService.findResultsWithQuery("basics#book", new SearchContext())).toEqual([]);
+    });
+
     it("exact word search matches a content word wrapped in punctuation (#10616)", () => {
         // The note body contains "(sync)" (parenthesised). Exact-word search for
         // "sync" must still find it, because content tokenization strips boundary
