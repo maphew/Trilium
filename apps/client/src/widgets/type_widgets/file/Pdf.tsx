@@ -49,9 +49,18 @@ export default function PdfPreview({ note, blob, componentId, noteContext, isVis
 
     function publish<K extends PdfContextDataKey>(key: K, value: NoteContextDataMap[K]) {
         publishedRef.current.set(key, value);
-        if (isVisibleRef.current) {
+        if (isShown()) {
             noteContext.setContextData(key, value);
         }
+    }
+
+    /**
+     * Whether the pane shows this viewer's PDF. `NoteDetailWrapper` passes `isVisible` at once
+     * and the next note's props a render later, so a viewer kept from another PDF is briefly
+     * visible while `noteContext.note` is already the new one.
+     */
+    function isShown() {
+        return isVisibleRef.current && noteContext.note?.noteId === note.noteId;
     }
 
     function getPublished<K extends PdfContextDataKey>(key: K) {
@@ -64,7 +73,7 @@ export default function PdfPreview({ note, blob, componentId, noteContext, isVis
      */
     function revealLinkTarget() {
         const viewScope = noteContext.viewScope;
-        if (!isVisibleRef.current || !publishedRef.current.has("pdfAnnotations") || !viewScope?.page) return;
+        if (!isShown() || !publishedRef.current.has("pdfAnnotations") || !viewScope?.page) return;
 
         const pageNumber = Number.parseInt(viewScope.page, 10);
         const annotationId = viewScope.annotation;
@@ -278,7 +287,7 @@ export default function PdfPreview({ note, blob, componentId, noteContext, isVis
     useEffect(() => () => publishedRef.current.clear(), [ note.noteId ]);
 
     useEffect(() => {
-        if (!isVisible) return;
+        if (!isShown()) return;
         for (const key of publishedRef.current.keys()) {
             republish(key);
         }

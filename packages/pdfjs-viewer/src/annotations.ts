@@ -259,9 +259,11 @@ async function scrollToAnnotation(annotationId: string | undefined, pageNumber: 
     if (!app) return;
 
     const rect = annotationId ? await findAnnotationRect(annotationId, pageNumber) : null;
+    // In single-page scroll mode the viewer holds only the current page's element, so the page
+    // is turned to before its element is measured.
+    app.pdfViewer.currentPageNumber = pageNumber;
     const pageView = app.pdfViewer.getPageView(pageNumber - 1);
     if (!rect || !pageView) {
-        app.pdfViewer.currentPageNumber = pageNumber;
         app.pdfViewer.update();
         return;
     }

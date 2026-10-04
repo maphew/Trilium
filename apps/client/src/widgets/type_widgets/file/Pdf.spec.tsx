@@ -63,6 +63,7 @@ beforeEach(() => {
     contextData = {};
     noteContext = {
         ntxId: "ntx-1",
+        note: NOTE,
         notePath: "root/parent/note-1",
         viewScope: {},
         setContextData: vi.fn((key: string, value: unknown) => { contextData[key] = value; }),
@@ -207,7 +208,8 @@ describe("PdfPreview", () => {
         show(false);
         contextData = {};
         vi.mocked(noteContext.setContextData).mockClear();
-        // Neither reaches the note the pane shows now; the page change is kept for the return.
+        // A hidden viewer records the page change for the return and holds the link's jump until
+        // it is shown.
         fromThisViewer({ type: "pdfjs-viewer-current-page", currentPage: 7 });
         noteContext.viewScope = { page: "4" };
         eventHandlers.get("noteSwitched")?.({ noteContext: { ntxId: "ntx-1", note: NOTE } });
@@ -222,6 +224,33 @@ describe("PdfPreview", () => {
         });
         expect(posted).toHaveBeenCalledExactlyOnceWith(
             { type: "trilium-scroll-to-annotation", annotationId: undefined, pageNumber: 4 }, window.location.origin);
+    });
+
+    it("keeps one PDF's data out of the pane once it shows another PDF", () => {
+        // `NoteDetailWrapper` hands the kept viewer `isVisible` at once and the next note's props
+        // one render later, so the viewer is shown while it still holds the previous PDF.
+        const posted = recordPostsToViewer();
+        fromThisViewer({ type: "pdfjs-viewer-page-info", totalPages: 12, currentPage: 3 });
+        fromThisViewer({ type: "pdfjs-viewer-annotations", annotations: [] });
+
+        function show(note: FNote, isVisible: boolean) {
+            act(() => render(
+                <PdfPreview note={note} noteContext={noteContext} blob={null} componentId="cmp" isVisible={isVisible} />,
+                container));
+        }
+
+        show(NOTE, false);
+        const otherNote = { ...NOTE, noteId: "note-2" } as unknown as FNote;
+        (noteContext as { note: FNote }).note = otherNote;
+        noteContext.viewScope = { page: "4" };
+        contextData = {};
+        vi.mocked(noteContext.setContextData).mockClear();
+
+        show(NOTE, true);
+        fromThisViewer({ type: "pdfjs-viewer-current-page", currentPage: 5 });
+        show(otherNote, true);
+        expect(noteContext.setContextData).not.toHaveBeenCalled();
+        expect(posted).not.toHaveBeenCalled();
     });
 
     it("copies a reference to a page, or to an annotation the document already holds", () => {

@@ -382,6 +382,26 @@ describe("scrolling to an annotation", () => {
         expect(centreOfLastScroll()).toEqual({ x: 450, y: 1000 + 367 });
     });
 
+    it("turns to the annotation's page before measuring it, for single-page mode", async () => {
+        // In single-page scroll mode, setting `currentPageNumber` puts the page's element into
+        // the viewer, which holds only the current page.
+        viewer = await installViewerApp(allFeaturesPdf(), PAGES);
+        await setupPdfAnnotations();
+        const turnToPage = vi.fn();
+        Object.defineProperty(window.PDFViewerApplication?.pdfViewer, "currentPageNumber", {
+            get: () => 1,
+            set: turnToPage
+        });
+
+        viewer.sendFromParent({ type: "trilium-scroll-to-annotation", annotationId: "18R", pageNumber: 2 });
+
+        await vi.waitFor(() => expect(viewer.scrollRequests).toHaveBeenCalled());
+        expect(turnToPage).toHaveBeenCalledExactlyOnceWith(2);
+        expect(turnToPage.mock.invocationCallOrder[0])
+            .toBeLessThan(viewer.scrollRequests.mock.invocationCallOrder[0]);
+        expect(centreOfLastScroll()).toEqual({ x: 450, y: 1000 + 367 });
+    });
+
     it("has pdf.js record the new position at once, so a resize in the same frame keeps it", async () => {
         // On a resize, pdf.js reapplies an "auto" zoom and scrolls back to the position it last
         // recorded, which it otherwise records only on the next frame's scroll event.
