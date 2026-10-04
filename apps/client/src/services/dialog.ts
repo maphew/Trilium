@@ -44,13 +44,13 @@ export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = 
     // would undo the layer this gives it there.
     showAboveWhateverHasTheScreen($dialog[0]);
 
+    // After the backdrop has its final place in the page, because moving an element drops its focus.
+    if (config?.focus !== false) {
+        takeFocusUntilShown($dialog[0], config?.backdrop !== false);
+    }
+
     $dialog.on("hidden.bs.modal", () => {
         sendDialogHome($dialog[0]);
-
-        const $autocompleteEl = $(".aa-input");
-        if ("autocomplete" in $autocompleteEl) {
-            $autocompleteEl.autocomplete("close");
-        }
 
         if (!glob.activeDialog || glob.activeDialog === $dialog) {
             focusSavedElement();
@@ -60,6 +60,29 @@ export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = 
     keyboardActionsService.updateDisplayedShortcuts($dialog);
 
     return $dialog;
+}
+
+/**
+ * Bootstrap moves focus into the dialog only when the opening transition ends. Until then, keeps
+ * keystrokes out of the element that had focus, e.g. the note editor. Focus goes to the backdrop
+ * where there is one, so a `focusout` handler can tell from `relatedTarget` that a dialog took it.
+ */
+function takeFocusUntilShown(dialogEl: HTMLElement, hasBackdrop: boolean) {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement) || dialogEl.contains(activeElement)) {
+        return;
+    }
+
+    const backdrops = document.querySelectorAll<HTMLElement>(".modal-backdrop");
+    const ownBackdrop = hasBackdrop ? backdrops[backdrops.length - 1] : undefined;
+    if (!ownBackdrop) {
+        activeElement.blur();
+        return;
+    }
+
+    ownBackdrop.tabIndex = -1;
+    ownBackdrop.style.outline = "none";
+    ownBackdrop.focus({ preventScroll: true });
 }
 
 /** Where a dialog stands while nothing has the screen, what came with it, and how to stop watching. */
@@ -195,9 +218,10 @@ async function info(message: MessageType, extraProps?: InfoExtraProps) {
 /**
  * Displays a confirmation dialog with the given message.
  *
- * @param message the message to display in the dialog. A string is rendered as HTML; pass an element
- *                where the wording needs structure the dialog should not have to parse — an
- *                admonition warning about what the action costs, say.
+ * @param message the message to display in the dialog. A string is rendered as HTML, sanitized by
+ *                DOMPurify so the note titles and attribute names these questions name cannot inject
+ *                markup; pass an element where the wording needs structure the dialog should not
+ *                have to parse — an admonition warning about what the action costs, say.
  * @returns A promise that resolves to true if the user confirmed, false otherwise.
  */
 async function confirm(message: MessageType) {
@@ -205,6 +229,22 @@ async function confirm(message: MessageType) {
         appContext.triggerCommand("showConfirmDialog", <ConfirmWithMessageOptions>{
             message,
             callback: (x: false | ConfirmDialogOptions) => res(x && x.confirmed)
+        })
+    );
+}
+
+/**
+ * Shows a confirmation with an optional checkbox for deleting the notes it asks about.
+ *
+ * @param checkboxLabel labels the checkbox; omit it to show no checkbox.
+ * @returns `confirmed` and `isDeleteNoteChecked`, or `false` when the dialog is dismissed.
+ */
+async function confirmWithNoteDeletion(message: MessageType, checkboxLabel?: string) {
+    return new Promise<ConfirmDialogResult | undefined>((res) =>
+        appContext.triggerCommand("showConfirmDialog", <ConfirmWithMessageOptions>{
+            message,
+            checkboxLabel,
+            callback: res
         })
     );
 }
@@ -255,6 +295,7 @@ export default {
     info,
     chooseNote,
     confirm,
+    confirmWithNoteDeletion,
     confirmDeleteNoteBoxWithNote,
     pickSingleItem,
     prompt

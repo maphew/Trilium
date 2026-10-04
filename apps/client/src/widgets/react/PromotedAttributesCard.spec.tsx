@@ -82,11 +82,15 @@ describe("PromotedAttributesCard", () => {
     let host: Component;
     let stored: PromotedAttribute[][];
     let settings: PromotedAttributeSetting[] | undefined;
+    let drawnByCollection: string[] | undefined;
+    let itemNotes: FNote[] | undefined;
 
     beforeEach(() => {
         vi.clearAllMocks();
         stored = [];
         settings = undefined;
+        drawnByCollection = undefined;
+        itemNotes = undefined;
         defined = [ definition("label:dueDate", { alias: "Due" }), definition("label:owner") ];
         mocks.detail.opts = null;
         mocks.confirm.mockResolvedValue(true);
@@ -126,12 +130,111 @@ describe("PromotedAttributesCard", () => {
         ]);
     });
 
+    /**
+     * A collection draws one of them itself, a board's grouping label standing as its columns. It
+     * is listed and arranged with the rest, so it holds its place for whenever the collection is
+     * arranged by something else, but it is never shown on an item and its switch says so.
+     */
+    it("lists what the collection draws itself, with its switch held off", () => {
+        settings = [ { name: "owner" }, { name: "dueDate" } ];
+        drawnByCollection = [ "owner" ];
+        draw();
+
+        expect(names()).toEqual([ unnamed("owner"), "Due" ]);
+        expect(shown()).toEqual([ false, true ]);
+        expect(locked()).toEqual([ true, false ]);
+
+        // Pressing it changes nothing, so what the collection stores is left alone.
+        toggle(0);
+        expect(shown()).toEqual([ false, true ]);
+        expect(stored).toEqual([]);
+    });
+
+    /**
+     * The collection can change what it draws itself while the card stands: a board is regrouped
+     * from its header, and this card lives as long as the board does. The marks follow.
+     */
+    it("follows what the collection draws when that changes under it", () => {
+        settings = [ { name: "owner" }, { name: "dueDate" } ];
+        drawnByCollection = [ "owner" ];
+        draw();
+
+        expect(locked()).toEqual([ true, false ]);
+
+        drawnByCollection = [ "dueDate" ];
+        draw();
+
+        expect(names()).toEqual([ unnamed("owner"), "Due" ]);
+        expect(locked()).toEqual([ false, true ]);
+        expect(shown()).toEqual([ true, false ]);
+    });
+
     it("follows the order the settings give, and turns off what they hide", () => {
         settings = [ { name: "owner", hidden: true }, { name: "dueDate" } ];
         draw();
 
         expect(names()).toEqual([ unnamed("owner"), "Due" ]);
         expect(shown()).toEqual([ false, true ]);
+    });
+
+    /**
+     * A definition from an item's template is listed but has no edit or delete button, because
+     * `save()` and `erase()` write to the collection note rather than to the template.
+     */
+    it("lists what only the items define, without offering to edit or delete it", () => {
+        itemNotes = [ {
+            noteId: "task1",
+            getAttributeDefinitions: () => [
+                { ...definition("label:project", { alias: "Project" }), noteId: "template1" }
+            ]
+        } as unknown as FNote ];
+        draw();
+
+        expect(names()).toEqual([ "Due", unnamed("owner"), "Project" ]);
+        expect(shown()).toEqual([ true, true, true ]);
+        expect(segments().map((segment) => !!segment.querySelector(".promoted-attribute-edit")))
+            .toEqual([ true, true, false ]);
+        expect(segments().map((segment) => !!segment.querySelector(".promoted-attribute-delete")))
+            .toEqual([ true, true, false ]);
+
+        toggle(2);
+        expect(stored.at(-1)?.[2]).toMatchObject({ name: "project", hidden: true });
+    });
+
+    it("flags what the items define in different ways", () => {
+        const item = (noteId: string, labelType: string) => ({
+            noteId,
+            getAttributeDefinitions: () => [
+                { ...definition("label:priority", { labelType }), noteId: `tpl_${noteId}` }
+            ]
+        }) as unknown as FNote;
+        itemNotes = [ item("task1", "select"), item("task2", "number") ];
+        draw();
+
+        expect(segments().map((segment) =>
+            segment.querySelector(".promoted-attribute-conflict")?.textContent))
+            .toEqual([ undefined, undefined, "promoted_attributes.conflicting" ]);
+    });
+
+    /**
+     * A card that joins the board through a branch change, such as a sync, brings no attribute row,
+     * so the new `itemNotes` alone must add its definitions.
+     */
+    it("lists what a newly shown item defines, keeping the order and what is hidden", () => {
+        settings = [ { name: "owner" }, { name: "dueDate", hidden: true } ];
+        itemNotes = [];
+        draw();
+
+        itemNotes = [ {
+            noteId: "task1",
+            getAttributeDefinitions: () => [
+                { ...definition("label:project", { alias: "Project" }), noteId: "template1" }
+            ]
+        } as unknown as FNote ];
+        draw();
+
+        expect(names()).toEqual([ unnamed("owner"), "Due", "Project" ]);
+        expect(shown()).toEqual([ true, false, true ]);
     });
 
     it("reports the whole list in its new order", () => {
@@ -365,6 +468,8 @@ describe("PromotedAttributesCard", () => {
                         instruction="Pick what the items show."
                         note={NOTE}
                         settings={settings}
+                        drawnByCollection={drawnByCollection}
+                        itemNotes={itemNotes}
                         onChange={(attributes) => stored.push(attributes)}
                     />
                 </ParentComponent.Provider>,
@@ -395,6 +500,12 @@ describe("PromotedAttributesCard", () => {
     function shown() {
         return segments().map((segment) =>
             !!segment.querySelector(".switch-button")?.classList.contains("on"));
+    }
+
+    /** Which entries offer no say over being shown, their switch being held off. */
+    function locked() {
+        return segments().map((segment) =>
+            !!segment.querySelector<HTMLInputElement>(".switch-button input")?.disabled);
     }
 
     function toggle(index: number) {

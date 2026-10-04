@@ -157,7 +157,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
     const styleLoaded = useContext(MapStyleLoaded);
     // The markers last built, kept where both effects can reach them: the layer has to be able to
     // fill itself again the moment it is rebuilt, without waiting on a fresh build.
-    const markerData = useRef<Awaited<ReturnType<typeof buildMarkerData>>>();
+    const markerData = useRef<Awaited<ReturnType<typeof buildMarkerData>> | undefined>(undefined);
     // How the titles are to be drawn, read rather than depended on: `install` is what builds the
     // layer, so a version of it per look would take the layer down and every marker with it for
     // what is two paint properties and a layout one. Only a layer being added fresh reads this —

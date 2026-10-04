@@ -45,7 +45,13 @@ describe("buildAttributeMenuItems", () => {
         expect(build({ title: "Card" }, [
             attribute({ name: "notes", title: "Notes", labelType: "text" }),
             // A select offering nothing would open on "Not set" alone.
-            attribute({ name: "state", title: "State", labelType: "select" })
+            attribute({ name: "state", title: "State", labelType: "select" }),
+            // Items that define it in different ways would be offered one item's options.
+            attribute({
+                name: "priority", title: "Priority", labelType: "select",
+                selectOptions: [ "Low" ], isConflicting: true
+            }),
+            attribute({ name: "done", title: "Done", labelType: "boolean", isConflicting: true })
         ])).toEqual([]);
     });
 
@@ -244,8 +250,11 @@ function attribute(fields: Partial<PromotedAttribute> & { name: string }): Promo
         type: "label",
         title: fields.name,
         hidden: false,
+        drawnByCollection: false,
         definitionValue: "",
         isOwned: true,
+        isDefinedByItems: false,
+        isConflicting: false,
         isInheritable: true,
         ...fields
     };

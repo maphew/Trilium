@@ -5,7 +5,7 @@ import BBranch from "../../becca/entities/bbranch.js";
 import BNote from "../../becca/entities/bnote.js";
 import { note, NoteBuilder } from "../../test/becca_mocking.js";
 import type { ContentMatchQuality, ContentMatchTier } from "./match_quality.js";
-import SearchResult from "./search_result.js";
+import SearchResult, { precomputeScoringTerms } from "./search_result.js";
 
 let rootNote: NoteBuilder;
 
@@ -53,6 +53,23 @@ describe("SearchResult", () => {
             expect(result.notePath).toBe(`root/${parent.note.noteId}/${child.note.noteId}`);
             expect(result.notePathTitle).toBe("Parent › Child");
         });
+    });
+
+    it("scores identically whether the query terms are precomputed or derived per result", () => {
+        const target = note("Viena Café Notes");
+        rootNote.child(target);
+
+        const query = "café notes";
+        const tokens = [ "café", "notes" ];
+
+        const derived = resultFor(target);
+        derived.computeScore(query, tokens, true);
+
+        const hoisted = resultFor(target);
+        hoisted.computeScore(query, tokens, true, undefined, precomputeScoringTerms(query, tokens));
+
+        expect(hoisted.score).toBe(derived.score);
+        expect(derived.score).toBeGreaterThan(0);
     });
 
     describe("computeScore - title matching", () => {

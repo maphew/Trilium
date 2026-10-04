@@ -2,9 +2,11 @@ import "./index.css";
 
 import clsx from "clsx";
 
-import { ComponentChildren, createContext, Fragment, TargetedKeyboardEvent } from "preact";
-import { JSX } from "preact/jsx-runtime";
-import { createPortal, RefObject } from "preact/compat";
+import {
+    ComponentChildren, createContext, createPortal, Fragment, RefObject, TargetedFocusEvent,
+    TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent
+} from "preact";
+import { useSyncExternalStore } from "preact/compat";
 import {
     Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
@@ -14,6 +16,7 @@ import { type HighlightedTokenInfo, normalizeBoardGroupBy } from "@triliumnext/c
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
+import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import { getCreationDate, loadCreationDates } from "../../../services/note_dates";
@@ -25,15 +28,18 @@ import toast from "../../../services/toast";
 import ws from "../../../services/ws";
 import { escapeHtml, isMobile } from "../../../services/utils";
 import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/note_types";
-import { type PromotedAttributeSetting, resolvePromotedAttributes } from "../promoted_attributes";
+import {
+    type PromotedAttributeSetting, resolvePromotedAttributes, visiblePromotedAttributeNames
+} from "../promoted_attributes";
 import type { SortContext } from "../sorting";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import { FormListItem } from "../../react/FormList";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
-    useContextualShortcutHints, useNoteContext, useNoteLabel, useNoteLabelBoolean,
-    useNoteLabelWithDefault, useNoteTypeOptions, useSetContextData, useTrackedElement, useTriliumEvent
+    useContextualShortcutHints, useLingeringTrue, useNoteContext, useNoteLabel,
+    useNoteLabelBoolean, useNoteLabelWithDefault, useNoteTypeOptions, useSetContextData,
+    useTrackedElement, useTriliumEvent
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
@@ -46,9 +52,11 @@ import { useDragPan } from "../../react/drag_pan";
 import { FLIP_SETTLE_MS, useFlip } from "../../react/flip";
 import { SelectionContext, SelectionStore } from "../../react/selection";
 import { CollectionFilterInput, useCollectionFilter } from "../collection_filter";
+import { BoardRailContext, RAIL_EXIT_MS, RailStand, SelectionToolbar } from "./card_toolbar";
+import BoardHeaderTools from "./selection_bar";
 import { ViewModeProps } from "../interface";
 import Api, { getPendingWrites, PendingColumnWrites, settleColumn } from "./api";
-import { useBoardDrag } from "./board_drag";
+import { askForMenu, useBoardDrag } from "./board_drag";
 import { columnGapStandsAside, columnStandsAside, movesColumn } from "./drag_geometry";
 import { forgetCardHeights } from "./drag_measure";
 import { forgetWindowHeights } from "./windowing";
@@ -68,8 +76,9 @@ import { useBoardReference } from "./reference";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { useBoardSort } from "./sort";
 import {
-    affectsSortOrder, applyCardMoves, ColumnMap, filterColumnMap, getBoardData, resolveColumnSorts,
-    resolveSortWatch, sortColumnMap, unfilteredCardIndex
+    affectsCardDefinitions, affectsSortOrder, applyCardMoves, cardNotes, ColumnMap,
+    definitionSources, filterColumnMap, getBoardData, resolveColumnSorts, resolveSortWatch,
+    sortColumnMap, unfilteredCardIndex
 } from "./data";
 import { useBoardKeyboard } from "./keyboard";
 
@@ -266,6 +275,13 @@ export const BoardHighlightTokensContext = createContext<HighlightedTokenInfo[] 
 /** The cards drawn although the filter does not match them, which say as much on their face. */
 export const BoardKeptCardsContext = createContext<Set<string>>(new Set());
 
+/** The board's own element, which what a card floats over the board is portaled into. */
+export const BoardOverlayHostContext =
+    createContext<RefObject<HTMLElement | null>>({ current: null });
+
+/** Whether a tap picks a card out instead of opening it, which the mobile header switches on. */
+export const BoardSelectionModeContext = createContext(false);
+
 /**
  * What the board answers with when asked for contextual keyboard help. Every entry is a key the
  * board handles itself (see `keyboard.ts` and the card and column handlers), none of them
@@ -273,6 +289,9 @@ export const BoardKeptCardsContext = createContext<Set<string>>(new Set());
  */
 /** Shared empty set for a board with no insert field open, so no render allocates one. */
 const NO_COLUMNS: ReadonlySet<string> = new Set();
+
+/** Shared empty map for a filter under which no column has been opened or closed by hand. */
+const NO_FILTER_COLLAPSE: ReadonlyMap<string, boolean> = new Map();
 
 /** How long a finger stays on the create button before it offers where to put the card. */
 const HOLD_TO_PLACE_MS = 500;
@@ -298,6 +317,7 @@ const BOARD_HINTS: ShortcutHintDefinition = [
                 labelKey: "board_view.hints.insert_column"
             },
             { keys: [ "Space" ], labelKey: "board_view.hints.open_item" },
+            { keys: [ "Space" ], labelKey: "board_view.hints.toggle_column" },
             { keys: [ "F2" ], labelKey: "board_view.hints.rename" },
             { keys: [ "Delete" ], labelKey: "board_view.hints.remove_item" },
             { keys: [ "Shift+Delete" ], labelKey: "board_view.hints.delete_item" },
@@ -327,6 +347,11 @@ const BOARD_HINTS: ShortcutHintDefinition = [
     {
         titleKey: "board_view.hints.selection",
         hints: [
+            { keys: [ "Ctrl+Space" ], labelKey: "board_view.hints.toggle_selection" },
+            {
+                keys: [ "Shift+Down", "Shift+Up" ],
+                labelKey: "board_view.hints.extend_selection"
+            },
             { keys: [ "Ctrl+A" ], labelKey: "board_view.hints.select_column" },
             { keys: [ "Escape" ], labelKey: "board_view.hints.clear_selection" }
         ]
@@ -361,7 +386,7 @@ export default function BoardView({
         () => adoptLegacyColumns(storedConfig, openedOnGroupBy), [ storedConfig, openedOnGroupBy ]);
     let viewConfig = adoptedConfig ?? storedConfig;
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
-    const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "enableInboxColumn");
+    const [ inboxEnabled ] = useNoteLabelBoolean(parentNote, "board:showInbox");
     // Read undefaulted: a board naming no width wears no class, so `--board-column-width` keeps
     // whatever it inherits.
     const [ storedColumnWidth ] = useNoteLabel(parentNote, COLUMN_WIDTH_LABEL);
@@ -388,6 +413,26 @@ export default function BoardView({
      * card must wake that card and no other.
      */
     const selection = useMemo(() => new SelectionStore(), []);
+    const railStand = useMemo(() => new RailStand(), []);
+    /**
+     * Whether a tap picks a card out instead of opening it. Mobile only: a finger has no Ctrl to
+     * pick cards out with. Leaving the mode gives the selection up as well.
+     */
+    const [ isSelecting, setIsSelecting ] = useState(false);
+    // Read here rather than through `useSelectionCount`, which reads the context this board
+    // provides and would find the default store instead.
+    const subscribeToSelection = useCallback(
+        (listener: () => void) => selection.subscribe(listener), [ selection ]);
+    const selectionCount = useSyncExternalStore(
+        subscribeToSelection, useCallback(() => selection.size, [ selection ]));
+    const selectionAnchor = useSyncExternalStore(
+        subscribeToSelection, useCallback(() => selection.anchor, [ selection ]));
+    const stopSelecting = useCallback(() => {
+        setIsSelecting(false);
+        selection.clear();
+    }, [ selection ]);
+    // The selection's rail is kept drawn while it slides off.
+    const isSelectionRailDrawn = useLingeringTrue(isMobile() && isSelecting, RAIL_EXIT_MS);
     const setDropPosition = useCallback((position: ColumnDrag | null) => {
         dropState.set({ ...dropState.get(), position });
     }, [ dropState ]);
@@ -480,7 +525,7 @@ export default function BoardView({
     // again: a new object would be a new prop on every card, and `memo` would then redraw all of
     // them for a move that touched one. Another board takes a new one, since this instance is
     // reused across boards and the api holds that board's record of the writes in flight.
-    const apiRef = useRef<{ board: string, api: Api }>();
+    const apiRef = useRef<{ board: string, api: Api } | undefined>(undefined);
     const persistFilterQuery = useCallback(
         (query: string) => apiRef.current?.api.setFilterQuery(query), []);
     const filter = useCollectionFilter(parentNote, {
@@ -489,12 +534,16 @@ export default function BoardView({
         collectionNoteIds: noteIds
     });
     const statusAttribute = groupBy.replace(/^[~#]/, "");
-    // Every promoted attribute the board defines, hidden ones included: a column can sort by a
-    // field its cards do not draw.
+    // Includes the definitions from the cards, and hidden attributes, because a column can sort by
+    // an attribute the cards do not show.
+    const cards = useMemo(() => cardNotes(allByColumn), [ allByColumn ]);
+    // Read again after a definition change, since a card can have gained a template.
+    const cardDefinitionSources = useMemo(
+        () => definitionSources(cards), [ cards, definitionRevision ]);
     const promotedAttributes = useMemo(
         () => resolvePromotedAttributes(
-            parentNote, viewConfig?.promotedAttributes, [ statusAttribute ]),
-        [ parentNote, viewConfig, statusAttribute, definitionRevision ]);
+            parentNote, viewConfig?.promotedAttributes, [ statusAttribute ], cards),
+        [ parentNote, viewConfig, statusAttribute, cards, definitionRevision ]);
     // Keyed on the label rather than on the committed grouping, so the button names what the reader
     // just picked while the columns below are still being read.
     const groupingChoices = useMemo(
@@ -604,7 +653,7 @@ export default function BoardView({
 
     // Held while the names are the same, since a new array would redraw every card on every render.
     const shownAttributesRef = useRef<string[]>([]);
-    const resolvedAttributes = api.getVisiblePromotedAttributeNames();
+    const resolvedAttributes = visiblePromotedAttributeNames(promotedAttributes);
     if (resolvedAttributes.join(",") !== shownAttributesRef.current.join(",")) {
         shownAttributesRef.current = resolvedAttributes;
     }
@@ -638,6 +687,79 @@ export default function BoardView({
         () => usableColumns.filter(column =>
             includeArchived || !storedColumns.get(column)?.archived),
         [ usableColumns, storedColumns, includeArchived ]);
+
+    // The columns the reader opened or closed while the filter is on. Held here rather than
+    // written: the filter decides what is drawn open, and clearing it brings the stored state back.
+    const [ filterCollapse, setFilterCollapse ] =
+        useState<ReadonlyMap<string, boolean>>(NO_FILTER_COLLAPSE);
+    const isFiltering = filter.shownNoteIds !== null;
+    // New results start afresh, and the peeked column closes with the old ones, or it would stay
+    // open while empty. Keyed on the results rather than on the query, which changes a render
+    // earlier: reset then, the map would be applied to the old results first.
+    const [ filterCollapseResults, setFilterCollapseResults ] = useState(filter.shownNoteIds);
+    if (filterCollapseResults !== filter.shownNoteIds) {
+        setFilterCollapseResults(filter.shownNoteIds);
+        setFilterCollapse(NO_FILTER_COLLAPSE);
+        selectColumn(undefined);
+    }
+    /**
+     * Which columns are to be drawn as strips. While a filter is on, the ones it leaves without a
+     * card, so the matches are read at a glance; otherwise the ones stored as collapsed.
+     */
+    const targetCollapse = useMemo(
+        () => new Map(shownColumns.map(column => [ column, isFiltering
+            ? filterCollapse.get(column) ?? !byColumn?.get(column)?.length
+            : !!storedColumns.get(column)?.collapsed ])),
+        [ shownColumns, isFiltering, filterCollapse, byColumn, storedColumns ]);
+    /**
+     * The target released from a hold, which is then drawn. A hold is a target that arrived with
+     * new cards, which is a filter resolving or being cleared: drawn in the same commit, the width
+     * transitions would run over the frames the card redraw needs, so the columns keep their
+     * widths for two frames first. A change by hand arrives with the cards unchanged and is drawn
+     * at once.
+     */
+    const [ releasedCollapse, setReleasedCollapse ] = useState<ReadonlyMap<string, boolean>>();
+    /** What the last unheld render drew, which a hold keeps drawing. */
+    const drawnCollapse = useRef<
+        { collapse: ReadonlyMap<string, boolean>, cards?: ColumnMap } | undefined
+    >(undefined);
+    const isCollapseHeld = releasedCollapse !== targetCollapse
+        && drawnCollapse.current?.cards !== undefined && drawnCollapse.current.cards !== byColumn
+        && sameColumns(drawnCollapse.current.collapse, targetCollapse)
+        && !sameCollapse(drawnCollapse.current.collapse, targetCollapse);
+    /** Which columns are drawn as strips. */
+    const collapsedColumns = isCollapseHeld && drawnCollapse.current
+        ? drawnCollapse.current.collapse
+        : targetCollapse;
+    if (!isCollapseHeld) {
+        drawnCollapse.current = { collapse: targetCollapse, cards: byColumn };
+    }
+    useEffect(() => {
+        if (!isCollapseHeld) {
+            return;
+        }
+
+        // Two frames: the first paints the cards, the second starts the widths moving.
+        let second: number | undefined;
+        const first = requestAnimationFrame(() => {
+            second = requestAnimationFrame(() => setReleasedCollapse(targetCollapse));
+        });
+        return () => {
+            cancelAnimationFrame(first);
+            if (second !== undefined) {
+                cancelAnimationFrame(second);
+            }
+        };
+    }, [ isCollapseHeld, targetCollapse ]);
+    // A release is the filter's doing, so the columns it closes run at the quick pace.
+    const isCollapsedByFilter = releasedCollapse === targetCollapse;
+    // Set here rather than passed in, like `noteContext`: the api outlives a refresh.
+    api.volatileCollapse = isFiltering ? {
+        isCollapsed: (column) => !!collapsedColumns.get(column),
+        setCollapsed: (column, collapsed) => setFilterCollapse(current => (column === null
+            ? new Map(shownColumns.map(each => [ each, collapsed ]))
+            : new Map(current).set(column, collapsed)))
+    } : undefined;
 
     const containerRef = useRef<HTMLDivElement>(null);
     /** Until when a column move can still be settling, which is when `useFlip` slides columns. */
@@ -723,9 +845,9 @@ export default function BoardView({
     // comparison. A column changing width hides or shows its own cards and moves no card inside
     // any other, so there is nothing for any column to measure while it is happening.
     const columnResizingUntil = useRef(0);
-    const columnWidths = useRef<string>();
+    const columnWidths = useRef<string | undefined>(undefined);
     const widths = shownColumns
-        .map(column => storedColumns.get(column)?.collapsed
+        .map(column => collapsedColumns.get(column)
             && column !== activeColumn && !isPeekingAll ? "1" : "0")
         .join("");
     if (columnWidths.current !== undefined && columnWidths.current !== widths) {
@@ -886,7 +1008,7 @@ export default function BoardView({
             // Answers for what a `dragover` did, for a collapsed column the card is actually over:
             // one merely passed near keeps to itself, and one already opened stays open, since
             // closing it under a drag would move every column after it.
-            if (position && inside && storedColumns.get(position.column)?.collapsed) {
+            if (position && inside && collapsedColumns.get(position.column)) {
                 selectColumn(position.column);
             }
         },
@@ -986,7 +1108,13 @@ export default function BoardView({
     // Only the board's own background, so a press on a column, a card or the button that adds one
     // is left to whatever it belongs to. Suppressed while a card is carried: the gesture owns the
     // pointer, and the board must not slide under it.
-    const { isPannable, isPanning } = useDragPan(containerRef, { disabled: isDraggingItem });
+    // Panning refuses the browser's default on the press that starts it, and that default is what
+    // moves focus off a field being typed in. So the board does not pan while one is open: the
+    // press lands as an ordinary click, and the field is dismissed by losing the focus.
+    const isNamingSomething = branchIdToEdit !== undefined || columnNameToEdit !== undefined
+        || isCreatingColumn || insertingColumns.size > 0;
+    const { isPannable, isPanning } = useDragPan(containerRef,
+        { disabled: isDraggingItem || isNamingSomething });
     // Columns slide to follow the gap a carried column opens. The selector excludes the drag
     // preview, whose transform `useBoardDrag` writes every frame; `AddNewColumn` is outside the
     // container, and is moved by the scroll that keeps it in view instead.
@@ -1047,6 +1175,9 @@ export default function BoardView({
     // still be open on the next, over whatever that board stores for a column of the same name.
     // The same holds across a grouping, whose columns are a different set entirely.
     useEffect(() => selectColumn(undefined), [ parentNote, groupBy, selectColumn ]);
+    // Another board starts outside selection mode and with nothing selected: the board is not
+    // remounted between notes, and a note cloned onto both boards would otherwise stay selected.
+    useEffect(() => stopSelecting(), [ parentNote, stopSelecting ]);
 
     // Stored once, and only for a board still carrying a pre-switching column list.
     useEffect(() => {
@@ -1071,7 +1202,7 @@ export default function BoardView({
      * Let go a frame later than the one that draws it, a frame's callbacks running before the
      * styles it paints are worked out.
      */
-    const stillFor = useRef<number>();
+    const stillFor = useRef<number | undefined>(undefined);
     const holdStill = useCallback(() => {
         const container = containerRef.current;
         container?.classList.add("board-still");
@@ -1220,9 +1351,11 @@ export default function BoardView({
         // The column list is read off the definition, which may be edited from the attribute panel,
         // another split, or a synced instance. Re-reading it re-runs the refresh through the effect.
         // Any definition the board carries, not only the grouping's: the others are what it offers
-        // to group by instead.
+        // to group by instead. A definition that reaches a card, directly or through `~template`
+        // or `~inherit`, also changes `promotedAttributes`.
         if (loadResults.getAttributeRows().some(attr =>
-                attr.name?.startsWith("label:") && attributes.isAffecting(attr, parentNote))) {
+                attr.name?.startsWith("label:") && attributes.isAffecting(attr, parentNote))
+                || affectsCardDefinitions(loadResults, cardDefinitionSources)) {
             setDefinitionRevision(revision => revision + 1);
         }
 
@@ -1266,18 +1399,41 @@ export default function BoardView({
                         onClick={() => setIsEditingProperties(true)}
                     >{t("board_view.properties")}</FormListItem>
                 }
-                rightChildren={<>
-                    <BoardGroupBy
-                        note={parentNote}
-                        options={groupingChoices}
-                        current={currentGrouping}
-                        onSelect={setRequestedGroupBy}
-                    />
-                    <CollectionFilterInput
-                        filter={filter}
-                        placeholder={t("board_view.filter-placeholder")}
-                    />
-                </>}
+                rightChildren={
+                    <BoardHeaderTools
+                        isSelecting={isSelecting}
+                        onToggleSelecting={() => (isSelecting
+                            ? stopSelecting()
+                            : setIsSelecting(true))}
+                        count={selectionCount}
+                        canSelectColumn={selectionAnchor !== null}
+                        onSelectColumn={() => {
+                            // The column of the card last picked out, added to what is picked.
+                            const column = selectionAnchor === null
+                                ? undefined
+                                : api.getCardColumn(selectionAnchor);
+                            if (column !== undefined) {
+                                selection.selectAll([
+                                    ...selection.keys, ...api.getColumnNoteIds(column)
+                                ]);
+                            }
+                        }}
+                        onReset={stopSelecting}
+                        onCollapseAll={collapseAllColumns}
+                        onExpandAll={expandAllColumns}
+                    >
+                        <BoardGroupBy
+                            note={parentNote}
+                            options={groupingChoices}
+                            current={currentGrouping}
+                            onSelect={setRequestedGroupBy}
+                        />
+                        <CollectionFilterInput
+                            filter={filter}
+                            placeholder={t("board_view.filter-placeholder")}
+                        />
+                    </BoardHeaderTools>
+                }
             />
             <BoardActionsContext.Provider value={boardActions}>
                 <BoardPromotedAttributesContext.Provider value={shownAttributes}>
@@ -1286,11 +1442,15 @@ export default function BoardView({
                 <BoardDropStateContext.Provider value={dropState}>
                 <BoardDragStateContext.Provider value={boardDragState}>
                 <SelectionContext.Provider value={selection}>
+                <BoardOverlayHostContext.Provider value={containerRef}>
+                <BoardSelectionModeContext.Provider value={isSelecting}>
+                <BoardRailContext.Provider value={railStand}>
                     {byColumn && columns && <div
                         ref={containerRef}
                         className={clsx("board-view-container", {
                             pannable: isPannable,
-                            panning: isPanning
+                            panning: isPanning,
+                            selecting: isSelecting
                         })}
                         onKeyDown={handleKeyDown}
                         onClick={clearSelectionOutsideCards}
@@ -1330,8 +1490,13 @@ export default function BoardView({
                                     icon={storedColumns.get(column)?.icon}
                                     color={storedColumns.get(column)?.color}
                                     archived={storedColumns.get(column)?.archived}
-                                    collapsed={storedColumns.get(column)?.collapsed}
-                                    keepCollapsed={storedColumns.get(column)?.keepCollapsed}
+                                    collapsed={collapsedColumns.get(column)}
+                                    keepCollapsed={isFiltering
+                                        ? undefined
+                                        : storedColumns.get(column)?.keepCollapsed}
+                                    isCollapseVolatile={isFiltering}
+                                    collapsesQuickly={isCollapsedByFilter}
+                                    willOpen={isCollapseHeld && !targetCollapse.get(column)}
                                     isActive={activeColumn === column}
                                     isPeeked={isPeekingAll}
                                     isResizing={isResizingColumns}
@@ -1341,7 +1506,7 @@ export default function BoardView({
                                         : 0}
                                     cardTemplates={cardTemplates}
                                     nested={storedColumns.get(column)?.nested}
-                                    limit={storedColumns.get(column)?.limit}
+                                    limit={api.getColumnLimit(column)}
                                     columnIndex={index}
                                     columns={shownColumns}
                                     onMoveColumn={handleColumnDrop}
@@ -1407,6 +1572,31 @@ export default function BoardView({
                             </OverlayControlGroup>
                         )}
                     </div>}
+                    {/* Acts on the selection in place of the focused card's rail. The menu is
+                        asked of the card first picked out, whose own handler carries the whole
+                        selection, the way a tap on a heading asks for a column's. */}
+                    {isSelectionRailDrawn && containerRef.current && (
+                        <SelectionToolbar
+                            host={containerRef.current}
+                            isLeaving={!isSelecting}
+                            count={selectionCount}
+                            onDelete={() => branches.deleteNotes(
+                                api.getCards(selection.keys).map((card) => card.branch.branchId),
+                                false, false)}
+                            onMore={(e) => {
+                                const [ first ] = selection.keys;
+                                const card = [ ...containerRef.current
+                                    ?.querySelectorAll<HTMLElement>(".board-note") ?? [] ]
+                                    .find((element) => element.dataset.noteId === first);
+                                if (card) {
+                                    askForMenu(card, e.clientX, e.clientY);
+                                }
+                            }}
+                        />
+                    )}
+                </BoardRailContext.Provider>
+                </BoardSelectionModeContext.Provider>
+                </BoardOverlayHostContext.Provider>
                 </SelectionContext.Provider>
                 </BoardDragStateContext.Provider>
                 </BoardDropStateContext.Provider>
@@ -1432,6 +1622,17 @@ export default function BoardView({
  */
 /** How long the board waits for a move's changes before drawing again regardless. */
 const SETTLE_TIMEOUT_MS = 10000;
+
+/** Whether two collapse maps hold the same columns. */
+function sameColumns(a: ReadonlyMap<string, boolean>, b: ReadonlyMap<string, boolean>) {
+    return a.size === b.size && [ ...a.keys() ].every(column => b.has(column));
+}
+
+/** Whether two collapse maps hold the same columns and agree on each. */
+function sameCollapse(a: ReadonlyMap<string, boolean>, b: ReadonlyMap<string, boolean>) {
+    return sameColumns(a, b)
+        && [ ...a ].every(([ column, collapsed ]) => b.get(column) === collapsed);
+}
 
 /**
  * Waits for `froca` to hold what a move has written.
@@ -1663,7 +1864,7 @@ export function TitleEditor({
      * whose editor was opened by an insert passes its own element, so closing does not focus the
      * card the insert was made from.
      */
-    returnFocusTo?: RefObject<HTMLElement>;
+    returnFocusTo?: RefObject<HTMLElement | null>;
     /**
      * Whether opening the editor selects the text already in it, which is what a rename wants. An
      * editor opened part-typed puts the caret after the text instead, so the next key continues it.
@@ -1690,6 +1891,16 @@ export function TitleEditor({
      * that would have ended the edit being spent.
      */
     const isHoldingOpen = useRef(false);
+    /** The box holding the field and the picker. `iconFocusOut` tests `relatedTarget` against it. */
+    const fieldRef = useRef<HTMLDivElement>(null);
+    const iconRef = useRef<HTMLSpanElement>(null);
+    /**
+     * Whether the icon picker holds focus, which Shift+Tab hands to it.
+     *
+     * Set before focus moves rather than when the picker receives it: the field blurs first, and
+     * that blur is what would close the editor.
+     */
+    const isIconFocused = useRef(false);
     const holdOpen = useMemo<HoldOpen>(() => ({
         onOpened: () => { isHoldingOpen.current = true; },
         onClosed: () => {
@@ -1699,9 +1910,9 @@ export function TitleEditor({
     }), []);
     /** Whether the field has already saved, for one that keeps what it saved standing. */
     const hasHandedOver = useRef(false);
-    const held = useRef<number>();
+    const held = useRef<number | undefined>(undefined);
     /** Where on the screen the finger went down, against which a scroll is told from a hold. */
-    const heldFrom = useRef<{ x: number, y: number }>();
+    const heldFrom = useRef<{ x: number, y: number } | undefined>(undefined);
     /** Whether the menu was opened by a hold, whose press ends in a click the menu must survive. */
     const openedByHold = useRef(false);
 
@@ -1733,6 +1944,17 @@ export function TitleEditor({
         // CJK conversion does not also save the title with unconfirmed text.
         if (isIMEComposing(e)) {
             return;
+        }
+
+        if (e.key === "Tab" && e.shiftKey && icon) {
+            const button = iconRef.current?.querySelector("button");
+            if (button) {
+                e.preventDefault();
+                e.stopPropagation();
+                isIconFocused.current = true;
+                button.focus();
+                return;
+            }
         }
 
         if (e.key === "Enter" && saveAndContinue) {
@@ -1801,7 +2023,7 @@ export function TitleEditor({
     }
 
     /** Offers both ends, saving what the field held when the menu was opened. */
-    function openPlacementMenu(e: JSX.TargetedMouseEvent<HTMLElement>) {
+    function openPlacementMenu(e: TargetedMouseEvent<HTMLElement>) {
         e.preventDefault();
         e.stopPropagation();
         cancelHold();
@@ -1811,7 +2033,7 @@ export function TitleEditor({
     }
 
     /** Opens the same menu for a finger, which has no second button to open it with. */
-    function holdToPlace(e: JSX.TargetedPointerEvent<HTMLElement>) {
+    function holdToPlace(e: TargetedPointerEvent<HTMLElement>) {
         if (e.pointerType === "mouse") {
             return;
         }
@@ -1832,14 +2054,14 @@ export function TitleEditor({
     }
 
     /** Gives up on a hold the finger has walked away from, which is a scroll and not a press. */
-    function holdMoved(e: JSX.TargetedPointerEvent<HTMLElement>) {
+    function holdMoved(e: TargetedPointerEvent<HTMLElement>) {
         const from = heldFrom.current;
         if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > HOLD_SLACK_PX) {
             cancelHold();
         }
     }
 
-    function pressed(e: JSX.TargetedMouseEvent<HTMLElement>) {
+    function pressed(e: TargetedMouseEvent<HTMLElement>) {
         cancelHold();
 
         // A hold ends in a click, which would reach the page and close the menu it just opened.
@@ -1853,7 +2075,7 @@ export function TitleEditor({
     }
 
     const onBlur = (newValue: string) => {
-        if (isHoldingOpen.current) {
+        if (isHoldingOpen.current || isIconFocused.current) {
             return;
         }
 
@@ -1875,6 +2097,41 @@ export function TitleEditor({
             dismiss();
         }
     };
+
+    /**
+     * Ends the edit when focus moves outside `fieldRef`. A `relatedTarget` inside it is the field
+     * itself; `isHoldingOpen` covers the picker's menu, which is drawn outside `fieldRef`.
+     */
+    function iconFocusOut(e: TargetedFocusEvent<HTMLSpanElement>) {
+        isIconFocused.current = false;
+
+        const next = e.relatedTarget;
+        if (isHoldingOpen.current || (next instanceof Node && fieldRef.current?.contains(next))) {
+            return;
+        }
+
+        onBlur(inputRef.current?.value ?? "");
+    }
+
+    /** Leaves the editor from the picker, which Escape does from the field itself. */
+    function iconKeyDown(e: TargetedKeyboardEvent<HTMLSpanElement>) {
+        if (e.key !== "Escape" || isHoldingOpen.current) {
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        shouldDismiss.current = true;
+
+        const target = returnFocusTo?.current ?? focusElRef.current;
+        if (target instanceof HTMLElement) {
+            target.focus();
+            return;
+        }
+
+        isIconFocused.current = false;
+        dismiss();
+    }
 
     /**
      * Saves what was typed and reports whether `save` accepted it.
@@ -1934,7 +2191,7 @@ export function TitleEditor({
             };
 
         return (
-            <div className={clsx("title-editor-field", {
+            <div ref={fieldRef} className={clsx("title-editor-field", {
                 "with-submit": saveAndContinue,
                 "with-footer": !!footer
             })}>
@@ -1942,7 +2199,12 @@ export function TitleEditor({
                     blur arrives before the picker reports itself open, and losing focus is what
                     closes the editor. */}
                 {icon && (
-                    <span onMouseDown={(e) => e.preventDefault()}>
+                    <span
+                        ref={iconRef}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onFocusOut={iconFocusOut}
+                        onKeyDown={iconKeyDown}
+                    >
                         <IconPickerButton
                             className="title-editor-icon"
                             icon={icon.current}

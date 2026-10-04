@@ -49,6 +49,18 @@ describe("dialog service", () => {
     });
 
     describe("openDialog", () => {
+        afterEach(() => {
+            document.body.innerHTML = "";
+        });
+
+        function focusNewInput(parent: HTMLElement) {
+            const input = document.createElement("input");
+            parent.appendChild(input);
+            input.focus();
+            expect(document.activeElement).toBe(input);
+            return input;
+        }
+
         it("closes the active dialog, sets the new one, saves focus, shows the modal and updates shortcuts", async () => {
             const previous = makeDialog();
             glob.activeDialog = previous;
@@ -116,32 +128,54 @@ describe("dialog service", () => {
             expect(focusSavedElement).not.toHaveBeenCalled();
         });
 
-        it("closes the autocomplete dropdown on hide", async () => {
-            const $dialog = makeDialog();
-            await openDialog($dialog, false);
+        it("saves the focused element, then moves focus to the backdrop", async () => {
+            const input = focusNewInput(document.body);
+            const backdrop = $("<div class='modal-backdrop'></div>").appendTo(document.body)[0];
+            let savedElement: Element | null = null;
+            let focusTakenBy: EventTarget | null = null;
+            saveFocusedElement.mockImplementationOnce(() => {
+                savedElement = document.activeElement;
+            });
+            input.addEventListener("focusout", (e) => {
+                focusTakenBy = e.relatedTarget;
+            });
 
-            // `"autocomplete" in $autocompleteEl` is true for a jQuery object only if the
-            // autocomplete plugin is registered. Register a stub on the jQuery prototype so
-            // the branch is taken and the plugin is invoked.
-            const autocomplete = vi.fn();
-            ($.fn as any).autocomplete = autocomplete;
+            await openDialog(makeDialog(), false);
 
-            $dialog.trigger("hidden.bs.modal");
-
-            expect(autocomplete).toHaveBeenCalledWith("close");
-
-            delete ($.fn as any).autocomplete;
+            expect(savedElement).toBe(input);
+            expect(document.activeElement).toBe(backdrop);
+            // Editors that save on focusout (AttributeEditorOverlay) read this to stay open.
+            expect(focusTakenBy).toBe(backdrop);
         });
 
-        it("skips closing autocomplete when the plugin is not registered", async () => {
-            const $dialog = makeDialog();
+        it("blurs the focused element when the dialog has no backdrop", async () => {
+            focusNewInput(document.body);
+            $("<div class='modal-backdrop'></div>").appendTo(document.body);
+
+            await openDialog(makeDialog(), false, { backdrop: false });
+
+            expect(document.activeElement).toBe(document.body);
+        });
+
+        it("does not take focus back from a dialog that is shown at once", async () => {
+            focusNewInput(document.body);
+            $("<div class='modal-backdrop'></div>").appendTo(document.body);
+            const $dialog = makeDialog().appendTo(document.body);
+            const dialogInput = document.createElement("input");
+            $dialog[0].appendChild(dialogInput);
+            modalShow.mockImplementationOnce(() => dialogInput.focus());
+
             await openDialog($dialog, false);
 
-            // Ensure no autocomplete plugin is present so the `in` check is false.
-            delete ($.fn as any).autocomplete;
+            expect(document.activeElement).toBe(dialogInput);
+        });
 
-            // Should not throw.
-            expect(() => $dialog.trigger("hidden.bs.modal")).not.toThrow();
+        it("leaves focus alone when the dialog is opened with focus: false", async () => {
+            const input = focusNewInput(document.body);
+
+            await openDialog(makeDialog(), false, { focus: false });
+
+            expect(document.activeElement).toBe(input);
         });
     });
 
@@ -485,6 +519,19 @@ describe("dialog service", () => {
             // Falsy result (dialog dismissed) -> x && x.confirmed short-circuits to the falsy value
             triggerCommand.mockImplementationOnce((_name, d: any) => d.callback(false));
             await expect(dialogService.confirm("sure?")).resolves.toBe(false);
+        });
+
+        it("confirmWithNoteDeletion carries the caller's box and answers with the whole result", async () => {
+            const callbackResult = { confirmed: true, isDeleteNoteChecked: true };
+            triggerCommand.mockImplementation((_name, data: any) => data.callback(callbackResult));
+
+            await expect(dialogService.confirmWithNoteDeletion("Delete it?", "Also delete 2 notes"))
+                .resolves.toBe(callbackResult);
+
+            const [name, data] = triggerCommand.mock.calls[0];
+            expect(name).toBe("showConfirmDialog");
+            expect(data.message).toBe("Delete it?");
+            expect(data.checkboxLabel).toBe("Also delete 2 notes");
         });
 
         it("confirmDeleteNoteBoxWithNote triggers the delete-box command and resolves with the callback value", async () => {

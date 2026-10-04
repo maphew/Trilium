@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import searchService from "./search.js";
 import BNote from "../../../becca/entities/bnote.js";
 import BBranch from "../../../becca/entities/bbranch.js";
 import SearchContext from "../search_context.js";
 import becca from "../../../becca/becca.js";
+import optionService from "../../options.js";
 import { getContext } from "../../context.js";
 import noteService from "../../notes.js";
 import { findNoteByTitle, note, NoteBuilder } from "../../../test/becca_mocking.js";
@@ -277,6 +278,34 @@ describe("Progressive Search Strategy", () => {
 
             expect(searchResults.length).toBe(5);
             expect(searchResults.some((result) => result.noteId === typo.noteId)).toBe(false);
+        });
+    });
+    describe("Autocomplete typo tolerance option", () => {
+        // `searchAutocompleteFuzzy` is the toggle behind Options -> Other -> "Typo tolerance in
+        // autocomplete". Autocomplete queries on every keystroke, so it ships off.
+        function searchAutocomplete(query: string, autocompleteFuzzy: boolean) {
+            vi.spyOn(optionService, "getOptionBool").mockImplementation((name: string) =>
+                name === "searchAutocompleteFuzzy" ? autocompleteFuzzy : true);
+
+            try {
+                return searchService.searchNotesForAutocomplete(query, true);
+            } finally {
+                vi.restoreAllMocks();
+            }
+        }
+
+        beforeEach(() => {
+            rootNote.child(note("Documnt Analysis"));
+        });
+
+        it("skips the fuzzy fallback when the option is off", () => {
+            expect(searchAutocomplete("document", false)).toHaveLength(0);
+        });
+
+        it("runs the fuzzy fallback when the option is on", () => {
+            const results = searchAutocomplete("document", true);
+
+            expect(results.map((result) => result.noteTitle)).toContain("Documnt Analysis");
         });
     });
 });

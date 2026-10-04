@@ -67,6 +67,19 @@ describe("Lexer fulltext", () => {
         expect(lex("hello \\#\\~\\'").fulltextTokens.map((t) => t.token)).toEqual(["hello", "#~'"]);
     });
 
+    it("# and ~ inside a word are literal characters", () => {
+        const towers = lex("towers#book");
+        expect(towers.fulltextTokens.map((t) => t.token)).toEqual(["towers#book"]);
+        expect(towers.expressionTokens).toEqual([]);
+
+        expect(lex("learn c# and f#").fulltextTokens.map((t) => t.token)).toEqual(["learn", "c#", "and", "f#"]);
+        expect(lex("issue#42 a~b").fulltextTokens.map((t) => t.token)).toEqual(["issue#42", "a~b"]);
+
+        const spaced = lex("towers #book");
+        expect(spaced.fulltextTokens.map((t) => t.token)).toEqual(["towers"]);
+        expect(spaced.expressionTokens.map((t) => t.token)).toEqual(["#book"]);
+    });
+
     it("recognizes leading = operator for exact match", () => {
         const result1 = lex("=example");
         expect(result1.fulltextTokens.map((t) => t.token)).toEqual(["example"]);
@@ -212,6 +225,43 @@ describe("Lexer expression", () => {
 
     it("order by multiple labels", () => {
         expect(lex(`# orderby #a,#b`).expressionTokens.map((t) => t.token)).toEqual(["#", "orderby", "#a", ",", "#b"]);
+    });
+});
+
+describe("Lexer whitespace", () => {
+    it("a query can be laid out over several lines", () => {
+        const result = lex(`#book
+    and #author = 'tolkien'
+    orderby note.title`);
+
+        expect(result.expressionTokens.map((t) => t.token)).toEqual(["#book", "and", "#author", "=", "tolkien", "orderby", "note", ".", "title"]);
+
+        // A pasted query carries CRLF.
+        expect(lex("#book\r\nand #author").expressionTokens.map((t) => t.token)).toEqual(["#book", "and", "#author"]);
+    });
+
+    it("tabs separate tokens the way spaces do", () => {
+        expect(lex("#book\tand\t#author").expressionTokens.map((t) => t.token)).toEqual(["#book", "and", "#author"]);
+    });
+
+    it("the fulltext part spans lines too", () => {
+        const result = lex("lord of\nthe rings #book");
+
+        expect(result.fulltextTokens.map((t) => t.token)).toEqual(["lord", "of", "the", "rings"]);
+        expect(result.expressionTokens.map((t) => t.token)).toEqual(["#book"]);
+        // Scoring compares the whole query against titles, so the layout must not reach it.
+        expect(result.fulltextQuery).toBe("lord of the rings");
+    });
+
+    it("whitespace inside quotes is kept verbatim", () => {
+        expect(lex("#note = 'first\nsecond'").expressionTokens.map((t) => t.token)).toEqual(["#note", "=", "first\nsecond"]);
+    });
+
+    it("leading = followed by whitespace is not the exact-match operator", () => {
+        const result = lex("=\nexample");
+
+        expect(result.leadingOperator).toBe("");
+        expect(result.fulltextTokens.map((t) => t.token)).toEqual(["=", "example"]);
     });
 });
 

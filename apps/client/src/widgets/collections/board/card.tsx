@@ -6,15 +6,17 @@ import {
 
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
-import BoardApi, { CARD_REDIRECT_RELATION } from "./api";
+import BoardApi, { CARD_REDIRECT_RELATION, CARD_REDIRECT_RELATION_LEGACY } from "./api";
 import {
     BoardActionsContext, BoardHighlightTokensContext, BoardKeptCardsContext,
-    BoardPromotedAttributesContext, TitleEditor
+    BoardOverlayHostContext, BoardPromotedAttributesContext, BoardSelectionModeContext, TitleEditor
 } from ".";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import { cardFollows } from "./columns";
 import { openNoteContextMenu } from "./context_menu";
+import branches from "../../../services/branches";
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
 import { parseNavigationStateFromUrl } from "../../../services/link";
 import { FLIP_SETTLE_MS } from "../../react/flip";
@@ -24,8 +26,10 @@ import {
 } from "../../react/hooks";
 import { TooltipIcon } from "../../react/Icon";
 import { HighlightedText } from "../../react/RawHtml";
+import { useIsOnScreen, useLingeringTrue } from "../../react/hooks";
 import { useIsSelected, useSelection } from "../../react/selection";
 import { type DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
+import CardToolbar, { RAIL_EXIT_MS } from "./card_toolbar";
 
 function Card({
     api,
@@ -83,8 +87,9 @@ function Card({
     const [ isArchived ] = useNoteLabelBoolean(note, "archived");
     const [ iconClass, setIconClass ] = useNoteLabel(note, "iconClass");
     // Only whether the card redirects, which is what draws its title as a link. Where it goes is
-    // read when the card is opened.
+    // read when the card is opened. Both names are watched, as `openCard` reads both.
     const [ redirectTo ] = useNoteRelation(note, CARD_REDIRECT_RELATION);
+    const [ legacyRedirectTo ] = useNoteRelation(note, CARD_REDIRECT_RELATION_LEGACY);
     // The card stays the one just made until another is, so what has already been shown is
     // remembered here rather than played again by every redraw of the column.
     const [ isRevealed, setIsRevealed ] = useState(false);
@@ -95,6 +100,37 @@ function Card({
     // card and no other. The store keeps one identity for the life of the board, so holding it
     // here leaves the memo below intact.
     const selection = useSelection();
+    const overlayHost = useContext(BoardOverlayHostContext);
+    const isSelecting = useContext(BoardSelectionModeContext);
+    /** Whether the card holds the focus, which on mobile floats its toolbar over the board. */
+    const [ isFocused, setIsFocused ] = useState(false);
+    // Focus moving within the card or onto the toolbar keeps the toolbar; anywhere else takes it.
+    // So does the lift: it hides the card's element, which blurs it, and the card is focused
+    // again once it is let go, so the rail stands through a press that ripens and lets go.
+    const handleFocusOut = useCallback((e: FocusEvent) => {
+        if (isDragging) {
+            return;
+        }
+
+        const next = e.relatedTarget instanceof Element ? e.relatedTarget : null;
+        if (next && (cardRef.current?.contains(next) || next.closest(".board-card-toolbar"))) {
+            return;
+        }
+
+        setIsFocused(false);
+    }, [ isDragging ]);
+    /**
+     * Whether the card's rail is wanted. Off the card while its title is edited, since the rename
+     * it offers is under way, and in selection mode, where the board's own rail acts on the
+     * selection instead. A card carried away hides it by class (see card_toolbar.css).
+     */
+    const isRailWanted = isMobile() && isFocused && !isEditing && !isSelecting;
+    // The rail stands for the card, so it goes when the card is scrolled off the screen entirely
+    // and comes back with it.
+    const isOnScreen = useIsOnScreen(cardRef, isRailWanted);
+    const isRailShown = isRailWanted && isOnScreen;
+    // Kept drawn while it slides off.
+    const isRailDrawn = useLingeringTrue(isRailShown, RAIL_EXIT_MS);
     const isSelected = useIsSelected(note.noteId);
 
     // A card owns its own title: the board does not redraw for a note-row change. Setting the value
@@ -134,6 +170,12 @@ function Card({
         // popup already standing is taken as the one to stack on, and closing that leaves neither.
         if (e.detail > 1) return;
 
+        // In selection mode a tap picks the card out or puts it back, and opens nothing.
+        if (isSelecting) {
+            selection.toggle(note.noteId);
+            return;
+        }
+
         // A link to a note, such as a relation's target, opens in the popup. Cancelled here so that
         // `goToLink` does not open a tab for it as well; a link naming no note is left alone.
         // Checked before the modifiers below, so Ctrl on a link still means what it means anywhere.
@@ -166,7 +208,7 @@ function Card({
 
         selection.clear();
         api.openCard(note);
-    }, [ api, note, column, selection ]);
+    }, [ api, note, column, selection, isSelecting ]);
 
     /**
      * Fills the drag with what the note tree reads, for the native drag a Ctrl press arms in
@@ -253,11 +295,11 @@ function Card({
         return () => window.clearTimeout(settled);
     }, [ isNew ]);
 
-    return (
+    return (<>
         <div
             ref={cardRef}
             className={clsx("board-note", colorClass, {
-                shortcut: !!redirectTo,
+                shortcut: !!(redirectTo ?? legacyRedirectTo),
                 dragging: isDragging,
                 editing: isEditing,
                 archived: isArchived,
@@ -275,6 +317,9 @@ function Card({
             onDragStart={handleDragStart}
             onClick={!isEditing ? handleClick : undefined}
             onKeyDown={handleKeyDown}
+            // Only where the rail follows the focus, so a desktop card is not redrawn for it.
+            onFocusIn={isMobile() ? () => setIsFocused(true) : undefined}
+            onFocusOut={isMobile() ? handleFocusOut : undefined}
             tabIndex={300}
         >
             {!isEditing ? (
@@ -284,11 +329,13 @@ function Card({
                         <HighlightedText
                             className="text" text={title} highlightedTokens={highlightedTokens} />
                     </span>
-                    <span
-                        className="edit-icon icon bx bx-edit"
+                    {/* On mobile the rail offers the rename, and a hover-revealed icon has no
+                        hover to be revealed by. */}
+                    {!isMobile() && <span
+                        className="edit-icon icon bx bx-rename"
                         title={t("board_view.edit-note-title")}
                         onClick={handleEdit}
-                    />
+                    />}
                 </>
             ) : (
                 <TitleEditor
@@ -316,7 +363,24 @@ function Card({
                 badges={isOutsideFilter && <OutsideFilterBadge />}
             />
         </div>
-    )
+        {isRailDrawn && overlayHost.current && (
+            <CardToolbar
+                host={overlayHost.current}
+                isLeaving={!isRailShown}
+                isSorted={api.isColumnSorted(column)}
+                removal={api.isInboxEnabled ? "note" : "board"}
+                onRename={() => setBranchIdToEdit(branch.branchId)}
+                onInsertAbove={() => onInsert(index)}
+                onInsertBelow={() => onInsert(index + 1)}
+                onInsertNew={onNewItem}
+                onRemove={() => (api.isInboxEnabled
+                    ? branches.deleteNotes([ branch.branchId ], false, false)
+                    : api.removeFromBoard([ note.noteId ]))}
+                onMore={handleContextMenu}
+                onFocusOut={handleFocusOut}
+            />
+        )}
+    </>);
 }
 
 /**

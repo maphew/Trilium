@@ -26,7 +26,10 @@ vi.mock("../../../menus/link_context_menu", () => ({
 // i18next is never initialised under test, so `t` echoes the key it is given. The promise is what
 // the command registry awaits as `PromotedAttributesCard` is pulled in for the attribute icons.
 vi.mock("../../../services/i18n", () => ({
-    t: (key: string) => key,
+    // Interpolates `column` unescaped, as i18next does in the client, so a spec sees what the menu
+    // receives.
+    t: (key: string, options?: { column?: string }) =>
+        (options?.column === undefined ? key : `${key}: ${options.column}`),
     translationsInitializedPromise: Promise.resolve()
 }));
 
@@ -47,7 +50,7 @@ describe("Board column context menu", () => {
         column: {
             value?: string, color?: string, archived?: boolean, collapsed?: boolean,
             keepCollapsed?: boolean, isCollapsed?: boolean, canRename?: boolean,
-            columns?: string[], index?: number, nested?: boolean
+            canKeepCollapsed?: boolean, columns?: string[], index?: number, nested?: boolean
         } = {},
         callbacks: {
             onEditTitle?: () => void,
@@ -56,7 +59,8 @@ describe("Board column context menu", () => {
             onMoveColumn?: (toIndex: number) => void,
             onSetLimit?: () => void,
             onCollapse?: (collapsed: boolean) => void,
-            onKeepCollapsed?: (keepCollapsed: boolean) => void
+            onKeepCollapsed?: (keepCollapsed: boolean) => void,
+            onSelectAll?: () => void
         } = {}
     ) {
         const show = vi.spyOn(contextMenu, "show").mockImplementation(async () => {});
@@ -71,6 +75,7 @@ describe("Board column context menu", () => {
         // by; a test answers only where that is what it is about.
         const withDefaults = Object.assign({
             getColumnTitle: (name: string) => name,
+            getColumnNoteIds: () => [ "cardA", "cardB" ],
             getColumnSort: () => ({ orderBy: undefined, isDescending: false }),
             getEffectiveColumnSort: () => ({ orderBy: undefined, isDescending: false }),
             getPromotedAttributes: () => []
@@ -80,6 +85,7 @@ describe("Board column context menu", () => {
             columns: [ "To Do" ],
             index: 0,
             canRename: true,
+            canKeepCollapsed: true,
             ...column,
             onEditTitle: callbacks.onEditTitle ?? (() => {}),
             onNewItem: callbacks.onNewItem ?? (() => {}),
@@ -87,7 +93,8 @@ describe("Board column context menu", () => {
             onMoveColumn: callbacks.onMoveColumn ?? (() => {}),
             onSetLimit: callbacks.onSetLimit ?? (() => {}),
             onCollapse: callbacks.onCollapse ?? (() => {}),
-            onKeepCollapsed: callbacks.onKeepCollapsed ?? (() => {})
+            onKeepCollapsed: callbacks.onKeepCollapsed ?? (() => {}),
+            onSelectAll: callbacks.onSelectAll ?? (() => {})
         });
 
         // The spy outlives one call, so it is the menu just opened that is read back.
@@ -124,6 +131,22 @@ describe("Board column context menu", () => {
 
         entry.handler?.(entry, {} as never);
         expect(onEditTitle).toHaveBeenCalled();
+    });
+
+    it("picks out every card the column draws, and offers nothing for an empty one", () => {
+        const onSelectAll = vi.fn();
+        const entry = openMenu({} as BoardApi, {}, { onSelectAll }).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-selection");
+        if (!entry || !("handler" in entry)) throw new Error("expected a select-all entry");
+
+        expect(entry.enabled).not.toBe(false);
+        entry.handler?.(entry, {} as never);
+        expect(onSelectAll).toHaveBeenCalled();
+
+        const empty = openMenu({ getColumnNoteIds: () => [] } as unknown as BoardApi).find(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-selection");
+        if (!empty || !("enabled" in empty)) throw new Error("expected a select-all entry");
+        expect(empty.enabled).toBe(false);
     });
 
     it("offers to archive a column, and to bring back one already archived", () => {
@@ -175,6 +198,10 @@ describe("Board column context menu", () => {
         expect("trailingIcon" in checked && checked.trailingIcon).toBe("bx bx-check");
         checked.handler?.(checked, {} as never);
         expect(onKeepCollapsed).toHaveBeenLastCalledWith(false);
+
+        // Withheld while a filter decides what is collapsed, since nothing is stored then.
+        expect(openMenu({} as BoardApi, { canKeepCollapsed: false }).some(item =>
+            item && "uiIcon" in item && item.uiIcon === "bx bx-lock-alt")).toBe(false);
     });
 
     /** The strip has no title to edit, so the menu does not offer to edit one either. */
@@ -193,10 +220,11 @@ describe("Board column context menu", () => {
     });
 
     /**
-     * The inbox holds a name of its own, so it is renamed like any other column; what it has not is
-     * anything to archive, and it is put away by the board's own setting instead.
+     * The inbox holds a name of its own, so it is renamed like any other column; what it has not
+     * is anything to archive, anywhere to go or a limit, and it is put away by the board's own
+     * setting instead.
      */
-    it("offers the inbox no archive, and puts it away instead", () => {
+    it("offers the inbox no archive, move or limit, and puts it away instead", () => {
         const api = {
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
@@ -211,6 +239,10 @@ describe("Board column context menu", () => {
 
         expect(icons).toContain("bx bx-edit-alt");
         expect(icons).not.toContain("bx bx-archive");
+        // The inbox leads the board and cannot be moved off the head of it.
+        expect(icons).not.toContain("bx bx-horizontal-left");
+        // The inbox takes every card without a grouping value, however many that is.
+        expect(icons).not.toContain("bx bx-tachometer");
 
         const remove = items.find(item =>
             item && "uiIcon" in item && item.uiIcon === "bx bx-trash");
@@ -227,14 +259,24 @@ describe("Board column context menu", () => {
             setInboxNested: vi.fn(async () => {})
         } as unknown as BoardApi;
 
-        const items = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0 });
-        const nesting = items.find(item =>
-            item && "uiIcon" in item && item.uiIcon === "bx bx-subdirectory-right");
-        if (!nesting || !("handler" in nesting)) throw new Error("expected a nesting entry");
+        const entryOf = (nested: boolean) => {
+            const found = openMenu(api, { value: "", columns: [ "", "To Do" ], index: 0, nested })
+                .find(item => item && "uiIcon" in item
+                    && item.uiIcon === "bx bx-subdirectory-right");
+            if (!found || !("handler" in found)) throw new Error("expected a nesting entry");
+            return found;
+        };
 
-        expect(nesting).toMatchObject({ checked: false });
-        nesting.handler?.(nesting, {} as never);
-        expect(api.setInboxNested).toHaveBeenCalledWith(true);
+        // The check sits after the title, the entry keeping its own icon ahead of it.
+        const unchecked = entryOf(false);
+        expect("trailingIcon" in unchecked && unchecked.trailingIcon).toBeUndefined();
+        unchecked.handler?.(unchecked, {} as never);
+        expect(api.setInboxNested).toHaveBeenLastCalledWith(true);
+
+        const checked = entryOf(true);
+        expect("trailingIcon" in checked && checked.trailingIcon).toBe("bx bx-check");
+        checked.handler?.(checked, {} as never);
+        expect(api.setInboxNested).toHaveBeenLastCalledWith(false);
     });
 
     it("orders the entries, keeping the safe way out ahead of deleting", () => {
@@ -242,11 +284,12 @@ describe("Board column context menu", () => {
         expect(titled.map(item => "uiIcon" in item ? item.uiIcon : undefined))
             .toEqual([
                 "bx bx-edit-alt", "bx bx-copy",
-                "bx bx-plus", "bx bx-link", "bx bx-columns",
+                "bx bx-plus", "bx bx-folder-open", "bx bx-columns",
                 "bx bx-collapse-horizontal", "bx bx-lock-alt", "bx bx-sort-alt-2",
                 "bx bx-tachometer",
                 "bx bx-horizontal-left",
-                "bx bx-archive", "bx bx-trash"
+                "bx bx-archive", "bx bx-trash",
+                "bx bx-selection"
             ]);
     });
 
@@ -310,28 +353,25 @@ describe("Board column context menu", () => {
         expect(places(2)).toEqual([ 0, 1 ]);
     });
 
-    it("boxes the column names it offers to move past, as the status list does", () => {
+    it("boxes and escapes the column names it offers to move past", () => {
         const api = {
+            getColumnTitle: (name: string) => name,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
             isColumnArchived: () => false
         } as unknown as BoardApi;
 
-        const menu = openMenu(api, { columns: [ "To Do", "Doing", "Done" ], index: 2 });
+        const columns = [ "<img src=x onerror=alert(1)>", "Doing", "Done" ];
+        const menu = openMenu(api, { columns, index: 2 });
         const entry = menu.find(item =>
             item && "uiIcon" in item && item.uiIcon === "bx bx-horizontal-left");
         if (!entry || !("items" in entry)) throw new Error("expected a move-column entry");
 
         // The head of the board carries no name, so only the ones naming a column are boxed.
-        const after = (entry.items ?? []).slice(1);
-        expect(after).toHaveLength(1);
-
-        // i18next is never initialised under test, so what it interpolates comes back undefined;
-        // the box around it is what this is about.
-        for (const item of after) {
-            expect(item && "title" in item ? item.title : "")
-                .toMatch(/^<span class="tn-menu-name">.*<\/span>$/);
-        }
+        const titles = (entry.items ?? []).slice(1)
+            .map(item => (item && "title" in item ? item.title : ""));
+        expect(titles).toEqual([ '<span class="tn-menu-name">board_view.move-column-after: '
+            + "&lt;img src&#x3D;x onerror&#x3D;alert(1)&gt;</span>" ]);
     });
 
     it("offers both sides to put a new column on", () => {
@@ -363,7 +403,7 @@ describe("Board column context menu", () => {
         vi.spyOn(dialog, "chooseNote").mockResolvedValue("pickedNote");
 
         const entry = openMenu(api)
-            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-link");
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-folder-open");
         if (!entry || !("handler" in entry)) throw new Error("expected an add-existing entry");
 
         await entry.handler?.(entry, {} as never);
@@ -375,7 +415,7 @@ describe("Board column context menu", () => {
         vi.spyOn(dialog, "chooseNote").mockResolvedValue(null);
 
         const entry = openMenu(api)
-            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-link");
+            .find(item => item && "uiIcon" in item && item.uiIcon === "bx bx-folder-open");
         if (!entry || !("handler" in entry)) throw new Error("expected an add-existing entry");
 
         await entry.handler?.(entry, {} as never);
@@ -391,7 +431,7 @@ describe("Board column context menu", () => {
         expect(byIcon("bx bx-edit-alt")).toMatchObject({ shortcut: "F2" });
         expect(byIcon("bx bx-trash")).toMatchObject({ shortcut: "Delete" });
         // Nothing claims a key it does not answer for.
-        expect(byIcon("bx bx-link")).not.toHaveProperty("shortcut");
+        expect(byIcon("bx bx-folder-open")).not.toHaveProperty("shortcut");
 
         const submenu = byIcon("bx bx-columns");
         const children = submenu && "items" in submenu ? submenu.items ?? [] : [];
@@ -541,7 +581,8 @@ describe("Board item context menu", () => {
         const insert = vi.fn();
         const items = openItemMenu(api, "To Do", vi.fn(), insert, 2);
 
-        for (const icon of [ "bx bx-list-plus", "bx bx-empty" ]) {
+        // The one above wears the same glyph as the one below, turned over by its own class.
+        for (const icon of [ "bx bx-list-plus bx-flip-vertical", "bx bx-list-plus" ]) {
             const entry = items.find(item => item && "uiIcon" in item && item.uiIcon === icon);
             if (!entry || !("handler" in entry)) throw new Error(`expected a ${icon} entry`);
             entry.handler?.(entry, {} as never);
@@ -587,7 +628,7 @@ describe("Board item context menu", () => {
         expect(items[at + 1]).toMatchObject({ kind: "separator" });
         expect(items.slice(at + 2, at + 5).map(item =>
             item && "uiIcon" in item ? item.uiIcon : undefined))
-            .toEqual([ "bx bx-list-plus", "bx bx-empty", "bx bx-outline" ]);
+            .toEqual([ "bx bx-list-plus bx-flip-vertical", "bx bx-list-plus", "bx bx-outline" ]);
     });
 
     it("copies a link to the card, which the card's own note id names", () => {
@@ -831,7 +872,8 @@ describe("Board item context menu", () => {
                 getPromotedAttributes: () => [],
                 isFirstInColumn: () => false,
                 isColumnSorted: () => false,
-                getCardColumn: () => column
+                getCardColumn: () => column,
+                getColumnNoteIds: () => []
             },
             api);
         const selected = notes ?? [ buildNote({ title: "Card" }) as FNote ];
@@ -925,23 +967,68 @@ describe("Board item context menu", () => {
         expect(api.changeColumn).toHaveBeenCalledWith(expect.any(String), "Done");
     });
 
-    /** The card is drawn afresh under the column it lands in, so focus is asked for by name. */
-    it("keeps focus on the card it files, as a move by keyboard does", () => {
+    /**
+     * Focus stays in the column being emptied rather than following the card, so that sending a
+     * run of cards off does not carry the reader to wherever each one landed.
+     */
+    it("focuses the card taking its place rather than the one it files", () => {
+        // Five, since a shorter column lands on the same card either way and hides a miscount.
+        const cards = [ 0, 1, 2, 3, 4 ].map(() => buildNote({ title: "Card" }) as FNote);
+        const ids = cards.map(card => card.noteId);
         const api = {
             columns: [ "To Do", "Done" ],
             isColumnArchived: () => false,
             getColumnIcon: () => DEFAULT_COLUMN_ICON,
             getColumnColorClass: () => "",
+            getColumnNoteIds: () => ids,
+            changeColumn: vi.fn(async () => {})
+        } as unknown as BoardApi;
+
+        /**
+         * Files the cards at `filed` under "Done", from the menu opened on the first of them,
+         * and says what was focused after.
+         */
+        const fileFrom = (...filed: number[]) => {
+            const focusCard = vi.fn();
+            const items = openItemMenu(api, "To Do", focusCard, vi.fn(), filed[0], vi.fn(),
+                filed.map(at => cards[at]));
+            const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
+            const done = items[header + 2];
+            if (done && "handler" in done) done.handler?.(done, {} as never);
+            return focusCard.mock.calls.map(call => call[0]);
+        };
+
+        // The card that closes the gap is the one after it.
+        expect(fileFrom(1)).toEqual([ ids[2] ]);
+        // From the foot there is none after it, so the column's new last card takes the focus.
+        expect(fileFrom(4)).toEqual([ ids[3] ]);
+        // A selection leaves the first card still standing below the one the menu was opened on.
+        expect(fileFrom(1, 3)).toEqual([ ids[2] ]);
+        // And the cards leaving from above it are counted out of its place first.
+        expect(fileFrom(2, 0)).toEqual([ ids[3] ]);
+        // With every card filed there is none left to take.
+        expect(fileFrom(0, 1, 2, 3, 4)).toEqual([]);
+    });
+
+    /** The card it is already under writes nothing, so there is no reason to move the focus. */
+    it("leaves the focus alone when the column named is the one it is in", () => {
+        const api = {
+            columns: [ "To Do", "Done" ],
+            isColumnArchived: () => false,
+            getColumnIcon: () => DEFAULT_COLUMN_ICON,
+            getColumnColorClass: () => "",
+            getColumnNoteIds: () => [ "first", "second" ],
             changeColumn: vi.fn(async () => {})
         } as unknown as BoardApi;
         const focusCard = vi.fn();
 
         const items = openItemMenu(api, "To Do", focusCard);
+        // The first column entry, which is the one the card already stands under.
         const header = items.findIndex(item => item && "kind" in item && item.kind === "header");
-        const done = items[header + 2];
-        if (done && "handler" in done) done.handler?.(done, {} as never);
+        const toDo = items[header + 1];
+        if (toDo && "handler" in toDo) toDo.handler?.(toDo, {} as never);
 
-        expect(focusCard).toHaveBeenCalledWith(expect.any(String));
+        expect(focusCard).not.toHaveBeenCalled();
     });
 
     /**

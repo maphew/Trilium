@@ -104,6 +104,19 @@ describe("SearchContext", () => {
         expect(ctx.enableFuzzyMatching).toBe(false);
     });
 
+    it("lets a caller narrow enableFuzzyMatching but never widen it past the option", () => {
+        // The option is on, so a surface that opts out still gets no fuzzy matching.
+        getOptionBool.mockReturnValue(true);
+        expect(new SearchContext({ enableFuzzyMatching: false }).enableFuzzyMatching).toBe(false);
+        expect(new SearchContext({ enableFuzzyMatching: true }).enableFuzzyMatching).toBe(true);
+        expect(new SearchContext().enableFuzzyMatching).toBe(true);
+
+        // The option is off, so asking for fuzzy matching cannot bring it back.
+        getOptionBool.mockReturnValue(false);
+        expect(new SearchContext({ enableFuzzyMatching: true }).enableFuzzyMatching).toBe(false);
+        expect(new SearchContext().enableFuzzyMatching).toBe(false);
+    });
+
     it("defaults enableFuzzyMatching to true when the option is not yet initialized (throws)", () => {
         getOptionBool.mockImplementation(() => {
             throw new Error("option store not initialized");

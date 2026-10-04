@@ -76,7 +76,7 @@ interface ModalStubProps {
     children?: ComponentChildren;
     show?: boolean;
     customTitleBarButtons?: { onClick: () => void }[];
-    modalRef?: RefObject<HTMLDivElement>;
+    modalRef?: RefObject<HTMLDivElement | null>;
     onShown?: () => void;
     onHidden?: () => void;
 }

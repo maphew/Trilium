@@ -1,10 +1,9 @@
 import clsx from "clsx";
-import { Fragment } from "preact";
+import { Fragment, TargetedMouseEvent, TargetedWheelEvent } from "preact";
 import { flushSync } from "preact/compat";
 import {
     useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "preact/hooks";
-import { JSX } from "preact/jsx-runtime";
 
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
@@ -14,13 +13,15 @@ import dialog from "../../../services/dialog";
 import { getHue, parseColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
 import ActionButton from "../../react/ActionButton";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
-import { useStaticTooltip } from "../../react/hooks";
+import { useIsOnScreen, useLingeringTrue, useStaticTooltip } from "../../react/hooks";
 import { useFlip } from "../../react/flip";
 import { useScrollFade } from "../../react/scroll_fade";
+import { useSelection } from "../../react/selection";
 
 /** How long a field waits for the card it made, after which it is taken down regardless. */
 const HAND_OVER_MS = 2000;
@@ -38,12 +39,16 @@ const MIN_CARD_HEIGHT = 32;
 /** How long an open takes. Matches `--board-expand-duration` in the board's own rules. */
 export const EXPAND_MS = 200;
 import NoteLink from "../../react/NoteLink";
-import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
+import {
+    BoardActionsContext, BoardDragStateContext, BoardOverlayHostContext, BoardSelectionModeContext,
+    TitleEditor
+} from ".";
 import BoardApi from "./api";
 import Card from "./card";
 import CardTemplatePill from "./card_template_pill";
 import { cardTemplateIcon, type CardTemplates } from "./card_templates";
 import { DEFAULT_CARD_ICON, DEFAULT_COLUMN_ICON, INBOX_COLUMN } from "./columns";
+import { ColumnToolbar, RAIL_EXIT_MS } from "./card_toolbar";
 import { openColumnContextMenu, openColumnSortMenu, openCreateCardMenu } from "./context_menu";
 import type { ColumnSort } from "./data";
 import { cardSpacing } from "./drag_measure";
@@ -72,6 +77,9 @@ export default function Column({
     archived,
     collapsed,
     keepCollapsed,
+    isCollapseVolatile,
+    collapsesQuickly,
+    willOpen,
     isActive,
     isPeeked,
     isResizing,
@@ -99,6 +107,18 @@ export default function Column({
     collapsed?: boolean,
     /** Whether the column collapses again once opened, which keeps `collapsed` through an open. */
     keepCollapsed?: boolean,
+    /**
+     * Whether `collapsed` is the filter's rather than the stored flag, so a change to it is not
+     * written and the column is not offered to keep collapsed.
+     */
+    isCollapseVolatile?: boolean,
+    /** Whether a collapse now being drawn was asked for, which runs at the quick duration. */
+    collapsesQuickly?: boolean,
+    /**
+     * Whether the column is about to open, while it is still drawn as a strip. It lays its cards
+     * out meanwhile, so the open does not pay for that on the frame the width starts moving.
+     */
+    willOpen?: boolean,
     /** Whether this is the column the reader is working in, which opens it while it is collapsed. */
     isActive?: boolean,
     /** Whether the board is showing every collapsed column at once, which opens this one too. */
@@ -193,6 +213,8 @@ export default function Column({
         useContext(BoardActionsContext);
     const { branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn } =
         useContext(BoardDragStateContext);
+    // Read for the `Select all cards` menu entry, which calls `selection.selectAll`.
+    const selection = useSelection();
     // Every card on the move. The one under the pointer is taken out of the flow by the gesture
     // itself; the rest of a carried selection stay where they are drawn and are dimmed instead.
     const carriedNoteIds = draggedCard
@@ -225,7 +247,7 @@ export default function Column({
     // Cards slide to follow the drop gap opening and closing. Measured only when the column's own
     // cards have changed: reading one position costs a layout of the whole board, and anything
     // else that redraws it would have every column read one per card.
-    const measured = useRef<unknown>();
+    const measured = useRef<unknown>(undefined);
     const cardsChanged = measured.current !== columnItems;
     measured.current = columnItems;
     useFlip(contentRef, {
@@ -351,7 +373,7 @@ export default function Column({
      * hidden rather than taken out, which is what makes closing one cheap.
      */
     const [ isDrawn, setIsDrawn ] = useState(!isCollapsed);
-    if (!isDrawn && !isCollapsed) {
+    if (!isDrawn && (!isCollapsed || willOpen)) {
         setIsDrawn(true);
     }
 
@@ -380,7 +402,7 @@ export default function Column({
     // Reported on the way in only. A column opened by being selected closes when another one is
     // selected, so nothing here watches for focus leaving: the menu, the icon picker and the limit
     // dialog all render outside the column, and each would otherwise close it as it opened.
-    const select = useCallback(() => {
+    const expand = useCallback(() => {
         setActiveColumn(column);
 
         // Opening the strip by hand opens the column for good, unless `keepCollapsed` says it
@@ -390,6 +412,20 @@ export default function Column({
             api.setColumnCollapsed(column, false);
         }
     }, [ api, column, isCollapsed, keepCollapsed, setActiveColumn ]);
+
+    /**
+     * What a press on the column does. On a touch screen a collapsed strip only takes the focus,
+     * which brings its rail up: the rail carries the button that opens it, so a tap aimed at the
+     * rail cannot open the column on the way.
+     */
+    const select = useCallback(() => {
+        if (isMobile() && isCollapsed) {
+            headerRef.current?.focus();
+            return;
+        }
+
+        expand();
+    }, [ expand, isCollapsed ]);
 
     /**
      * Whether the collapse now being drawn is one the reader asked for, which runs faster than a
@@ -455,6 +491,7 @@ export default function Column({
             canRename: !isCollapsed,
             isCollapsed,
             keepCollapsed,
+            canKeepCollapsed: !isCollapseVolatile,
             nested,
             onEditTitle: () => setColumnNameToEdit(column),
             onNewItem: beginNewItem,
@@ -462,6 +499,7 @@ export default function Column({
                 setColumnNameToEdit(await api.insertColumn(column, direction));
             },
             onSetLimit: () => setColumnLimitToEdit(column),
+            onSelectAll: () => selection.selectAll(api.getColumnNoteIds(column)),
             onCollapse: collapse,
             onKeepCollapsed: (keep) => {
                 setIsCollapsingByHand(keep);
@@ -480,7 +518,8 @@ export default function Column({
             }
         });
     }, [
-        api, column, color, archived, collapsed, keepCollapsed, collapse, isCollapsed, nested,
+        api, column, color, archived, collapsed, keepCollapsed, isCollapseVolatile, collapse,
+        isCollapsed, nested, selection,
         columns, columnIndex, setColumnNameToEdit, setColumnLimitToEdit, setActiveColumn,
         onMoveColumn, onFocusColumn
     ]);
@@ -495,10 +534,53 @@ export default function Column({
         if (e.key === "F2" && !isCollapsed) {
             setColumnNameToEdit(column);
         }
-    }, [ column, isCollapsed ]);
+
+        // Space collapses the column; `keyboard.ts` handles it on a strip. The target check
+        // excludes the heading's buttons, which activate on Space themselves.
+        if (e.key === " " && !isCollapsed && e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+            collapse();
+        }
+
+        // Enter makes a card at the head of the column, Shift+Enter one at its foot.
+        // `keyboard.ts` takes Ctrl+Enter for a column, and Enter on a strip.
+        if (e.key === "Enter" && !e.ctrlKey && !isCollapsed && e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // A sorted column places its own cards, so the field opens at the foot either way.
+            if (e.shiftKey || isSorted) {
+                beginNewItem();
+            } else {
+                beginInsert(0);
+            }
+        }
+    }, [ beginInsert, beginNewItem, collapse, column, isCollapsed, isSorted ]);
+
+    const overlayHost = useContext(BoardOverlayHostContext);
+    /** Whether the heading holds the focus, which on mobile floats the column's rail. */
+    const [ isHeaderFocused, setIsHeaderFocused ] = useState(false);
+    // Focus moving within the heading or onto the rail keeps the rail; anywhere else takes it.
+    const handleHeaderFocusOut = useCallback((e: FocusEvent) => {
+        const next = e.relatedTarget instanceof Element ? e.relatedTarget : null;
+        if (next && (headerRef.current?.contains(next) || next.closest(".board-card-toolbar"))) {
+            return;
+        }
+
+        setIsHeaderFocused(false);
+    }, []);
+    const isSelecting = useContext(BoardSelectionModeContext);
+    // Off the heading while its title is edited, since the rename it offers is under way, and in
+    // selection mode, where the board's own rail stands for the selection.
+    const isRailWanted = isMobile() && isHeaderFocused && !isEditing && !isSelecting;
+    const isHeaderOnScreen = useIsOnScreen(headerRef, isRailWanted);
+    const isRailShown = isRailWanted && isHeaderOnScreen;
+    // Kept drawn while it slides off.
+    const isRailDrawn = useLingeringTrue(isRailShown, RAIL_EXIT_MS);
 
     /** Allow using mouse wheel to scroll inside card, while also maintaining column horizontal scrolling. */
-    const handleScroll = useCallback((event: JSX.TargetedWheelEvent<HTMLDivElement>) => {
+    const handleScroll = useCallback((event: TargetedWheelEvent<HTMLDivElement>) => {
         const el = event.currentTarget;
         if (!el) return;
 
@@ -607,12 +689,14 @@ export default function Column({
                 "drag-over": isDropTarget && (isSorted || draggedCard?.fromColumn !== column),
                 // The class the themes key a hue off, worn here as anywhere else that carries one.
                 "with-hue": hue !== undefined,
+                "board-column-inbox": column === INBOX_COLUMN,
                 "board-column-archived": archived,
                 "editing-open": hasEditedCard || !!insertBefore,
                 windowed: isWindowed,
                 "over-limit": isOverLimit,
                 collapsed: isCollapsed,
-                "quick-collapse": isCollapsingByHand,
+                "pre-expanding": isCollapsed && willOpen,
+                "quick-collapse": isCollapsingByHand || collapsesQuickly,
                 // Opening is drawn for the reader who asked for it. A column opened to take a
                 // dragged card takes its width at once, since the drop is measured as it opens.
                 "quick-expand": !isCollapsed && !opensAtOnce,
@@ -639,11 +723,12 @@ export default function Column({
             <h3
                 ref={headerRef}
                 className={`${isEditing ? "editing" : ""}`}
-                // While collapsed the header is what opens the column, so it says so and answers
-                // for the keys a button answers for. Open, it is a heading again and Space does
-                // nothing, so neither is claimed.
+                // A collapsed header opens the column, so it is announced as a button. Open, it
+                // is a heading, and Space collapses it as a board shortcut like F2.
+                // @ts-expect-error Preact allows no `button` role on a heading element.
                 role={isCollapsed ? "button" : undefined}
                 aria-expanded={isCollapsed ? false : undefined}
+                aria-keyshortcuts="Space"
                 onContextMenu={openMenu}
                 onMouseDown={(e) => {
                     if (e.detail <= 1) {
@@ -656,6 +741,12 @@ export default function Column({
                     }
                 }}
                 onKeyDown={handleTitleKeyDown}
+                // Only where the rail follows the focus: elsewhere a redraw on every focus
+                // change buys nothing, and would write a controlled editor's value back mid-edit.
+                onFocusIn={isMobile() ? () => setIsHeaderFocused(true) : undefined}
+                onFocusOut={isMobile() ? handleHeaderFocusOut : undefined}
+                // A tap takes the focus, which not every touch browser gives a heading on its own.
+                onClick={isMobile() ? () => headerRef.current?.focus() : undefined}
                 tabIndex={300}
             >
                 {isCollapsed ? (
@@ -775,6 +866,17 @@ export default function Column({
                 <div ref={roomRef} className="board-drop-room" />
             </div>}
 
+            {isRailDrawn && overlayHost.current && (
+                <ColumnToolbar
+                    host={overlayHost.current}
+                    isLeaving={!isRailShown}
+                    isCollapsed={isCollapsed}
+                    onRename={() => setColumnNameToEdit(column)}
+                    onToggleCollapse={isCollapsed ? expand : collapse}
+                    onSort={(e) => openColumnSortMenu(api, e.pageX, e.pageY, column)}
+                    onFocusOut={handleHeaderFocusOut}
+                />
+            )}
             {!isCollapsed && <AddNewItem
                 api={api}
                 cardTemplates={cardTemplates}
@@ -801,7 +903,7 @@ export default function Column({
  * Where a menu opened from a button stands: at the pointer for a press, and below the button for a
  * keyboard, which reports no position of its own.
  */
-function menuOrigin(e: JSX.TargetedMouseEvent<HTMLElement>): [ number, number ] {
+function menuOrigin(e: TargetedMouseEvent<HTMLElement>): [ number, number ] {
     if (e.detail) {
         return [ e.pageX, e.pageY ];
     }
