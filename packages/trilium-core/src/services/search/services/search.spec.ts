@@ -561,6 +561,25 @@ describe("Search", () => {
         expect(findNoteByTitle(searchResults, "Taipei")).toBeTruthy();
     });
 
+    it("follows links and backlinks, counting user relations and link types but not built-in ones", () => {
+        const tolkien = note("Tolkien");
+        const essay = note("Essay").relation("internalLink", tolkien.note);
+        const book = note("The Hobbit").relation("author", tolkien.note);
+        const fromTemplate = note("Created from Tolkien").relation("template", tolkien.note);
+        const savedSearch = note("Search under Tolkien", { type: "search" }).relation("ancestor", tolkien.note);
+        rootNote.child(tolkien).child(essay).child(book).child(fromTemplate).child(savedSearch);
+
+        const titles = (query: string) => searchService.findResultsWithQuery(query, new SearchContext())
+            .map((result) => becca.notes[result.noteId].title)
+            .sort();
+
+        expect(titles("note.links.title = Tolkien")).toEqual([ "Essay", "The Hobbit" ]);
+        expect(titles(`note.links.noteId = ${tolkien.note.noteId}`)).toEqual([ "Essay", "The Hobbit" ]);
+        expect(titles("note.backlinks.title = Essay")).toEqual([ "Tolkien" ]);
+        expect(titles("note.backlinks.title = 'Created from Tolkien'")).toEqual([]);
+        expect(titles("note.title = Tolkien AND note.backlinks.title *=* o")).toEqual([ "Tolkien" ]);
+    });
+
     it("filter by note's child", () => {
         rootNote
             .child(note("Europe")

@@ -480,6 +480,8 @@ const SEGMENTS: Record<NotePathSegment, { icon: string; detail?: string }> = {
     parents: { icon: "bx-up-arrow-alt", detail: "search_completion.property_parents" },
     children: { icon: "bx-sitemap", detail: "search_completion.property_children" },
     ancestors: { icon: "bx-git-branch", detail: "search_completion.property_ancestors" },
+    links: { icon: "bx-link", detail: "search_completion.property_links" },
+    backlinks: { icon: "bx-link-alt", detail: "search_completion.property_backlinks" },
     labels: { icon: "bx-hash", detail: "search_completion.property_labels" },
     relations: { icon: "bx-transfer", detail: "search_completion.property_relations" }
 };

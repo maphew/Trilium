@@ -172,6 +172,9 @@ In addition: 
 *   `note.parents.parents.title = 'Books'`: Find notes with a grandparent named "Books".
 *   `note.ancestors.title = 'Books'`: Find notes with an ancestor named "Books".
 *   `note.children.title = 'sub-note'`: Find notes with a child named "sub-note".
+*   `note.links.title = 'Tolkien'`: Find notes linking to a note named "Tolkien", the same notes its <a class="reference-link" href="../../Note%20Types/Text/Links/Backlinks.md">Backlinks</a> list.
+*   `note.backlinks.title = 'Reading list'`: Find the notes that "Reading list" links to.
+*   A link is a relation you created, such as `~author`, or one that content creates: an internal link (`~internalLink`), an image (`~imageLink`), an included note (`~includeNoteLink`) or a relation map connection (`~relationMapLink`). Relations that configure a note, such as `~template` or a saved search's `~ancestor`, are not links.
 
 See also <a class="reference-link" href="Search/Under%20the%20hood.md">Under the hood</a> for more syntax references.
 
