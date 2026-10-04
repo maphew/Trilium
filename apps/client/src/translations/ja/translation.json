@@ -3259,9 +3259,6 @@
   },
   "llm": {
     "add_provider": "プロバイダーを追加",
-    "add_provider_title": "AI プロバイダーを追加",
-    "configured_providers": "設定済みプロバイダー",
-    "no_providers_configured": "まだプロバイダーが設定されていません。",
     "provider_name": "名前",
     "actions": "アクション",
     "delete_provider": "削除",
@@ -3321,7 +3318,6 @@
     "models_select_all": "すべて選択",
     "models_select_none": "すべて選択解除",
     "models_reset_defaults": "デフォルトにリセット",
-    "provider_model_count_other": "{{count}} モデル",
     "beta": "ベータ",
     "claude_agent_description": "Claude Code 経由で Claude Pro/Max のサブスクリプションを利用するため、API キーは不要です。Trilium を実行しているマシン（セルフホストの場合はサーバー、デスクトップ版の場合はこのコンピュータ）に Claude Code をインストールし、そこで \"claude /login\" を実行して一度サインインしておく必要があります。",
     "add_provider_title_named": "{{- name}} を追加",

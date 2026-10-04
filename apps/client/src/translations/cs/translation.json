@@ -2253,9 +2253,6 @@
   "llm": {
     "feature_not_enabled": "Povolte experimentální funkci LLM v Nastavení → Pokročilé → Experimentální funkce pro použití integrací AI.",
     "add_provider": "Přidat poskytovatele",
-    "add_provider_title": "Přidat poskytovatele AI",
-    "configured_providers": "Konfigurovaní poskytovatelé",
-    "no_providers_configured": "Ještě nejsou nakonfigurováni žádní poskytovatelé.",
     "provider_name": "Název",
     "actions": "Akce",
     "delete_provider": "Odstranit",

@@ -2480,9 +2480,6 @@
   "llm": {
     "feature_not_enabled": "請前往「設定」→「進階」→「實驗性功能」啟用 LLM 實驗性功能，即可使用 AI 整合。",
     "add_provider": "新增提供者",
-    "add_provider_title": "新增 AI 提供者",
-    "configured_providers": "已設定的提供者",
-    "no_providers_configured": "尚未設定任何提供者。",
     "provider_name": "名稱",
     "actions": "動作",
     "delete_provider": "刪除",
