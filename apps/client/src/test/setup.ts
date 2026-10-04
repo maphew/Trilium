@@ -5,7 +5,7 @@ import "preact/compat";
 
 import { Modal } from "bootstrap";
 import $ from "jquery";
-import { vi } from "vitest";
+import { afterAll, vi } from "vitest";
 
 // Top level, not in a beforeAll: vi.mock is hoisted either way, and nesting it only makes the order lie.
 vi.mock("../services/ws.js", mockWebsocket);
@@ -13,6 +13,7 @@ vi.mock("../services/server.js", mockServer);
 
 injectGlobals();
 survivePendingModalCallbacks();
+drainBootstrapTransitions();
 
 function injectGlobals() {
     const uncheckedWindow = window as any;
@@ -130,4 +131,16 @@ function mockServer() {
             async remove(_url: string) {}
         }
     };
+}
+
+/**
+ * Lets Bootstrap's transition timers run out before the file's environment is torn down.
+ *
+ * happy-dom runs no transitions, so Bootstrap ends each one with a `setTimeout()` of about 5ms that
+ * dispatches `transitionend` itself. A file that ends with a dialog still opening or closing leaves
+ * one pending, and once the window is gone its `new Event()` belongs to another realm than the
+ * element, which throws outside any test.
+ */
+function drainBootstrapTransitions() {
+    afterAll(() => new Promise((resolve) => setTimeout(resolve, 50)));
 }
