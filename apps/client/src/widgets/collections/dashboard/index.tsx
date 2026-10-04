@@ -5,7 +5,7 @@ import type { HighlightedTokenInfo } from "@triliumnext/commons";
 import { clsx } from "clsx";
 import { GridStack } from "gridstack";
 import { RefObject, TargetedMouseEvent } from "preact";
-import { MutableRef, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import branches from "../../../services/branches";
@@ -97,7 +97,7 @@ function useDashboardLayoutPersistence({ note, viewConfig, saveConfig, gridRef, 
     note: FNote;
     viewConfig: DashboardViewConfig | undefined;
     saveConfig: (config: DashboardViewConfig) => void;
-    gridRef: MutableRef<GridStack | null>;
+    gridRef: RefObject<GridStack | null>;
     containerRef: RefObject<HTMLDivElement | null>;
 }) {
     // Gridstack becomes the source of truth for geometry after init; capture the saved layout once
@@ -185,8 +185,8 @@ function useDashboardGrid({ note, notes, viewConfig, saveConfig, containerRef, g
     viewConfig: DashboardViewConfig | undefined;
     saveConfig: (config: DashboardViewConfig) => void;
     containerRef: RefObject<HTMLDivElement | null>;
-    gridRef: MutableRef<GridStack | null>;
-    dropPositionsRef: MutableRef<WidgetLayouts>;
+    gridRef: RefObject<GridStack | null>;
+    dropPositionsRef: RefObject<WidgetLayouts>;
     isCollapsed: boolean;
 }) {
     const { persistLayout, savedWidgetsRef } = useDashboardLayoutPersistence({ note, viewConfig, saveConfig, gridRef, containerRef });

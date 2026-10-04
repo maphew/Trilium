@@ -2,7 +2,7 @@ import "./FormAutocomplete.css";
 
 import type { ReferenceElement } from "@floating-ui/dom";
 import type { ComponentChildren, RefObject } from "preact";
-import { type MutableRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
 import { useUniqueName } from "./hooks";
@@ -198,7 +198,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
     anchor: DropdownAnchor;
     renderItem?(item: string, query: string): ComponentChildren;
     onPick(item: string): void;
-    handleRef: MutableRef<AutocompleteListHandle | null>;
+    handleRef: RefObject<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
     /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
     onActiveDescendant?(id: string | null): void;
@@ -231,7 +231,7 @@ export function AutocompleteList({ query, source, anchor, renderItem, onPick, ha
  */
 export function useForwardedKeys<T>(
     autocomplete: ReturnType<typeof useAutocomplete<T>>,
-    handleRef: MutableRef<AutocompleteListHandle | null>,
+    handleRef: RefObject<AutocompleteListHandle | null>,
     onActiveDescendant?: (id: string | null) => void
 ) {
     const { isShown, activeIndex, itemId } = autocomplete;

@@ -1,6 +1,6 @@
 import type { FieldEditor } from "@triliumnext/codemirror/src/field_editor";
 import clsx from "clsx";
-import type { MutableRef } from "preact/hooks";
+import type { RefObject } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
 import { t } from "../../services/i18n";
@@ -29,7 +29,7 @@ interface SearchStringEditorProps {
      */
     extraShortcutHints?: ShortcutHintDefinition;
     /** Handed the editor once built, for a caller that has to focus or select what it holds. */
-    editorRef?: MutableRef<FieldEditor | undefined>;
+    editorRef?: RefObject<FieldEditor | undefined>;
     onChange(newValue: string): void;
     /** Runs when Enter is pressed, which the editor treats as "run this search". */
     onEnter(): void;

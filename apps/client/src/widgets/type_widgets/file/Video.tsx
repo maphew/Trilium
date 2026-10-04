@@ -1,7 +1,7 @@
 import "./Video.css";
 
 import { RefObject } from "preact";
-import { MutableRef, useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
@@ -138,7 +138,7 @@ export default function VideoPreview({ source, entity, environment, noteContext,
     );
 }
 
-function useKeyboardShortcuts(videoRef: MutableRef<HTMLVideoElement | null>, wrapperRef: MutableRef<HTMLDivElement | null>, togglePlayback: () => void, flashControls: () => void) {
+function useKeyboardShortcuts(videoRef: RefObject<HTMLVideoElement | null>, wrapperRef: RefObject<HTMLDivElement | null>, togglePlayback: () => void, flashControls: () => void) {
     return useCallback((e: KeyboardEvent) => {
         const video = videoRef.current;
         if (!video || !claimsKeystroke(e)) return;

@@ -3,8 +3,9 @@ import "./AttributeEditor.css";
 import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, MentionHostedFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
 import clsx from "clsx";
+import { RefObject } from "preact";
 import { createPortal } from "preact/compat";
-import { MutableRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
 
 import type { CommandData, FilteredCommandNames } from "../../../components/app_context";
 import FAttribute from "../../../entities/fattribute";
@@ -37,7 +38,7 @@ type AttributeCommandNames = FilteredCommandNames<CommandData>;
 const BLINK_DURATION = 300;
 
 interface AttributeEditorProps {
-    api: MutableRef<AttributeEditorImperativeHandlers | null>;
+    api: RefObject<AttributeEditorImperativeHandlers | null>;
     note: FNote;
     componentId: string;
     notePath?: string | null;

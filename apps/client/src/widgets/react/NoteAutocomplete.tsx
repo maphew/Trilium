@@ -6,7 +6,7 @@ import { NOTE_TYPE_ICONS } from "@triliumnext/commons";
 import clsx from "clsx";
 import { type ComponentChildren, type RefObject, render, type VNode } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
-import { type MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
 import froca from "../../services/froca";
@@ -52,7 +52,7 @@ export interface NoteAutocompleteProps {
     /** Places the input in the tab order of a host that orders its fields with `tabIndex`. */
     tabIndex?: number;
     /** Receives the functions that drive the field from outside it. */
-    handleRef?: MutableRef<NoteAutocompleteHandle | null>;
+    handleRef?: RefObject<NoteAutocompleteHandle | null>;
     /** The element the list hangs from and spans, in place of the field, for a host that frames it. */
     anchorRef?: RefObject<HTMLElement | null>;
     /**
@@ -448,7 +448,7 @@ export function NoteMentionList({ query, anchor, allowCreatingNotes, parentNoteP
     /** Opens the list with an entry highlighted, so that Enter takes it. */
     preselect?: boolean;
     onPick(notePath: string | Promise<string | undefined>): void;
-    handleRef: MutableRef<AutocompleteListHandle | null>;
+    handleRef: RefObject<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
     /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
     onActiveDescendant?(id: string | null): void;
@@ -519,7 +519,7 @@ export function CommandMentionList<T extends CommandEntry>({ query, source, anch
     /** Opens the list with the best match highlighted, so that Enter takes it. */
     preselect?: boolean;
     onPick(entry: T): void;
-    handleRef: MutableRef<AutocompleteListHandle | null>;
+    handleRef: RefObject<AutocompleteListHandle | null>;
     elementRef?: PopupProps["elementRef"];
     /** Called with the id of the highlighted entry's element, or `null` while none is highlighted. */
     onActiveDescendant?(id: string | null): void;
@@ -587,7 +587,7 @@ export function filterCommandEntries<T extends CommandEntry>(entries: T[], query
 export interface HostedListProps {
     /** At the caret, placed again each time the query changes. */
     anchor: ReferenceElement;
-    handleRef: MutableRef<AutocompleteListHandle | null>;
+    handleRef: RefObject<AutocompleteListHandle | null>;
     elementRef(element: HTMLElement | null): void;
     /** Points the editor at the highlighted entry, through the state's `setActiveDescendant()`. */
     onActiveDescendant(id: string | null): void;

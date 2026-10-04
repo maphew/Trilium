@@ -4,7 +4,7 @@ import { Tooltip } from "bootstrap";
 import Mark from "mark.js";
 import { Ref, RefObject, VNode } from "preact";
 import { CSSProperties, useSyncExternalStore } from "preact/compat";
-import { MutableRef, useCallback, useContext, useDebugValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useDebugValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext, { EventData, EventNames } from "../../components/app_context";
 import Component from "../../components/component";
@@ -1603,7 +1603,7 @@ export function useImperativeSearchHighlighlighting(
     };
 }
 
-export function useNoteTreeDrag(containerRef: MutableRef<HTMLElement | null | undefined>, { dragEnabled, dragNotEnabledMessage, callback }: {
+export function useNoteTreeDrag(containerRef: RefObject<HTMLElement | null | undefined>, { dragEnabled, dragNotEnabledMessage, callback }: {
     dragEnabled: boolean,
     dragNotEnabledMessage: Omit<ToastOptions, "id">;
     callback: (data: DragData[], e: DragEvent) => void
@@ -1672,7 +1672,7 @@ export function useNoteTreeDrag(containerRef: MutableRef<HTMLElement | null | un
  * The `callback` should return the IDs of the notes it actually added (cloned) to the collection so
  * the warning only mentions newly-copied notes, not ones that were already present.
  */
-export function useCollectionTreeDrag(containerRef: MutableRef<HTMLElement | null | undefined>, { dragEnabled, includeArchived, callback }: {
+export function useCollectionTreeDrag(containerRef: RefObject<HTMLElement | null | undefined>, { dragEnabled, includeArchived, callback }: {
     dragEnabled: boolean,
     includeArchived: boolean,
     callback: (data: DragData[], e: DragEvent) => string[] | Promise<string[]>
