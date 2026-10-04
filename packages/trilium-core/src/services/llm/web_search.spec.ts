@@ -177,6 +177,7 @@ describe("createWebSearchTool", () => {
 
     it("returns the query, the provider that ran it and its sources", async () => {
         const tool = createWebSearchTool({ provider: "tavily", name: "My Tavily", apiKey: "tk" });
+        expect(tool.description).toContain("read_web_page");
 
         respond({ results: [ { ...PAGE, content: "Hit" } ] });
         expect(await run(tool, "trilium")).toEqual({

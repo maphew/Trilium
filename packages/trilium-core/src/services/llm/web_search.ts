@@ -40,7 +40,9 @@ const SEARCH_TIMEOUT_MS = 30_000;
  */
 export function createWebSearchTool(setup: WebSearchSetup) {
     return tool({
-        description: "Search the web for current information. Returns the title, URL and an excerpt of each matching page.",
+        description: "Search the web for current information. Returns the title, URL and a short excerpt of each matching page. "
+            + "The excerpts rarely hold specific facts such as numbers, dates or versions, so before answering a factual "
+            + "question, read the most promising results with read_web_page instead of answering from the excerpts.",
         inputSchema: z.object({
             query: z.string().describe("The search query")
         }),
