@@ -11,7 +11,7 @@ import Dropdown from "../../react/Dropdown.js";
 import { FormDropdownDivider, FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList.js";
 import Icon from "../../react/Icon.js";
 import MaskedIcon from "../../react/MaskedIcon.js";
-import { providerIconUrl, SEARCH_PROVIDER_ICON } from "../options/llm/provider_icons.js";
+import { providerIconUrl } from "../options/llm/provider_icons.js";
 
 /**
  * The Tools menu of the chat input bar: what the model can reach this turn, one section per group
@@ -84,7 +84,7 @@ export default function ChatToolsDropdown({ enableNoteTools, onNoteToolsChange, 
                     onChoose={onWebSearchChoose}
                     unavailableReason={searchProviderUnavailable}
                 >
-                    <MaskedIcon url={SEARCH_PROVIDER_ICON} className="llm-chat-tools-choice-icon" />
+                    <MaskedIcon url={providerIconUrl(provider.provider)} className="llm-chat-tools-choice-icon" />
                     {provider.name}
                 </WebSearchChoice>
             ))}

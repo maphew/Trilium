@@ -16,7 +16,7 @@ import WizardModal, { type WizardStep } from "../../../react/WizardModal";
 import OptionsRow from "../components/OptionsRow";
 import { useAntigravityDownload } from "./antigravity_download";
 import ModelSelection from "./ModelSelection";
-import { PROVIDER_ICONS, SEARCH_PROVIDER_ICON } from "./provider_icons.js";
+import { PROVIDER_ICONS } from "./provider_icons.js";
 
 export interface LlmProviderConfig {
     id: string;
@@ -164,12 +164,12 @@ export const PROVIDER_TYPES: ProviderType[] = [
 
 /** Web search services, configured in the same `llmProviders` option with `kind: "search"`. */
 export const SEARCH_PROVIDER_TYPES: ProviderType[] = [
-    { id: "brave", name: "Brave Search", group: "search-cloud", defaultBaseUrl: "https://api.search.brave.com/res/v1", iconUrl: SEARCH_PROVIDER_ICON },
-    { id: "tavily", name: "Tavily", group: "search-cloud", defaultBaseUrl: "https://api.tavily.com", iconUrl: SEARCH_PROVIDER_ICON },
-    { id: "exa", name: "Exa", group: "search-cloud", defaultBaseUrl: "https://api.exa.ai", iconUrl: SEARCH_PROVIDER_ICON },
+    { id: "brave", name: "Brave Search", group: "search-cloud", defaultBaseUrl: "https://api.search.brave.com/res/v1", iconUrl: PROVIDER_ICONS.brave },
+    { id: "tavily", name: "Tavily", group: "search-cloud", defaultBaseUrl: "https://api.tavily.com", iconUrl: PROVIDER_ICONS.tavily },
+    { id: "exa", name: "Exa", group: "search-cloud", defaultBaseUrl: "https://api.exa.ai", iconUrl: PROVIDER_ICONS.exa },
     {
         id: "searxng", name: "SearXNG", group: "search-local", defaultBaseUrl: "http://localhost:8888", prefillBaseUrl: true,
-        iconUrl: SEARCH_PROVIDER_ICON,
+        iconUrl: PROVIDER_ICONS.searxng,
         setupHintKey: "llm.setup_hint_searxng", apiKey: "optional", baseUrl: "required"
     }
 ];
