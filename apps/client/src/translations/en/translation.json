@@ -4535,6 +4535,8 @@
     "property_parents": "Continues on the note's parents",
     "property_children": "Continues on the note's children",
     "property_ancestors": "Continues on the note's ancestors",
+    "property_links": "Continues on the notes this note links to",
+    "property_backlinks": "Continues on the notes linking to this note",
     "property_labels": "Followed by a label name",
     "property_relations": "Followed by a relation name, then that note's own properties",
     "property_attribute_count": "Number of labels and relations, including inherited ones",
