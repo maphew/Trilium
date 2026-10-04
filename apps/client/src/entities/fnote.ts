@@ -438,12 +438,16 @@ export default class FNote {
 
     getSortedNotePathRecords(hoistedNoteId = "root", activeNotePath: string | null = null): NotePathRecord[] {
         const isHoistedRoot = hoistedNoteId === "root";
+        // Every ancestor in a path comes out of `froca.notes`, but the last segment is this note,
+        // which a view can still hold after `froca_updater` drops it from the cache.
+        const getPathNote = (noteId: string) =>
+            noteId === this.noteId ? this : this.froca.notes[noteId];
 
         const notePaths: NotePathRecord[] = this.getAllNotePaths().map((path) => ({
             notePath: path,
             isInHoistedSubTree: isHoistedRoot || path.includes(hoistedNoteId),
-            isArchived: path.some((noteId) => this.froca.notes[noteId].isArchived),
-            isSearch: path.some((noteId) => this.froca.notes[noteId].type === "search"),
+            isArchived: path.some((noteId) => getPathNote(noteId).isArchived),
+            isSearch: path.some((noteId) => getPathNote(noteId).type === "search"),
             isHidden: path.includes("_hidden")
         }));
 
