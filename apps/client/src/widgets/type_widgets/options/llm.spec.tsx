@@ -222,19 +222,23 @@ describe("the configured providers", () => {
         expect(host.querySelector(".no-items")).not.toBeNull();
     });
 
-    it("gives each provider a segment, named, described by its model count or its address and never by its name", () => {
+    it("describes a model provider by its models, a search provider by its address, and neither by its name", () => {
         withProviders([
-            { id: "a", name: "My OpenAI", provider: "openai", apiKey: "sk", selectedModels: [ {}, {} ] },
+            { id: "a", name: "My OpenAI", provider: "openai", apiKey: "sk", selectedModels: [ { id: "gpt-5", name: "GPT-5" }, { id: "o3", name: "o3" } ] },
             { id: "b", name: "Ollama", provider: "ollama", apiKey: "", baseURL: "http://box:11434" },
+            { id: "e", name: "Anthropic", provider: "anthropic", apiKey: "sk", selectedModels: [ { id: "s", name: "Claude Sonnet 4.5" } ] },
             { id: "c", name: "Brave Search", provider: "brave", kind: "search", apiKey: "bk" },
             { id: "d", name: "SearXNG", provider: "searxng", kind: "search", apiKey: "", baseURL: "http://searx.lan" }
         ]);
         open();
 
-        expect(providers()).toHaveLength(4);
+        expect(providers()).toHaveLength(5);
         expect(providers()[0].querySelector(".llm-provider-name")?.textContent).toContain("My OpenAI");
         const descriptions = providers().map((option) => option.querySelector(".tn-card-option-description")?.textContent ?? null);
-        expect(descriptions).toEqual([ "llm.provider_model_count", "http://box:11434", null, "http://searx.lan" ]);
+        // The short names the chat's picker shows; a provider with none is never offered there.
+        expect(descriptions).toEqual([ "GPT-5, o3", "llm.provider_no_models", "Sonnet 4.5", null, "http://searx.lan" ]);
+        // A list cut off by the row's width is still readable in full.
+        expect(providers()[0].querySelector(".llm-provider-models")?.getAttribute("title")).toBe("GPT-5, o3");
     });
 
     it("marks only the destructive action, and drops the one provider it was pressed on", async () => {
@@ -275,7 +279,7 @@ describe("the configured providers", () => {
             .find((c) => c.querySelector(".tn-card-heading")?.textContent === heading);
         const names = (heading: string) => [ ...card(heading)?.querySelectorAll(".llm-provider-name") ?? [] ]
             .map((name) => name.textContent);
-        expect(names("llm.configured_providers")).toEqual([ "My OpenAI" ]);
+        expect(names("llm.model_providers")).toEqual([ "My OpenAI" ]);
         expect(names("llm.search_providers")).toEqual([ "Brave Search" ]);
 
         const remove = card("llm.search_providers")?.querySelectorAll(".tn-card-option-actions button")[1];

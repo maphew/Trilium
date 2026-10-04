@@ -4160,7 +4160,6 @@
     "enabled_description": "Adds the AI chat sidebar and LLM chat notes, using the providers configured below.",
     "feature_not_enabled": "Enable the LLM experimental feature in Settings → Advanced → Experimental features to use AI integrations.",
     "add_provider": "Add Provider",
-    "add_provider_title": "Add AI Provider",
     "edit_provider_title": "Edit {{- name}}",
     "edit_provider": "Edit",
     "save": "Save",
@@ -4173,10 +4172,6 @@
     "models_select_all": "Select all",
     "models_select_none": "Select none",
     "models_reset_defaults": "Reset to defaults",
-    "provider_model_count_one": "{{count}} model",
-    "provider_model_count_other": "{{count}} models",
-    "configured_providers": "Configured Providers",
-    "no_providers_configured": "No providers configured yet.",
     "provider_name": "Name",
     "beta": "Beta",
     "provider_unavailable_standalone": "Unavailable in the browser version: this provider works by running a separate program on the machine, and there is no machine here to run it on.",
@@ -4268,7 +4263,11 @@
     "search_provider_group_local": "Self-hosted",
     "search_provider_group_local_description": "Your own metasearch instance. Searches reach only that instance and the search engines it queries.",
     "setup_hint_searxng": "The address of your SearXNG instance. Its <Code>settings.yml</Code> must list <Code>json</Code> under <Code>search.formats</Code>.",
-    "search_base_url_description": "Optional. Reaches the same API through a proxy or gateway."
+    "search_base_url_description": "Optional. Reaches the same API through a proxy or gateway.",
+    "model_providers": "Model Providers",
+    "add_model_provider": "Add Model Provider",
+    "no_model_providers_configured": "No model providers configured yet.",
+    "provider_no_models": "No models selected, so it isn't offered in the chat."
   },
   "common": {
     "save": "Save",

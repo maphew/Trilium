@@ -8,6 +8,14 @@
     text-align: end;
 }
 
+/* One line, cut off at the row's width; the full list is in its tooltip. */
+.llm-provider-models {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Scale the provider logo down to sit inline with the row label text. */
 .llm-provider-name .masked-icon {
     --masked-icon-size: 1.2em;

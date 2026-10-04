@@ -357,7 +357,7 @@ export default function AddProviderModal({ show, onHidden, onSave, existingProvi
     const allSteps: WizardStep<ProviderStep>[] = [
         {
             id: "provider",
-            title: isSearch ? t("llm.add_search_provider") : t("llm.add_provider_title"),
+            title: isSearch ? t("llm.add_search_provider") : t("llm.add_model_provider"),
             // Choosing a card advances on its own, so the step needs no primary action —
             // but Enter must still not advance with whichever provider happens to be
             // first in the list, hence the guard.

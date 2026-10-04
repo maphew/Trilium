@@ -17,6 +17,7 @@ import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import MaskedIcon from "../../react/MaskedIcon";
 import NoItems from "../../react/NoItems";
+import { shortModelName } from "../llm_chat/model_name";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import AddProviderModal, { findProviderType, type LlmProviderConfig } from "./llm/AddProviderModal";
 
@@ -95,11 +96,11 @@ function ProviderSettings({ kind }: { kind: LlmProviderKind }) {
     const isSearch = kind === "search";
 
     return (<>
-        <Card heading={isSearch ? t("llm.search_providers") : t("llm.configured_providers")}>
+        <Card heading={isSearch ? t("llm.search_providers") : t("llm.model_providers")}>
             <ProviderList
                 providers={providers}
                 emptyIcon={isSearch ? "bx bx-search" : "bx bx-bot"}
-                emptyText={isSearch ? t("llm.no_search_providers_configured") : t("llm.no_providers_configured")}
+                emptyText={isSearch ? t("llm.no_search_providers_configured") : t("llm.no_model_providers_configured")}
                 onEdit={openModal}
                 onDelete={handleDeleteProvider}
             />
@@ -108,7 +109,7 @@ function ProviderSettings({ kind }: { kind: LlmProviderKind }) {
                 <Button
                     name={isSearch ? "add-search-provider-button" : "add-llm-provider-button"}
                     size="micro" icon="bx-plus"
-                    text={isSearch ? t("llm.add_search_provider") : t("llm.add_provider")}
+                    text={isSearch ? t("llm.add_search_provider") : t("llm.add_model_provider")}
                     onClick={() => openModal()}
                 />
             </CardSection>
@@ -286,7 +287,6 @@ function ProviderList({ providers, emptyIcon, emptyText, onEdit, onDelete }: Pro
     return <>
         {providers.map((provider) => {
             const providerType = findProviderType(provider.provider);
-            const modelCount = provider.selectedModels?.length ?? 0;
             return (
                 <OptionCardSection
                     key={provider.id}
@@ -296,9 +296,7 @@ function ProviderList({ providers, emptyIcon, emptyText, onEdit, onDelete }: Pro
                             {provider.name}
                         </span>
                     }
-                    description={modelCount > 0
-                        ? t("llm.provider_model_count", { count: modelCount })
-                        : provider.baseURL}
+                    description={isProviderOfKind(provider, "llm") ? <ModelList provider={provider} /> : provider.baseURL}
                 >
                     <span className="tn-card-option-actions">
                         <ActionButton
@@ -317,4 +315,14 @@ function ProviderList({ providers, emptyIcon, emptyText, onEdit, onDelete }: Pro
             );
         })}
     </>;
+}
+
+/** The short names of a model provider's selected models, as the chat's picker shows them. */
+function ModelList({ provider }: { provider: LlmProviderConfig }) {
+    const models = provider.selectedModels ?? [];
+    if (!models.length) {
+        return <>{t("llm.provider_no_models")}</>;
+    }
+    const names = models.map((model) => shortModelName(model.name, provider.provider)).join(", ");
+    return <span className="llm-provider-models" title={names}>{names}</span>;
 }
