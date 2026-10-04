@@ -102,7 +102,7 @@ describe("useCanvasPersistence content loading (#10279)", () => {
     });
 
     afterEach(() => {
-        render(null, container);
+        act(() => render(null, container));
         container.remove();
         vi.useRealTimers();
     });
@@ -236,7 +236,7 @@ describe("useCanvasDrawingPersistence", () => {
     });
 
     afterEach(() => {
-        render(null, container);
+        act(() => render(null, container));
         container.remove();
     });
 
@@ -283,7 +283,7 @@ describe("useCanvasDrawingPersistence", () => {
             files: { f1: IMAGE }
         });
 
-        render(null, container);
+        act(() => render(null, container));
         const colored = buildAttachment({ elements, appState: { viewBackgroundColor: "#ffc9c9" } });
         expect((await mount(colored.attachment, buildEditor())).appState)
             .toEqual({ viewBackgroundColor: "#ffc9c9", theme: "light" });
@@ -334,7 +334,7 @@ describe("useCanvasDrawingPersistence", () => {
         change();
         expect(editor.scheduleSave).toHaveBeenCalledTimes(2);
 
-        render(null, container);
+        act(() => render(null, container));
         expect(editor.release).toHaveBeenCalledWith("a1");
     });
 

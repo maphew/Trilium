@@ -1,3 +1,8 @@
+// The client always runs with `preact/compat` loaded, and its `options.vnode` hook changes how
+// every element renders (`onChange` on a text input is `input`, `onFocus` is `focusin`). Loaded
+// here so a spec renders the same way whether or not its own imports reach compat.
+import "preact/compat";
+
 import { Modal } from "bootstrap";
 import $ from "jquery";
 import { vi } from "vitest";
