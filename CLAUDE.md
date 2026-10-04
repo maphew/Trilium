@@ -150,6 +150,9 @@ Shared components live in `apps/client/src/widgets/react/` — **always** reuse 
 ### Mobile (Capacitor) app
 `apps/mobile` wraps the standalone WASM build in a Capacitor WebView — no network backend. Its one tab always owns the worker, so the client answers most API calls in-page; what still leaves it (images, fonts, uploads) goes through the service worker on Android, at `https://localhost`, and through `apps/standalone/src/ios-interceptors.ts` on iOS, at `capacitor://localhost`, where no service worker can register. **`iosScheme: "https"` is a no-op and must not be re-added, and the iOS interceptor path is not dead code.** Load the **`developing-capacitor-mobile` skill** before touching `apps/mobile`, `ios-interceptors.ts`, `capacitor_http_handler.ts` or the `capacitor:` branches of `sw.ts`/`main.ts`.
 
+### PDF viewer
+PDF notes render in Mozilla's PDF.js viewer plus Trilium's code from `packages/pdfjs-viewer`, which every app serves from the built `dist` — **rebuild it (`pnpm --filter @triliumnext/pdfjs-viewer build`) after every viewer change**, since no `*:start` script does; load the **`developing-pdf-viewer` skill** before touching the viewer, `Pdf.tsx` or the PDF sidebar panels.
+
 ### Database
 
 SQLite (`better-sqlite3` on Node, `@sqlite.org/sqlite-wasm` on OPFS in standalone) behind `packages/trilium-core/src/services/sql/` (`DatabaseProvider`, prepared-statement cache, transactions). Schema: `packages/trilium-core/src/assets/schema.sql`; migrations: integer-versioned entries in the descending `MIGRATIONS` array in `packages/trilium-core/src/migrations/migrations.ts` (inline SQL or a `NNNN__description.ts` module) — load the **`evolving-the-data-model` skill** before adding a column or migration.

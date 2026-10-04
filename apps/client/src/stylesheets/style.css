@@ -2307,6 +2307,10 @@ button.close:hover {
     content: "\2060";
 }
 
+.reference-link small {
+    display: inline-block;
+}
+
 /* The board column a reference points at. `--custom-color` is set by the theme on
    `.use-note-color`. */
 .reference-link small.use-note-color {
