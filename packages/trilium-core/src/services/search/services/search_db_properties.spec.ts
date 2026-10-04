@@ -11,11 +11,6 @@ import searchService from "./search.js";
  * `loadNeededInfoFromDatabase()`, which only runs when an expression asked for it via
  * `searchContext.dbLoadNeeded`. That makes these the one group of properties that needs a real
  * database to test, hence this file rather than the mocked-becca `search.spec.ts`.
- *
- * Regression: PropertyComparisonExp used to set the flag by testing its case-mapped property name
- * ("contentSize") against a lower-cased list, so it never matched. The fields stayed undefined and
- * every comparison against them silently matched nothing, while `orderBy` on the same properties
- * worked (ValueExtractor does the equivalent check correctly).
  */
 describe("search on database-backed note properties", () => {
     const BODY_LENGTH = 500;
@@ -36,25 +31,18 @@ describe("search on database-backed note properties", () => {
         );
     });
 
-    /**
-     * The loader memoizes its results onto the becca notes, so a test that ran any other
-     * db-backed query first would mask exactly the cold-process failure these tests assert.
-     */
+    /** Puts the probe back in the state `BNote`'s constructor leaves it, before any load. */
     function resetMemoizedNoteProperties() {
         const probe = searchService.searchNotes("note.title *=* DbPropsProbe")[0];
-        probe.contentSize = undefined;
-        probe.contentAndAttachmentsSize = undefined;
-        probe.contentAndAttachmentsAndRevisionsSize = undefined;
-        probe.revisionCount = undefined;
+        probe.contentSize = null;
+        probe.contentAndAttachmentsSize = null;
+        probe.contentAndAttachmentsAndRevisionsSize = null;
+        probe.revisionCount = null;
     }
 
     it("loads the database-backed properties for a pure '#' query", () => {
         resetMemoizedNoteProperties();
 
-        // Regression (#11131): queries starting with '#' take the pure-expression shortcut,
-        // which used to skip loadNeededInfoFromDatabase() entirely — the comparison then ran
-        // against undefined, and the same query answered differently depending on what had
-        // been searched earlier in the process.
         expect(searchService.searchNotes("#tcDbProbe note.contentSize >= 0")).toHaveLength(1);
         expect(searchService.searchNotes(`#tcDbProbe note.contentSize > ${BODY_LENGTH}`)).toHaveLength(1);
         expect(searchService.searchNotes(`#tcDbProbe note.contentSize > ${BODY_LENGTH * 10}`)).toHaveLength(0);
@@ -66,8 +54,6 @@ describe("search on database-backed note properties", () => {
 
         resetMemoizedNoteProperties();
 
-        // Regression (#11131): the increment was guarded by the truthiness of a counter that had
-        // just been reset to zero, so revisionCount stayed 0 on every path.
         expect(searchService.searchNotes("note.title *=* DbPropsProbe AND note.revisionCount >= 1")).toHaveLength(1);
         expect(searchService.searchNotes("note.title *=* DbPropsProbe AND note.revisionCount = 0")).toHaveLength(0);
     });
