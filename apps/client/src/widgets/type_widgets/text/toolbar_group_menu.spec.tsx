@@ -64,7 +64,7 @@ describe("createToolbarGroupMenuHost", () => {
             "dropdown-item Link",
             "dropdown-divider ",
             "dropdown-item disabled Math",
-            "dropdown-item dropdown-submenu Date/time"
+            "dropdown-item dropdown-submenu tn-menu-split Date/time"
         ]);
         expect(rowTitled("Link").querySelector(".tn-svg-icon > svg")).not.toBeNull();
         expect(rowTitled("Date/time").querySelector(".tn-svg-icon > svg")).not.toBeNull();

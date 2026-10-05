@@ -1,43 +1,24 @@
+import { Tooltip } from "bootstrap";
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { MenuItem } from "../../menus/context_menu";
+import { formatShortcut, joinShortcut } from "../../services/keyboard_shortcut_display";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "./FormList";
-import Menu, { type MenuProps, rowInNextColumn } from "./Menu";
+import Menu, { type MenuProps } from "./Menu";
 import { shouldDropStart } from "./menu_context";
 
-/** A row 20px tall, `left` into the menu and `top` down it. */
-function row(left: number, top: number) {
-    return { left, top, bottom: top + 20 };
-}
-
-describe("rowInNextColumn", () => {
-    // Three rows in the first column, two in the second, one in the third.
-    const columns = [
-        row(0, 0), row(0, 20), row(0, 40),
-        row(100, 0), row(100, 20),
-        row(200, 0)
-    ];
-
-    it("goes to the row at the same height in the column beside", () => {
-        expect(rowInNextColumn(columns, 1, "right")).toBe(4);
-        expect(rowInNextColumn(columns, 4, "left")).toBe(1);
-        // The nearest column, not the one after it.
-        expect(rowInNextColumn(columns, 0, "right")).toBe(3);
-    });
-
-    it("goes to the nearest row where the column beside is shorter", () => {
-        expect(rowInNextColumn(columns, 2, "right")).toBe(4);
-        expect(rowInNextColumn(columns, 4, "right")).toBe(5);
-    });
-
-    it("finds nothing past the outermost column, in a single column, or for a row it cannot place", () => {
-        expect(rowInNextColumn(columns, 0, "left")).toBeUndefined();
-        expect(rowInNextColumn(columns, 5, "right")).toBeUndefined();
-        expect(rowInNextColumn([ row(0, 0), row(0, 20) ], 0, "right")).toBeUndefined();
-        expect(rowInNextColumn(columns, -1, "right")).toBeUndefined();
-        // A row not laid out yet is passed over.
-        expect(rowInNextColumn([ row(0, 0), undefined, row(100, 0) ], 0, "right")).toBe(2);
-    });
+vi.mock("../../services/keyboard_actions", async (importOriginal) => {
+    const original = await importOriginal<typeof import("../../services/keyboard_actions")>();
+    return {
+        ...original,
+        default: {
+            ...original.default,
+            getAction: vi.fn(async (name: string) => (name === "cutNotesToClipboard"
+                ? { effectiveShortcuts: [ "CommandOrControl+X" ] }
+                : undefined))
+        }
+    };
 });
 
 describe("shouldDropStart", () => {
@@ -210,6 +191,35 @@ describe("Menu with declared rows", () => {
         expect(activeTitle(unwanted)).toBeUndefined();
     });
 
+    it("splits a submenu row that runs an action of its own: the row runs it, its arrow only opens", async () => {
+        const toggled = vi.fn();
+        render((
+            <Menu anchor={{ x: 10, y: 10 }} onClose={vi.fn()}>
+                <FormDropdownSubmenu title="Duplicate" icon="bx bx-outline" onDropdownToggleClicked={toggled}>
+                    <FormListItem>This note only</FormListItem>
+                </FormDropdownSubmenu>
+                <FormDropdownSubmenu title="Advanced" icon="bx bx-chip">
+                    <FormListItem>Reload</FormListItem>
+                </FormDropdownSubmenu>
+            </Menu>
+        ), host);
+        const menu = document.querySelector<HTMLElement>(".tn-popup.tn-menu");
+        if (!menu) throw new Error("expected the menu to render");
+
+        expect(rowTitled("Advanced").querySelector(".tn-menu-split-toggle")).toBeNull();
+        const duplicateRow = rowTitled("Duplicate");
+        expect(duplicateRow.classList.contains("tn-menu-split")).toBe(true);
+        const arrow = duplicateRow.querySelector<HTMLElement>(".tn-menu-split-toggle");
+        if (!arrow) throw new Error("expected the split row to draw its arrow as a target");
+
+        press(arrow);
+        await vi.waitFor(() => expect(layers(menu)).toEqual([ [ "This note only" ] ]));
+        expect(toggled).not.toHaveBeenCalled();
+
+        press(duplicateRow);
+        expect(toggled).toHaveBeenCalledOnce();
+    });
+
     it("neither opens nor runs a disabled submenu row", async () => {
         const toggled = vi.fn();
         render((
@@ -264,5 +274,121 @@ describe("Menu with declared rows", () => {
         } finally {
             vi.restoreAllMocks();
         }
+    });
+});
+
+describe("Menu with an action row", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    afterEach(() => {
+        render(null, host);
+        window.glob.isRtl = false;
+        window.glob.device = "desktop";
+    });
+
+    function renderMenu() {
+        const onSelect = vi.fn();
+        const items: MenuItem<string>[] = [
+            {
+                kind: "actions",
+                items: [
+                    { title: "Cut", command: "cut", uiIcon: "bx bx-cut", keyboardShortcut: "cutNotesToClipboard" },
+                    { title: "Copy", command: "copy", uiIcon: "bx bx-copy", enabled: false },
+                    { title: "Delete", command: "delete", uiIcon: "bx bx-trash", uiIconBadge: "bx bx-x", tooltip: "Delete, asking first" }
+                ]
+            },
+            { kind: "separator" },
+            { title: "Rename", command: "rename" },
+            { title: "More", items: [ { title: "Inner", command: "inner" } ] }
+        ];
+        render(<Menu anchor={{ x: 10, y: 10 }} items={items} onSelect={onSelect} onClose={vi.fn()} />, host);
+
+        const menu = document.querySelector<HTMLElement>(".tn-popup.tn-menu");
+        if (!menu) throw new Error("expected the menu to render");
+        return { menu, onSelect };
+    }
+
+    const key = (menu: HTMLElement, name: string) =>
+        menu.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+    const active = (menu: HTMLElement) =>
+        menu.querySelector(".tn-menu-active .tn-menu-action-title, li.tn-menu-active > span")?.textContent;
+
+    it("steps through the actions as rows, the arrow towards the end moving on as Down does", async () => {
+        const { menu, onSelect } = renderMenu();
+
+        key(menu, "ArrowDown");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
+        // The disabled "Copy" is passed over, and the last action leads on to the rows below.
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Delete"));
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Rename"));
+        key(menu, "ArrowUp");
+        await vi.waitFor(() => expect(active(menu)).toBe("Delete"));
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
+
+        key(menu, "Enter");
+        expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ command: "cut" }), expect.any(KeyboardEvent));
+    });
+
+    it("sets an action's badge over the corner of its icon, which gives way around it", () => {
+        const { menu } = renderMenu();
+        const icons = [ ...menu.querySelectorAll(".tn-menu-action-icon") ].map((icon) =>
+            [ ...icon.children ].map((child) => child.className).join(" + "));
+        expect(icons).toEqual([
+            "tn-icon bx bx-cut",
+            "tn-icon bx bx-copy",
+            "tn-icon bx bx-trash tn-menu-action-badged + tn-menu-action-badge bx bx-x"
+        ]);
+    });
+
+    it("names each action, or describes it, with the shortcut a row would show in its tooltip", async () => {
+        const { menu } = renderMenu();
+        const [ cut, , remove ] = menu.querySelectorAll<HTMLElement>(".tn-menu-action");
+        const tooltipText = (button: HTMLElement | undefined) => {
+            const tooltip = button && Tooltip.getInstance(button);
+            if (!tooltip) return undefined;
+            tooltip.show();
+            const text = document.querySelector(".tooltip:last-of-type .tooltip-inner")?.textContent;
+            tooltip.hide();
+            return text;
+        };
+
+        // Formatted for display, as a row's shortcut is, rather than the raw `CommandOrControl+X`.
+        const shortcut = joinShortcut(formatShortcut("CommandOrControl+X"));
+        await vi.waitFor(() => expect(tooltipText(cut)).toBe(`Cut (${shortcut})`));
+        expect(shortcut).not.toContain("CommandOrControl");
+        expect(tooltipText(remove)).toBe("Delete, asking first");
+    });
+
+    it("gives the actions no tooltip on a phone, which has no pointer to hover with", async () => {
+        window.glob.device = "mobile";
+        const { menu } = renderMenu();
+        const [ cut, , remove ] = menu.querySelectorAll<HTMLElement>(".tn-menu-action");
+        if (!cut || !remove) throw new Error("expected the actions to render");
+
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(Tooltip.getInstance(cut)).toBeNull();
+        expect(Tooltip.getInstance(remove)).toBeNull();
+    });
+
+    it("keeps Right and Left for the submenus on the other rows, mirrored right to left", async () => {
+        const { menu } = renderMenu();
+
+        key(menu, "ArrowUp");
+        await vi.waitFor(() => expect(active(menu)).toBe("More"));
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Inner"));
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(active(menu)).toBe("More"));
+
+        window.glob.isRtl = true;
+        key(menu, "Home");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(active(menu)).toBe("Delete"));
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
     });
 });

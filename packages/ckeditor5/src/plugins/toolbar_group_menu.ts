@@ -82,17 +82,19 @@ export default class ToolbarGroupMenu extends Plugin {
             editor.config.get("balloonToolbar"),
             editor.config.get("blockToolbar")
         );
-        if (!labels.size || !editor.config.get("toolbarGroupMenu")) {
+        const menuConfig = editor.config.get("toolbarGroupMenu");
+        if (!labels.size || !menuConfig) {
             return;
         }
+        const createHost = () => menuConfig.host(editor);
 
         for (const toolbar of this.getToolbarViews()) {
             for (const item of toolbar.items) {
-                this.watchGroupDropdown(toolbar, item, labels);
+                this.watchGroupDropdown(toolbar, item, labels, createHost);
             }
 
             this.listenTo(toolbar.items, "add", (evt, item: View) => {
-                this.watchGroupDropdown(toolbar, item, labels);
+                this.watchGroupDropdown(toolbar, item, labels, createHost);
             });
         }
     }
@@ -124,7 +126,9 @@ export default class ToolbarGroupMenu extends Plugin {
         return toolbars;
     }
 
-    private watchGroupDropdown(toolbar: ToolbarView, item: View, labels: Set<string>) {
+    private watchGroupDropdown(
+        toolbar: ToolbarView, item: View, labels: Set<string>, createHost: () => ToolbarGroupMenuHost
+    ) {
         if (!(item instanceof DropdownView) || this.watchedDropdowns.has(item)) {
             return;
         }
@@ -147,12 +151,14 @@ export default class ToolbarGroupMenu extends Plugin {
             if (this.shown?.dropdown === item) {
                 this.hideMenu();
             } else {
-                this.showMenu(toolbar, item);
+                this.showMenu(toolbar, item, createHost);
             }
         }, { priority: "high" });
     }
 
-    private showMenu(toolbar: ToolbarView, dropdown: DropdownView) {
+    private showMenu(
+        toolbar: ToolbarView, dropdown: DropdownView, createHost: () => ToolbarGroupMenuHost
+    ) {
         const editor = this.editor;
         const anchor = dropdown.buttonView.element;
         /* v8 ignore next 3 -- a dropdown is opened from its rendered button */
@@ -161,11 +167,7 @@ export default class ToolbarGroupMenu extends Plugin {
         }
 
         this.hideMenu();
-        const host = this.host ??= editor.config.get("toolbarGroupMenu")?.host(editor) ?? null;
-        /* v8 ignore next 3 -- `afterInit()` watches no dropdown without a host */
-        if (!host) {
-            return;
-        }
+        const host = this.host ??= createHost();
 
         // The toolbar's "Show more items" dropdown closes as focus or a press leaves it, so it
         // counts the menu as its own too, while it holds the group.
@@ -227,6 +229,7 @@ export default class ToolbarGroupMenu extends Plugin {
             this.building = false;
         }
 
+        /* v8 ignore next -- opening the dropdown builds its `toolbarView` */
         return [...dropdown.toolbarView?.items ?? []];
     }
 
