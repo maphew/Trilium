@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import appContext from "../components/app_context";
 import { buildNote } from "../test/easy-froca";
 import froca from "./froca";
+import options from "./options";
 import server from "./server.js";
 
 // i18next is not initialized in the test env, so the real `t` returns undefined.
@@ -474,6 +476,43 @@ describe("new template badges", () => {
             expect(withoutAi).not.toContain("llmChat");
             expect(withoutAi).not.toContain("tpl-ai");
         } finally {
+            restore();
+        }
+    });
+
+    it("offers the enabled code languages in a submenu of Code, as they stand when the menu opens", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([]);
+        const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockImplementation(async () => undefined);
+        const original = options.get("codeNotesMimeTypes");
+        try {
+            const data = await noteTypesService.loadNoteTypeData();
+            const codeRow = (items: any[]) => items.find((i) => i.type === "code" && i.mime === "text/plain");
+
+            options.set("codeNotesMimeTypes", JSON.stringify([ "text/x-python", "text/x-markdown" ]));
+            const code = codeRow(noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never));
+            // The row still makes a plain text code note of its own.
+            expect(code.command).toBe("insertChildNote");
+            const languages = code.items.filter((i: any) => i.mime);
+            // Plain text is always enabled; Markdown has an entry of its own.
+            expect(languages.map((i: any) => i.mime)).toEqual([ "text/plain", "text/x-python" ]);
+            expect(languages.every((i: any) => i.type === "code" && i.command === "insertChildNote")).toBe(true);
+
+            const configure = code.items.at(-1);
+            expect(configure.command).toBeUndefined();
+            configure.handler();
+            expect(triggerCommand).toHaveBeenCalledWith("showOptions", { section: "_optionsCodeNotes" });
+
+            // A language enabled since is offered the next time the menu opens.
+            options.set("codeNotesMimeTypes", JSON.stringify([ "text/x-python", "text/apl" ]));
+            const again = codeRow(noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never));
+            expect(again.items.filter((i: any) => i.mime).map((i: any) => i.mime)).toContain("text/apl");
+
+            // The chooser's flat list cannot open a submenu.
+            expect(codeRow(await noteTypesService.getNoteTypeItems()).items).toBeUndefined();
+        } finally {
+            options.set("codeNotesMimeTypes", original);
+            triggerCommand.mockRestore();
             restore();
         }
     });

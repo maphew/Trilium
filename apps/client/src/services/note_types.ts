@@ -3,6 +3,7 @@ import {
     type TemplatesResponse
 } from "@triliumnext/commons";
 
+import appContext from "../components/app_context.js";
 import type FNote from "../entities/fnote.js";
 import type { NoteType } from "../entities/fnote.js";
 import type { MenuCommandItem, MenuItem, MenuItemBadge, MenuSeparatorItem } from "../menus/context_menu.js";
@@ -10,7 +11,9 @@ import type { TreeCommandNames } from "../menus/tree_context_menu.js";
 import { isExperimentalFeatureEnabled } from "./experimental_features.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
+import mimeTypes from "./mime_types.js";
 import server from "./server.js";
+import { escapeHtml } from "./utils.js";
 
 export interface NoteTypeMapping {
     type: NoteType;
@@ -230,6 +233,9 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layo
 
     const items: MenuItem<TreeCommandNames>[] = [];
     for (const blankType of getBlankNoteTypes(command)) {
+        if (layout === "menu" && "mime" in blankType && blankType.type === "code" && blankType.mime === "text/plain") {
+            blankType.items = getCodeLanguageItems(command);
+        }
         items.push(blankType);
         if ("type" in blankType && blankType.type === "llmChat") items.push(...builtIn("aiQuickAction"));
     }
@@ -277,6 +283,28 @@ function getBlankNoteTypes(command?: TreeCommandNames): MenuItem<TreeCommandName
 
             return menuItem;
         });
+}
+
+/**
+ * The code languages enabled in the code note options, Markdown aside since it has an entry of its
+ * own, then a row to configure them. The options are read again each time, so a language enabled
+ * since the last menu is offered.
+ */
+function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandNames>[] {
+    mimeTypes.loadMimeTypes();
+    const languages = mimeTypes.getMimeTypes()
+        .filter((mimeType) => mimeType.enabled && mimeType.mime !== MARKDOWN_NOTE_TYPE_MIME)
+        .map<MenuItem<TreeCommandNames>>(({ title, mime }) => ({ title: escapeHtml(title), command, type: "code", mime }));
+
+    return [
+        ...languages,
+        SEPARATOR,
+        {
+            title: t("basic_properties.configure_code_notes"),
+            uiIcon: "bx bx-cog",
+            handler: () => void appContext.triggerCommand("showOptions", { section: "_optionsCodeNotes" })
+        }
+    ];
 }
 
 function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>) {

@@ -12,6 +12,13 @@ For shorter snippets of code that can be embedded in [Text](Text.md) notes, se
 
 ![](Code_image.png)
 
+## Creating a code note
+
+In the [Note Tree](../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20Tree.md), right-click a note and select _Insert child note_ or _Insert note after_, then:
+
+*   To create a plain text code note, select _Code_.
+*   To create a code note in a given language, hover _Code_ and select the language. The list shows the languages enabled in the options (see below), and ends with _Configure code notes..._, which opens them.
+
 ## Adjusting the language of a code note
 
 In the [Ribbon](../Basic%20Concepts%20and%20Features/UI%20Elements/Ribbon.md), look for the _Note type_ selector and click it to reveal the possible note types. Inside of it there will be a section called _Code_, select any one of the languages.
