@@ -12,7 +12,9 @@ import { applyNotePreset } from "../../services/note_presets";
 import note_types, { MARKDOWN_NOTE_TYPE_MIME, NOTE_TYPES, type NoteTypeData } from "../../services/note_types";
 import server from "../../services/server";
 import { Badge, BadgeWithDropdown } from "../react/Badge";
-import { useNoteProperty, useNoteSavedData, useTriliumEvent } from "../react/hooks";
+import {
+    useGetContextDataFrom, useNoteContext, useNoteProperty, useNoteSavedData, useTriliumEvent
+} from "../react/hooks";
 import { onWheelHorizontalScroll } from "../widget_utils";
 
 /** The note types offered as a pill of their own, each a single click away. */
@@ -23,6 +25,10 @@ const PINNED_NOTE_TYPES: { type: NoteType, mime?: string }[] = [
 
 export default function NoteTypeSwitcher({ note }: { note?: FNote | null }) {
     const blob = useNoteSavedData(note?.noteId);
+    const { noteContext } = useNoteContext();
+    // A switch drops the editor's pending save, so the switcher waits for it to land.
+    const saveState = useGetContextDataFrom(noteContext, "saveState")?.state;
+    const isSaved = !saveState || saveState === "saved";
     const currentNoteType = useNoteProperty(note, "type");
     const currentNoteTypeData = NOTE_TYPES.find(t => t.type === currentNoteType);
 
@@ -33,7 +39,7 @@ export default function NoteTypeSwitcher({ note }: { note?: FNote | null }) {
             className="note-type-switcher"
             onWheel={onWheelHorizontalScroll}
         >
-            {note && blob?.length === 0 && (
+            {note && blob?.length === 0 && isSaved && (
                 <>
                     <div className="intro">{t("note_title.note_type_switcher_label", { type: currentNoteTypeData?.title.toLocaleLowerCase() })}</div>
                     <NoteTypeBadges noteId={note.noteId} />

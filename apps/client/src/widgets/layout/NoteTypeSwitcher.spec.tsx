@@ -3,14 +3,20 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import Component from "../../components/component.js";
+import NoteContext, { type SaveState } from "../../components/note_context.js";
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu.js";
 import type { TreeCommandNames } from "../../menus/tree_context_menu.js";
 import attributes from "../../services/attributes.js";
 import type { NoteTypeData } from "../../services/note_types.js";
 import server from "../../services/server.js";
 import { buildNote } from "../../test/easy-froca.js";
-import { ParentComponent } from "../react/react_utils.js";
+import { noteSavedDataStore } from "../react/NoteStore.js";
+import { NoteContextContext, ParentComponent } from "../react/react_utils.js";
 import NoteTypeSwitcher, { NoteTypeBadges, toSwitcherItems, useNoteTypeData } from "./NoteTypeSwitcher.js";
+
+vi.mock("../../services/i18n.js", () => ({
+    t: (key: string) => key
+}));
 
 let container: HTMLDivElement | undefined;
 
@@ -30,6 +36,32 @@ describe("NoteTypeSwitcher", () => {
             .querySelector(".note-type-switcher")).not.toBeNull();
         expect(mount(<NoteTypeSwitcher note={buildNote({ id: "codeNote", title: "Script", type: "code", mime: "application/javascript;env=backend" })} />)
             .querySelector(".note-type-switcher")).toBeNull();
+    });
+
+    it("steps back while the note has changes not yet saved, which a switch would drop", async () => {
+        vi.spyOn(server, "get").mockResolvedValue({ templateNoteIds: [], newTemplateNoteIds: [] });
+        buildNote({ id: "_templates", title: "Templates" });
+        const note = buildNote({ id: "pendingNote", title: "Note", type: "text" });
+        noteSavedDataStore.set("pendingNote", "");
+        const noteContext = new NoteContext("pending-ntx");
+        const host = new Component();
+        const intro = () => container?.querySelector(".note-type-switcher .intro");
+        const deliver = (state: SaveState) => act(() => {
+            host.handleEvent("contextDataChanged", { noteContext, key: "saveState", value: { state } });
+        });
+
+        mount(<NoteContextContext.Provider value={noteContext}><NoteTypeSwitcher note={note} /></NoteContextContext.Provider>, host);
+        await flush();
+        expect(intro()).not.toBeNull();
+
+        for (const state of [ "unsaved", "saving", "error" ] as const) {
+            deliver(state);
+            expect(intro(), state).toBeNull();
+        }
+
+        // Saved and still empty, the note can be switched again.
+        deliver("saved");
+        expect(intro()).not.toBeNull();
     });
 
     it("offers Markdown and Canvas as pills, and the code languages, collections, templates and the rest from dropdowns", async () => {
