@@ -140,6 +140,9 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
         ? noteTypesService.buildNoteTypeItems(noteTypeData, "insertChildNote")
         : null;
 
+    const protectItem: MenuCommandItem<TreeCommandNames> = { title: t("tree-context-menu.protect-subtree"), command: "protectSubtree", uiIcon: "bx bx-check-shield", enabled: noSelectedNotes };
+    const unprotectItem: MenuCommandItem<TreeCommandNames> = { title: t("tree-context-menu.unprotect-subtree"), command: "unprotectSubtree", uiIcon: "bx bx-shield", enabled: noSelectedNotes };
+
     const items: (MenuItem<TreeCommandNames> | null)[] = [
         {
             kind: "actions",
@@ -221,12 +224,6 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             filterable: true,
             enabled: notSearch && noSelectedNotes && notOptionsOrHelp && !hasSubtreeHidden && !isSpotlighted
         },
-
-        { kind: "separator" },
-
-        { title: t("tree-context-menu.protect-subtree"), command: "protectSubtree", uiIcon: "bx bx-check-shield", enabled: noSelectedNotes },
-
-        { title: t("tree-context-menu.unprotect-subtree"), command: "unprotectSubtree", uiIcon: "bx bx-shield", enabled: noSelectedNotes },
 
         { kind: "separator" },
 
@@ -336,6 +333,13 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
                     }
                 }
             }
+        },
+
+        // Runs what the note's own state calls for; the submenu keeps both, for a subtree that is
+        // protected only in part.
+        {
+            ...(note.isProtected ? unprotectItem : protectItem),
+            items: [ protectItem, unprotectItem ]
         },
 
         { kind: "separator" },
