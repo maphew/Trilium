@@ -680,8 +680,8 @@ describe("Collapsed board columns", () => {
 
         // Archived notes are not shown, so the entry is not ticked, and pressing it asks for them.
         // The inbox column is turned on in the properties dialog rather than here.
-        expect("trailingIcon" in entry("bx bx-archive") && entry("bx bx-archive").trailingIcon)
-            .toBeUndefined();
+        expect("checked" in entry("bx bx-archive") && entry("bx bx-archive").checked)
+            .toBe(false);
         entry("bx bx-archive").handler?.(entry("bx bx-archive"), {} as never);
         expect(archived).toHaveBeenCalledWith(true);
 

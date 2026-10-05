@@ -63,15 +63,14 @@ export interface MenuCommandItem<T> {
     shortcut?: string;
     keyboardShortcut?: KeyboardActionNames;
     spellingSuggestion?: string;
+    /**
+     * Makes the item a checkable one and says whether it is checked. The check shows at the trailing
+     * edge when the item has a {@link uiIcon} of its own, and in place of the icon when it has none.
+     */
     checked?: boolean;
     /** Classes put on the item itself, for a menu styling one of its entries differently. */
     className?: string;
-    /**
-     * An icon shown at the trailing edge of the item, where a shortcut would go.
-     *
-     * Unlike {@link checked}, which takes the place of {@link uiIcon}, this leaves the item's own
-     * icon standing — for a list where that icon is what tells one entry from another.
-     */
+    /** An icon shown at the trailing edge of the item, where a shortcut would go. */
     trailingIcon?: string;
     /**
      * For an item with {@link items}: typing while its submenu is open filters every item inside

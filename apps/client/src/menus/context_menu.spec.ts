@@ -172,7 +172,7 @@ describe("contextMenu", () => {
             expect(row?.querySelector(".tn-menu-name")).not.toBeNull();
         });
 
-        it("shows an item's icon, a check mark in its place when checked, and a slot for none", async () => {
+        it("shows an item's icon, a check mark after a checked item with one and in its place without, and a slot for none", async () => {
             buildPage();
             const contextMenu = await buildContextMenu();
 
@@ -181,6 +181,8 @@ describe("contextMenu", () => {
                 items: [
                     { title: "To Do", uiIcon: "bx bx-list-ul", iconColorClass: "use-note-color color-e64d4d" },
                     { title: "Done", uiIcon: "bx bx-list-ul", checked: true },
+                    { title: "Wrap", checked: true },
+                    { title: "Blank", uiIcon: "bx bx-empty", checked: true },
                     { title: "Aligned", uiIcon: undefined },
                     { title: "Plain" }
                 ]
@@ -194,6 +196,9 @@ describe("contextMenu", () => {
             });
             expect(slots).toEqual([
                 "bx bx-list-ul use-note-color color-e64d4d tn-icon",
+                // The item's own icon tells it from the others, so the check goes to the trailing edge.
+                "bx bx-list-ul tn-icon",
+                "bx bx-check tn-icon",
                 "bx bx-check tn-icon",
                 // A blank icon of an icon's width, which lines the title up with the others.
                 "bx bx-empty tn-icon",
@@ -201,6 +206,9 @@ describe("contextMenu", () => {
             ]);
             // Only the icon is tinted, so the title keeps the menu's own colour.
             expect(menuElement()?.querySelectorAll(".use-note-color")).toHaveLength(1);
+            const trailing = [ ...menuElement()?.querySelectorAll("li.dropdown-item") ?? [] ]
+                .map((row) => row.querySelector(".menu-trailing-icon")?.className ?? null);
+            expect(trailing).toEqual([ null, "bx bx-check tn-icon menu-trailing-icon", null, null, null, null ]);
         });
 
         it("shows a keyboard action's shortcuts, or a literal shortcut, after the title", async () => {

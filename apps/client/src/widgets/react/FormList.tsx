@@ -148,6 +148,10 @@ export interface FormListItemOpts {
     disabled?: boolean;
     /** Will indicate the reason why the item is disabled via an icon, when hovered over it. */
     disabledTooltip?: string;
+    /**
+     * Marks the row with a check: at the trailing edge when the row has an {@link icon} of its own,
+     * which tells it from the other rows, and in place of the icon when it has none.
+     */
     checked?: boolean | null;
     selected?: boolean;
     container?: boolean;
@@ -171,13 +175,13 @@ export interface FormListItemOpts {
     keyboardShortcut?: KeyboardActionNames;
     /** A shortcut shown as it is written, for a row with no action of its own. */
     shortcut?: string;
-    /**
-     * An icon at the end of the row, where a shortcut would go. Unlike {@link checked}, which takes
-     * the place of {@link icon}, this leaves the row's own icon standing, for a list where that icon
-     * is what tells one row from another.
-     */
+    /** An icon at the end of the row, where a shortcut would go. */
     trailingIcon?: string;
 }
+
+const CHECK_ICON = "bx bx-check";
+/** The blank icon a row carries only to line its title up with the icons of the others. */
+const EMPTY_ICON = "bx bx-empty";
 
 /** What in a row takes focus from a press: the controls that are typed into. */
 const TEXT_ENTRY = "input:not([type='checkbox'], [type='radio']), textarea, select, [contenteditable='true']";
@@ -222,8 +226,10 @@ export function FormListItem({ className, icon, iconSvg, iconClassName, value, t
         menu.openSubmenu(level, undefined, e.currentTarget);
     }
 
+    const hasOwnIcon = !!iconSvg || (!!icon && icon !== EMPTY_ICON);
     if (checked) {
-        icon = "bx bx-check";
+        if (hasOwnIcon) trailingIcon ??= CHECK_ICON;
+        else icon = CHECK_ICON;
     }
 
     useStaticTooltip(itemRef, TOOLTIP_CONFIG);
@@ -269,7 +275,7 @@ export function FormListItem({ className, icon, iconSvg, iconClassName, value, t
         >
             {/* One classless span holds the row, as the rows of a menu are laid out. */}
             <span>
-                {iconSvg && !checked
+                {iconSvg
                     ? <SvgIcon svg={iconSvg} className={iconClassName} />
                     : icon === null ? <span /> : <Icon icon={icon} className={iconClassName} />}
                 {/* An element, not spaces: in a flex row, text merges with a plain title but is
