@@ -404,6 +404,38 @@ describe("new template badges", () => {
             restore();
         }
     });
+
+    it("puts the collections in a submenu of the menu, and under a header of the list", async () => {
+        withTemplates([], [ "tpl-coll" ]);
+        const restore = withTemplatesRoot([
+            fakeTemplate("tpl-plain", [ "template" ], "Plain"),
+            fakeTemplate("tpl-coll", [ "template", "collection" ], "Coll")
+        ]);
+        try {
+            const data = await noteTypesService.loadNoteTypeData();
+            const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertNoteAfter" as never);
+
+            const submenu = menu.find((i) => i.title === "note_types.book");
+            expect(submenu).toBeDefined();
+            expect(submenu.kind).toBeUndefined();
+            expect(submenu.command).toBeUndefined();
+            expect(submenu.items.map((i: any) => i.templateNoteId)).toEqual([ "tpl-coll" ]);
+            expect(submenu.items[0].command).toBe("insertNoteAfter");
+            expect(submenu.items[0].badges).toHaveLength(1);
+            // The collections are only in the submenu, and the menu has no header left for them.
+            expect(menu.some((i) => i.templateNoteId === "tpl-coll")).toBe(false);
+            expect(menu.some((i) => i.kind === "header")).toBe(false);
+            expect(menu.some((i) => i.templateNoteId === "tpl-plain")).toBe(true);
+
+            // The note type chooser renders a flat list, so it keeps the header.
+            const list: any[] = await noteTypesService.getNoteTypeItems();
+            expect(list.some((i) => i.kind === "header" && i.title === "note_types.collections")).toBe(true);
+            expect(list.some((i) => i.templateNoteId === "tpl-coll")).toBe(true);
+            expect(list.some((i) => i.items)).toBe(false);
+        } finally {
+            restore();
+        }
+    });
 });
 
 describe("isCurrentNoteType", () => {

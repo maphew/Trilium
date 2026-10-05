@@ -24,6 +24,7 @@ The contextual menu can operate:
     *   Will focus the note tree on this note. See <a class="reference-link" href="../../Navigation/Note%20Hoisting.md">Note Hoisting</a> for more information.
 *   **Insert note after**
     *   Allows easy creation of a note with a specified [note type](../../../Note%20Types.md).
+    *   <a class="reference-link" href="../../../Collections.md">Collections</a> are grouped in the _Collection_ submenu.
     *   <a class="reference-link" href="../../../Advanced%20Usage/Templates.md">Templates</a> will also be present (if any) at the end of the list.
     *   The note will be added on the same level of hierarchy as the note selected.
 *   **Insert child note**

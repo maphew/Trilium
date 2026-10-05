@@ -216,24 +216,32 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
     return { builtInTemplateNotes, userTemplateNotes, newTemplates: new Set(newTemplateNoteIds) };
 }
 
-function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
+/**
+ * The note type items. In a `"menu"` the collections form a submenu; a `"list"`, such as the note
+ * type chooser draws, cannot open one, so there they follow a header instead.
+ */
+function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: "menu" | "list" = "menu") {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
+    const collections = getBuiltInTemplates(command, builtInTemplateNotes, true, newTemplates);
 
     const items: MenuItem<TreeCommandNames>[] = [
         ...getBlankNoteTypes(command),
-        ...getBuiltInTemplates(null, command, builtInTemplateNotes, false, newTemplates),
-        ...getBuiltInTemplates(
-            t("note_types.collections"), command, builtInTemplateNotes, true, newTemplates
-        ),
-        ...getUserTemplates(command, userTemplateNotes, newTemplates)
+        ...withLeading(SEPARATOR, getBuiltInTemplates(command, builtInTemplateNotes, false, newTemplates))
     ];
 
+    if (layout === "list") {
+        items.push(...withLeading({ title: t("note_types.collections"), kind: "header" }, collections));
+    } else if (collections.length > 0) {
+        items.push(SEPARATOR, { title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
+    }
+
+    items.push(...getUserTemplates(command, userTemplateNotes, newTemplates));
     return items;
 }
 
-/** Builds a single note type menu. Use {@link loadNoteTypeData} directly to build several. */
+/** Builds the note type list of the note type chooser. Use {@link loadNoteTypeData} directly to build several. */
 async function getNoteTypeItems(command?: TreeCommandNames) {
-    return buildNoteTypeItems(await loadNoteTypeData(), command);
+    return buildNoteTypeItems(await loadNoteTypeData(), command, "list");
 }
 
 function getBlankNoteTypes(command?: TreeCommandNames): MenuItem<TreeCommandNames>[] {
@@ -302,20 +310,8 @@ async function getBuiltInTemplateNotes() {
     return await templatesRoot.getChildNotes();
 }
 
-function getBuiltInTemplates(title: string | null, command: TreeCommandNames | undefined, childNotes: FNote[], filterCollections: boolean, newTemplates: Set<string>) {
-    if (childNotes.length === 0) {
-        return [];
-    }
-
+function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], filterCollections: boolean, newTemplates: Set<string>) {
     const items: MenuItem<TreeCommandNames>[] = [];
-    if (title) {
-        items.push({
-            title,
-            kind: "header"
-        });
-    } else {
-        items.push(SEPARATOR);
-    }
 
     for (const templateNote of childNotes) {
         if (templateNote.hasLabel("collection") !== filterCollections ||
@@ -345,6 +341,11 @@ function getBuiltInTemplates(title: string | null, command: TreeCommandNames | u
         items.push(item);
     }
     return items;
+}
+
+/** `items` led by `lead`, or nothing when there are no items to lead. */
+function withLeading(lead: MenuItem<TreeCommandNames>, items: MenuItem<TreeCommandNames>[]) {
+    return items.length > 0 ? [ lead, ...items ] : [];
 }
 
 export default {
