@@ -46,6 +46,7 @@ describe("Dropdown", () => {
         layout.onMobile = false;
         layout.narrow = true;
         layout.onChange.clear();
+        document.body.classList.remove("motion-disabled");
     });
 
     /** Renders a `Dropdown`, or a `DropdownPanel` for `panel`. */
@@ -437,6 +438,8 @@ describe("Dropdown", () => {
 
             render(null, host);
             layout.onMobile = true;
+            // Without slides, a page goes as soon as it closes.
+            document.body.classList.add("motion-disabled");
             const { toggle: phoneToggle } = renderDropdown({}, content);
             click(phoneToggle);
             await vi.waitFor(() => expect(submenuRow()).toBeTruthy());

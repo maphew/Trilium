@@ -5,7 +5,7 @@ import type { KeyboardActionNames } from "@triliumnext/commons";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, createPortal, type CSSProperties, RefObject } from "preact";
-import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useContext, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
 import { t } from "../../services/i18n";
 import { getActionSync } from "../../services/keyboard_actions";
@@ -19,6 +19,7 @@ import { isRightToLeft, MenuContext, type MenuContextValue, MenuFilterContext, M
 import { placeFloating } from "./Popup";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
+import { type Slide, useSlide } from "./SlidePages";
 
 interface FormListOpts {
     children: ComponentChildren;
@@ -405,7 +406,8 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
     const open = openSubmenu?.id === id;
     const isActive = menu.active?.id === id;
     const filter = filterable ? { rowId: id, level, text: menu.filter?.rowId === id ? menu.filter.text : "" } : undefined;
-    const [ pageSlide, settlePage ] = usePageSlide(open);
+    // A phone's page that closes keeps being drawn until it has slid out.
+    const pageSlide = useSlide(open);
 
     /** Runs the row's own action for the keys, with the modifiers of the key that ran it. */
     function select(e: MouseEvent | KeyboardEvent) {
@@ -460,8 +462,8 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
             </span>
             {isMobile()
                 // A phone has no room beside the menu, so a submenu replaces it as a page of its own.
-                ? (open || pageSlide) && menu.layerHost && createPortal((
-                    <SubmenuPage rowId={id} level={level + 1} title={title} slide={pageSlide} onSlideEnd={settlePage}>
+                ? (open || pageSlide.from !== undefined) && menu.layerHost && createPortal((
+                    <SubmenuPage rowId={id} level={level + 1} title={title} slide={pageSlide}>
                         <MenuFilterContext.Provider value={filter}>{children}</MenuFilterContext.Provider>
                     </SubmenuPage>
                 ), menu.layerHost)
@@ -559,22 +561,15 @@ function SubmenuLayer({ level, submenu, pinned, children }: {
  * A submenu opened on a phone: a page that takes the menu's place, headed by the submenu's title and
  * a way back. The level it covers stays mounted, as the row that owns this page stands in it.
  */
-function SubmenuPage({ rowId, level, title, slide, onSlideEnd, children }: {
+function SubmenuPage({ rowId, level, title, slide, children }: {
     rowId: string,
     level: number,
     title: ComponentChildren,
-    slide: PageSlide | undefined,
-    onSlideEnd(): void,
+    /** The slide of whether the page is open: from closed as it arrives, from open as it leaves. */
+    slide: Slide<boolean>,
     children: ComponentChildren
 }) {
     const menu = useMenu();
-    const pageRef = useRef<HTMLDivElement>(null);
-
-    // Without an animation to wait for, as with `motion-disabled`, the slide ends at once.
-    useLayoutEffect(() => {
-        const page = pageRef.current;
-        if (slide && page && !hasAnimation(page)) onSlideEnd();
-    }, [ slide, onSlideEnd ]);
 
     function back() {
         menu.openSubmenu(level - 1);
@@ -584,12 +579,10 @@ function SubmenuPage({ rowId, level, title, slide, onSlideEnd, children }: {
     return (
         <MenuLevelContext.Provider value={level}>
             <div
-                ref={pageRef} role="menu" aria-labelledby={titleId(rowId)}
-                className={clsx("tn-menu-page", slide && `tn-menu-page-${slide}`)}
-                onAnimationEnd={(e) => {
-                    // Animations inside the page bubble up here too.
-                    if (e.target === e.currentTarget) onSlideEnd();
-                }}
+                role="menu" aria-labelledby={titleId(rowId)}
+                className={clsx("tn-menu-page", slide.from === false && "tn-menu-page-entering",
+                    slide.from === true && "tn-menu-page-leaving")}
+                onAnimationEnd={slide.onAnimationEnd}
             >
                 {/* As a row's press: the menu keeps focus, and the dropdown does not close on it. */}
                 <div
@@ -603,38 +596,6 @@ function SubmenuPage({ rowId, level, title, slide, onSlideEnd, children }: {
             </div>
         </MenuLevelContext.Provider>
     );
-}
-
-/** How a phone's submenu page is moving: sliding in over its menu, or back out. */
-type PageSlide = "entering" | "leaving";
-
-/**
- * The slide of a phone's submenu page that `open` shows or hides. A page that closes keeps being
- * drawn until it has slid out, which the page reports with the returned callback.
- */
-function usePageSlide(open: boolean) {
-    const slide = useRef<PageSlide | undefined>(undefined);
-    const wasOpen = useRef(open);
-    const [ , redraw ] = useState(0);
-
-    // Worked out while rendering, so the first frame of the page already carries its slide.
-    if (wasOpen.current !== open) {
-        wasOpen.current = open;
-        slide.current = open ? "entering" : "leaving";
-    }
-
-    const settle = useCallback(() => {
-        if (!slide.current) return;
-        slide.current = undefined;
-        redraw((pass) => pass + 1);
-    }, []);
-
-    return [ slide.current, settle ] as const;
-}
-
-function hasAnimation(element: HTMLElement) {
-    const name = getComputedStyle(element).animationName;
-    return !!name && name !== "none";
 }
 
 /** The id of a row's title, which names the submenu it opens. */

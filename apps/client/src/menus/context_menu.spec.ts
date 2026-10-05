@@ -667,12 +667,26 @@ describe("contextMenu", () => {
                 if (!button) throw new Error("expected a back button");
                 press(button);
             };
+            /** How each page is moving, as its slide class names it. */
+            const slides = () => [ ...menuElement()?.querySelectorAll(":scope > .tn-menu-page") ?? [] ]
+                .map((page) => page.classList.contains("tn-menu-page-entering") ? "entering"
+                    : page.classList.contains("tn-menu-page-leaving") ? "leaving" : "shown");
+            /** Ends every page's slide, as the browser does once the animation has run. */
+            const endSlides = () => {
+                for (const page of menuElement()?.querySelectorAll(":scope > .tn-menu-page") ?? []) {
+                    page.dispatchEvent(Object.assign(new Event("animationend", { bubbles: true }),
+                        { animationName: "tn-slide-in-from-right" }));
+                }
+            };
 
             hover(parent);
             expect(pages()).toEqual([]);
 
             press(parent);
             await vi.waitFor(() => expect(pages()).toEqual([ [ "Templates", "Meeting" ] ]));
+            expect(slides()).toEqual([ "entering" ]);
+            endSlides();
+            await vi.waitFor(() => expect(slides()).toEqual([ "shown" ]));
             // Opening runs nothing, and neither unfolds rows in the row nor draws a layer beside it.
             expect(picked).toEqual([]);
             expect(parent.querySelector(".dropdown-menu")).toBeNull();
@@ -680,11 +694,17 @@ describe("contextMenu", () => {
 
             press(row("Meeting"));
             await vi.waitFor(() => expect(pages()).toEqual([ [ "Templates", "Meeting" ], [ "Meeting", "Weekly" ] ]));
+            endSlides();
 
-            // Back goes up one level at a time, running nothing and keeping the menu up.
+            // Back goes up one level at a time, running nothing and keeping the menu up. The page
+            // left is drawn until it has slid out.
             back();
+            await vi.waitFor(() => expect(slides()).toEqual([ "shown", "leaving" ]));
+            endSlides();
             await vi.waitFor(() => expect(pages()).toEqual([ [ "Templates", "Meeting" ] ]));
             back();
+            await vi.waitFor(() => expect(slides()).toEqual([ "leaving" ]));
+            endSlides();
             await vi.waitFor(() => expect(pages()).toEqual([]));
             expect(picked).toEqual([]);
             expect(contextMenu.isShown).toBe(true);
@@ -1220,6 +1240,8 @@ describe("contextMenu", () => {
 
         it("opens a submenu's page on a phone as Right and Enter open one, and goes back on Escape", async () => {
             layout.onMobile = true;
+            // Without slides, a page goes as soon as it closes.
+            document.body.classList.add("motion-disabled");
             try {
                 await openMenu();
                 key("End");
@@ -1242,11 +1264,13 @@ describe("contextMenu", () => {
                 await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
             } finally {
                 layout.onMobile = false;
+                document.body.classList.remove("motion-disabled");
             }
         });
 
         it("moves the keys onto the page a tap opened, and back to its row from the header", async () => {
             layout.onMobile = true;
+            document.body.classList.add("motion-disabled");
             try {
                 const picked: string[] = [];
                 await openMenu((title) => picked.push(title));
@@ -1276,6 +1300,7 @@ describe("contextMenu", () => {
                 expect(picked).toEqual([ "Paste" ]);
             } finally {
                 layout.onMobile = false;
+                document.body.classList.remove("motion-disabled");
             }
         });
 
