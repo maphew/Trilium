@@ -651,26 +651,50 @@ describe("contextMenu", () => {
             expect(again.isShown).toBe(false);
         });
 
-        it("unfolds a submenu under its row on a phone", async () => {
+        it("opens a submenu on a phone as a page in the menu's place, and goes back from its header", async () => {
             layout.onMobile = true;
             const picked: string[] = [];
-            await openMenu((title) => picked.push(title));
+            const contextMenu = await openMenu((title) => picked.push(title));
             const parent = row("Templates");
+            /** The pages standing open, each as its title followed by the titles of its rows. */
+            const pages = () => [ ...menuElement()?.querySelectorAll(":scope > .tn-menu-page") ?? [] ].map((page) => [
+                page.querySelector(".tn-master-detail-title")?.textContent,
+                ...[ ...page.querySelectorAll(":scope > .tn-menu-scroll > li") ]
+                    .map((item) => item.querySelector(":scope > span")?.textContent)
+            ]);
+            const back = () => {
+                const button = [ ...menuElement()?.querySelectorAll<HTMLElement>(".tn-menu-page-header button") ?? [] ].at(-1);
+                if (!button) throw new Error("expected a back button");
+                press(button);
+            };
 
             hover(parent);
-            expect(layers()).toEqual([]);
+            expect(pages()).toEqual([]);
 
             press(parent);
-            await vi.waitFor(() => expect(parent.classList.contains("submenu-open")).toBe(true));
-            const nested = parent.querySelector(":scope > ul.dropdown-menu");
-            expect(nested?.classList.contains("show")).toBe(true);
-            expect(nested?.textContent).toBe("Meeting");
-            // Unfolding runs nothing.
+            await vi.waitFor(() => expect(pages()).toEqual([ [ "Templates", "Meeting" ] ]));
+            // Opening runs nothing, and neither unfolds rows in the row nor draws a layer beside it.
             expect(picked).toEqual([]);
+            expect(parent.querySelector(".dropdown-menu")).toBeNull();
             expect(layers()).toEqual([]);
 
-            press(parent);
-            await vi.waitFor(() => expect(parent.classList.contains("submenu-open")).toBe(false));
+            press(row("Meeting"));
+            await vi.waitFor(() => expect(pages()).toEqual([ [ "Templates", "Meeting" ], [ "Meeting", "Weekly" ] ]));
+
+            // Back goes up one level at a time, running nothing and keeping the menu up.
+            back();
+            await vi.waitFor(() => expect(pages()).toEqual([ [ "Templates", "Meeting" ] ]));
+            back();
+            await vi.waitFor(() => expect(pages()).toEqual([]));
+            expect(picked).toEqual([]);
+            expect(contextMenu.isShown).toBe(true);
+
+            // A row on a page runs and closes the menu, like any other.
+            press(row("Templates"));
+            press(await vi.waitFor(() => row("Meeting")));
+            press(await vi.waitFor(() => row("Weekly")));
+            expect(picked).toEqual([ "Weekly" ]);
+            expect(contextMenu.isShown).toBe(false);
         });
     });
 
@@ -1194,26 +1218,25 @@ describe("contextMenu", () => {
             document.removeEventListener("keydown", dialogHeard);
         });
 
-        it("unfolds a submenu on a phone as Right and Enter open one, and folds it back on Escape", async () => {
+        it("opens a submenu's page on a phone as Right and Enter open one, and goes back on Escape", async () => {
             layout.onMobile = true;
             try {
                 await openMenu();
                 key("End");
                 await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
-                const parent = menuElement()?.querySelector<HTMLElement>("li.dropdown-submenu");
 
                 key("Enter");
                 await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
-                expect(parent?.classList.contains("submenu-open")).toBe(true);
-                expect(parent?.querySelector(":scope > ul.dropdown-menu.show")?.textContent).toContain("Weekly");
-                // Unfolded in place, not as a layer beside it.
+                const page = menuElement()?.querySelector(":scope > .tn-menu-page");
+                expect(page?.querySelector(".tn-menu-scroll")?.textContent).toBe("MeetingWeekly");
+                // A page in the menu's place, not a layer beside it.
                 expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
 
                 key("ArrowDown");
                 await vi.waitFor(() => expect(activeRow()).toBe("Weekly"));
                 key("Escape");
                 await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
-                expect(parent?.classList.contains("submenu-open")).toBe(false);
+                expect(menuElement()?.querySelector(".tn-menu-page")).toBeNull();
 
                 key("ArrowRight");
                 await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
@@ -1222,28 +1245,35 @@ describe("contextMenu", () => {
             }
         });
 
-        it("keeps the keys on a phone's row that a tap folded, not on the hidden child", async () => {
+        it("moves the keys onto the page a tap opened, and back to its row from the header", async () => {
             layout.onMobile = true;
             try {
                 const picked: string[] = [];
                 await openMenu((title) => picked.push(title));
-                key("End");
-                await vi.waitFor(() => expect(activeRow()).toBe("Templates"));
-                key("Enter");
-                await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+                const press = (target: Element | null | undefined) => {
+                    target?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+                    target?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+                };
                 const parent = menuElement()?.querySelector<HTMLElement>("li.dropdown-submenu");
                 expect(parent).toBeTruthy();
 
-                parent?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
-                parent?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
-                await vi.waitFor(() => expect(parent?.classList.contains("submenu-open")).toBe(false));
+                press(parent);
+                await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-page")).not.toBeNull());
+                // No row of the page is active yet, and the first key lands on its first row
+                // rather than on the hidden level under it.
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Meeting"));
+
+                const back = menuElement()?.querySelector(".tn-menu-page-header button");
+                expect(back).toBeTruthy();
+                press(back);
+                await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-page")).toBeNull());
                 expect(activeRow()).toBe("Templates");
 
                 key("ArrowUp");
                 await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
                 key("Enter");
-                expect(picked).not.toContain("Meeting");
-                expect(picked.at(-1)).toBe("Paste");
+                expect(picked).toEqual([ "Paste" ]);
             } finally {
                 layout.onMobile = false;
             }

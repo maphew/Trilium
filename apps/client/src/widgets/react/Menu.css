@@ -51,6 +51,86 @@ body.desktop .dropdown-submenu > .dropdown-menu.tn-menu.tn-menu-immediate {
     animation: none;
 }
 
+/*
+ * On a phone, a submenu is a page that takes its menu's place (`SubmenuPage`), and the frame
+ * follows the height of the page on show. The level under a page keeps its rows and its scroll
+ * position, hidden out of the flow. The slides are master_detail.css's.
+ */
+.tn-menu-page {
+    --tn-popup-padding: var(--padding, var(--menu-padding-size));
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Spans the frame's padding as the top level's `.tn-menu-scroll` does (Popup.css), so every
+       level has the same box in the flow and out of it. */
+    margin: calc(0px - var(--tn-popup-padding));
+    border-radius: inherit;
+
+    > .tn-menu-scroll {
+        margin: 0;
+    }
+}
+
+.tn-menu-page-header {
+    padding: var(--tn-popup-padding) var(--tn-popup-padding) 0;
+}
+
+/* A sliding level stands a full width to the side, which the frame would scroll to. */
+.dropdown-menu.tn-menu:has(> .tn-menu-page) {
+    overflow-x: hidden;
+}
+
+.dropdown-menu.tn-menu > :is(.tn-menu-scroll, .tn-menu-page) {
+    &:has(+ .tn-menu-page:not(.tn-menu-page-leaving)) {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        visibility: hidden;
+    }
+
+    &:has(+ .tn-menu-page-entering) {
+        visibility: visible;
+        animation: tn-master-detail-out-start 0.35s ease-in-out forwards;
+    }
+
+    &:has(+ .tn-menu-page-leaving) {
+        animation: tn-master-detail-in-start 0.35s ease-in-out forwards;
+    }
+}
+
+.dropdown-menu.tn-menu > .tn-menu-page-entering {
+    position: relative;
+    z-index: 1;
+    animation: tn-master-detail-in-end 0.35s ease-in-out forwards;
+}
+
+.dropdown-menu.tn-menu > .tn-menu-page-leaving {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    z-index: 1;
+    animation: tn-master-detail-out-end 0.35s ease-in-out forwards;
+}
+
+body[dir="rtl"] .dropdown-menu.tn-menu {
+    > :is(.tn-menu-scroll, .tn-menu-page):has(+ .tn-menu-page-entering) {
+        animation-name: tn-master-detail-out-end;
+    }
+
+    > :is(.tn-menu-scroll, .tn-menu-page):has(+ .tn-menu-page-leaving) {
+        animation-name: tn-master-detail-in-end;
+    }
+
+    > .tn-menu-page-entering {
+        animation-name: tn-master-detail-in-start;
+    }
+
+    > .tn-menu-page-leaving {
+        animation-name: tn-master-detail-out-start;
+    }
+}
+
 /* A menu in the flow of what holds it, as a list is, rather than beside an anchor. */
 .dropdown-menu.tn-menu.tn-menu-inline {
     position: static;

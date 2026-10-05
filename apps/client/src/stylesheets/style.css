@@ -548,15 +548,6 @@ body.mobile .dropdown-menu .dropdown-submenu > span {
 }
 
 
-/* Scoped by the menu: a dropdown's menu stands in the page's body, outside its `.dropdown`. */
-body.mobile .dropdown-menu .dropdown-submenu {
-    flex-wrap: wrap;
-
-    & > span {
-        flex-grow: 1;
-    }
-}
-
 .dropdown-item span.keyboard-shortcut,
 .dropdown-item span.menu-trailing-icon,
 .dropdown-item *:not(.keyboard-shortcut) > kbd {
@@ -1745,17 +1736,6 @@ body.mobile #context-menu-container.mobile-bottom-menu {
 body.mobile .dropdown-menu {
     position: fixed !important;
     z-index: 3000 !important;
-}
-
-body.mobile .dropdown-submenu > .dropdown-menu {
-    position: static !important;
-    border: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    top: unset !important;
-    margin-top: 0 !important;
-    width: 100%;
-    max-height: none;
 }
 
 #context-menu-container,

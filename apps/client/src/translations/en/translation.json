@@ -4591,6 +4591,7 @@
   "menu": {
     "no_matches": "No matches",
     "filter": "Filter",
-    "filter_placeholder": "Type to filter…"
+    "filter_placeholder": "Type to filter…",
+    "back": "Back"
   }
 }

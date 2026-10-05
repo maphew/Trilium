@@ -5,14 +5,16 @@ import type { KeyboardActionNames } from "@triliumnext/commons";
 import type { Tooltip } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, createPortal, type CSSProperties, RefObject } from "preact";
-import { useContext, useLayoutEffect, useMemo, useRef } from "preact/hooks";
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
+import { t } from "../../services/i18n";
 import { getActionSync } from "../../services/keyboard_actions";
 import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../../services/utils";
 import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef, useUniqueName } from "./hooks";
 import Icon, { SvgIcon } from "./Icon";
+import { MasterDetailHeader } from "./master_detail";
 import { isRightToLeft, MenuContext, type MenuContextValue, MenuFilterContext, MenuLevelContext, type OpenSubmenu, pointerMoved, shouldDropStart, useMenu } from "./menu_context";
 import { placeFloating } from "./Popup";
 import { joinElements } from "./react_utils";
@@ -403,6 +405,7 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
     const open = openSubmenu?.id === id;
     const isActive = menu.active?.id === id;
     const filter = filterable ? { rowId: id, level, text: menu.filter?.rowId === id ? menu.filter.text : "" } : undefined;
+    const [ pageSlide, settlePage ] = usePageSlide(open);
 
     /** Runs the row's own action for the keys, with the modifiers of the key that ran it. */
     function select(e: MouseEvent | KeyboardEvent) {
@@ -438,25 +441,16 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
             onPointerMove={(e) => {
                 if (!isActive && pointerMoved(e)) onPointed(e);
             }}
-            // As any row: the press keeps focus where it was, and the release acts. An unfolded
-            // row holds its submenu's rows, whose presses and clicks reach it too; those are theirs.
+            // As any row: the press keeps focus where it was, and the release acts.
             onMouseDown={(e) => {
-                if (e.button === 0 && !inUnfoldedRows(e)) e.preventDefault();
+                if (e.button === 0) e.preventDefault();
             }}
             onClick={(e) => {
-                if (inUnfoldedRows(e)) return;
                 // The dropdown's `closeOnClickInside` would close the whole menu.
                 e.stopPropagation();
                 if (disabled) return;
-                // Clicked again, an unfolded row folds its submenu back. The keys go on from this
-                // row, as a folded or replaced submenu's rows are gone.
-                if (isMobile()) {
-                    menu.openSubmenu(level, open ? undefined : id, e.currentTarget, true);
-                    menu.setActive(level, id);
-                    return;
-                }
                 menu.openSubmenu(level, id, e.currentTarget, true);
-                onDropdownToggleClicked?.(e);
+                if (!isMobile()) onDropdownToggleClicked?.(e);
             }}
         >
             <span className="dropdown-toggle">
@@ -465,14 +459,12 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                 <span id={titleId(id)}>{title}</span>
             </span>
             {isMobile()
-                // A phone has no room beside the menu, so an open submenu unfolds under its row.
-                ? (
-                    <ul className={clsx("dropdown-menu", open && "show")} role="menu" aria-labelledby={titleId(id)}>
-                        <MenuLevelContext.Provider value={level + 1}>
-                            <MenuFilterContext.Provider value={filter}>{open && children}</MenuFilterContext.Provider>
-                        </MenuLevelContext.Provider>
-                    </ul>
-                )
+                // A phone has no room beside the menu, so a submenu replaces it as a page of its own.
+                ? (open || pageSlide) && menu.layerHost && createPortal((
+                    <SubmenuPage rowId={id} level={level + 1} title={title} slide={pageSlide} onSlideEnd={settlePage}>
+                        <MenuFilterContext.Provider value={filter}>{children}</MenuFilterContext.Provider>
+                    </SubmenuPage>
+                ), menu.layerHost)
                 : open && openSubmenu && menu.layerHost && createPortal((
                     <SubmenuLayer level={level + 1} submenu={openSubmenu} pinned={!!filter?.text}>
                         <MenuFilterContext.Provider value={filter}>{children}</MenuFilterContext.Provider>
@@ -563,9 +555,86 @@ function SubmenuLayer({ level, submenu, pinned, children }: {
     );
 }
 
-/** Whether an event on a submenu's row came from the rows its submenu unfolds inside it, on a phone. */
-function inUnfoldedRows(e: Event & { currentTarget: HTMLElement }) {
-    return e.target instanceof Element && e.target.closest(".dropdown-menu") !== e.currentTarget.closest(".dropdown-menu");
+/**
+ * A submenu opened on a phone: a page that takes the menu's place, headed by the submenu's title and
+ * a way back. The level it covers stays mounted, as the row that owns this page stands in it.
+ */
+function SubmenuPage({ rowId, level, title, slide, onSlideEnd, children }: {
+    rowId: string,
+    level: number,
+    title: ComponentChildren,
+    slide: PageSlide | undefined,
+    onSlideEnd(): void,
+    children: ComponentChildren
+}) {
+    const menu = useMenu();
+    const pageRef = useRef<HTMLDivElement>(null);
+
+    // Without an animation to wait for, as with `motion-disabled`, the slide ends at once.
+    useLayoutEffect(() => {
+        const page = pageRef.current;
+        if (slide && page && !hasAnimation(page)) onSlideEnd();
+    }, [ slide, onSlideEnd ]);
+
+    function back() {
+        menu.openSubmenu(level - 1);
+        menu.setActive(level - 1, rowId);
+    }
+
+    return (
+        <MenuLevelContext.Provider value={level}>
+            <div
+                ref={pageRef} role="menu" aria-labelledby={titleId(rowId)}
+                className={clsx("tn-menu-page", slide && `tn-menu-page-${slide}`)}
+                onAnimationEnd={(e) => {
+                    // Animations inside the page bubble up here too.
+                    if (e.target === e.currentTarget) onSlideEnd();
+                }}
+            >
+                {/* As a row's press: the menu keeps focus, and the dropdown does not close on it. */}
+                <div
+                    className="tn-menu-page-header"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <MasterDetailHeader inPage onBack={back} backTitle={t("menu.back")} pageTitle={title} listTitle={title} />
+                </div>
+                <menu className="tn-menu-scroll" role="none">{children}</menu>
+            </div>
+        </MenuLevelContext.Provider>
+    );
+}
+
+/** How a phone's submenu page is moving: sliding in over its menu, or back out. */
+type PageSlide = "entering" | "leaving";
+
+/**
+ * The slide of a phone's submenu page that `open` shows or hides. A page that closes keeps being
+ * drawn until it has slid out, which the page reports with the returned callback.
+ */
+function usePageSlide(open: boolean) {
+    const slide = useRef<PageSlide | undefined>(undefined);
+    const wasOpen = useRef(open);
+    const [ , redraw ] = useState(0);
+
+    // Worked out while rendering, so the first frame of the page already carries its slide.
+    if (wasOpen.current !== open) {
+        wasOpen.current = open;
+        slide.current = open ? "entering" : "leaving";
+    }
+
+    const settle = useCallback(() => {
+        if (!slide.current) return;
+        slide.current = undefined;
+        redraw((pass) => pass + 1);
+    }, []);
+
+    return [ slide.current, settle ] as const;
+}
+
+function hasAnimation(element: HTMLElement) {
+    const name = getComputedStyle(element).animationName;
+    return !!name && name !== "none";
 }
 
 /** The id of a row's title, which names the submenu it opens. */

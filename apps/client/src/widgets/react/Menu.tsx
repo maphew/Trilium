@@ -6,6 +6,7 @@ import { useCallback, useContext, useLayoutEffect, useRef, useState } from "prea
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import { t } from "../../services/i18n";
+import { isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
 import FormTextBox from "./FormTextBox";
 import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type MenuFilter, MenuFilterContext, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart, useMenu } from "./menu_context";
@@ -238,7 +239,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     function onKeyDown(e: KeyboardEvent) {
         // From a filter input, the keys act on the rows of the submenu it filters.
         const filterInput = e.target instanceof HTMLInputElement && e.target.matches(FILTER_INPUT) ? e.target : undefined;
-        const level = filterInput ? Number(filterInput.dataset.level) : active?.level ?? 0;
+        // On a phone, the deepest open submenu is the page on show, even before a row in it is active.
+        const level = filterInput ? Number(filterInput.dataset.level) : isMobile() ? open.length : active?.level ?? 0;
         const levelRows = navigableRows(level);
         const activeHere = active?.level === level ? active : undefined;
         const index = activeHere ? levelRows.indexOf(activeHere.id) : -1;

@@ -418,7 +418,7 @@ describe("Dropdown", () => {
             expect(picked).toEqual([ "wrap", "title" ]);
         });
 
-        it("stays open on a click on a submenu's row, which unfolds the submenu on a phone", async () => {
+        it("stays open on a click on a submenu's row, or on the header of the page it opens on a phone", async () => {
             const toggled = vi.fn();
             const content = (
                 <FormDropdownSubmenu icon="bx bx-chip" title="Advanced" onDropdownToggleClicked={toggled}>
@@ -441,13 +441,22 @@ describe("Dropdown", () => {
             click(phoneToggle);
             await vi.waitFor(() => expect(submenuRow()).toBeTruthy());
             submenuRow()?.click();
-            await vi.waitFor(() => expect(submenuRow()?.querySelector(":scope > .dropdown-menu.show")?.textContent)
-                .toBe("Show log"));
+            const page = () => popup()?.querySelector<HTMLElement>(":scope > .tn-menu-page");
+            await vi.waitFor(() => expect(page()?.querySelector(".tn-menu-scroll")?.textContent).toBe("Show log"));
             await new Promise((resolve) => setTimeout(resolve, 20));
             expect(popup()).not.toBeNull();
 
-            // A row in the unfolded submenu still closes the menu.
-            submenuRow()?.querySelector<HTMLElement>(".dropdown-menu li.dropdown-item")?.click();
+            // Neither does its header, the way back included.
+            page()?.querySelector<HTMLElement>(".tn-master-detail-title")?.click();
+            page()?.querySelector<HTMLElement>(".tn-menu-page-header button")?.click();
+            await vi.waitFor(() => expect(page()).toBeNull());
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(popup()).not.toBeNull();
+
+            // A row on the page still closes the menu.
+            submenuRow()?.click();
+            await vi.waitFor(() => expect(page()).not.toBeNull());
+            page()?.querySelector<HTMLElement>("li.dropdown-item")?.click();
             await vi.waitFor(() => expect(popup()).toBeNull());
         });
 
