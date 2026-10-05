@@ -86,7 +86,7 @@
     "jsdom": "30.1.1",
     "lightningcss": "1.33.0",
     "sass": "1.105.1",
-    "stylelint": "17.15.0",
+    "stylelint": "17.16.0",
     "vite-plugin-static-copy": "4.1.1"
   }
 }
