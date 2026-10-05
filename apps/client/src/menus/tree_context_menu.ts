@@ -237,66 +237,6 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
         { kind: "separator" },
 
         {
-            title: t("tree-context-menu.advanced"),
-            uiIcon: "bx bxs-wrench",
-            enabled: true,
-            items: [
-                { title: t("tree-context-menu.apply-bulk-actions"), command: "openBulkActionsDialog", uiIcon: "bx bx-list-plus", enabled: true },
-                {
-                    // One note at a time: the dialog is configured against what that note holds and
-                    // reports on what it changed there, neither of which a multi-selection has.
-                    title: t("compress-images"),
-                    uiIcon: "bx bx-collapse-alt",
-                    enabled: noSelectedNotes && notOptionsOrHelp,
-                    handler: () => void showImageCompressionDialog({ type: "note", noteId: note.noteId })
-                },
-
-                { kind: "separator" },
-
-                {
-                    title: t("tree-context-menu.edit-branch-prefix"),
-                    command: "editBranchPrefix",
-                    keyboardShortcut: "editBranchPrefix",
-                    uiIcon: "bx bx-rename",
-                    enabled: isNotRoot && parentNotSearch && notOptionsOrHelp
-                },
-                {
-                    title: t("tree-context-menu.convert-to-attachment"),
-                    command: "convertNoteToAttachment",
-                    uiIcon: "bx bx-paperclip",
-                    enabled: isNotRoot && !isHoisted && notOptionsOrHelp && selectedNotes.some((n) => n.isEligibleForConversionToAttachment())
-                },
-
-                { kind: "separator" },
-
-                !hasSubtreeHidden && !isMobileTarget && { title: t("tree-context-menu.expand-subtree"), command: "expandSubtree", keyboardShortcut: "expandSubtree", uiIcon: "bx bx-expand", enabled: noSelectedNotes },
-                !hasSubtreeHidden && !isMobileTarget && { title: t("tree-context-menu.collapse-subtree"), command: "collapseSubtree", keyboardShortcut: "collapseSubtree", uiIcon: "bx bx-collapse", enabled: noSelectedNotes },
-                {
-                    title: hasSubtreeHidden ? t("tree-context-menu.show-subtree") : t("tree-context-menu.hide-subtree"),
-                    uiIcon: "bx bx-show",
-                    enabled: isNotRoot,
-                    handler: async () => {
-                        attributes.setBooleanWithInheritance(note, "subtreeHidden", !hasSubtreeHidden);
-                    }
-                },
-                {
-                    title: t("tree-context-menu.sort-by"),
-                    command: "sortChildNotes",
-                    keyboardShortcut: "sortChildNotes",
-                    uiIcon: "bx bx-sort-down",
-                    enabled: noSelectedNotes && notSearch
-                },
-
-                { kind: "separator" },
-
-                { title: t("tree-context-menu.copy-note-path-to-clipboard"), command: "copyNotePathToClipboard", uiIcon: "bx bx-directions", enabled: true },
-                { title: t("tree-context-menu.recent-changes-in-subtree"), command: "recentChangesInSubtree", uiIcon: "bx bx-history", enabled: noSelectedNotes && notOptionsOrHelp }
-            ].filter(Boolean) as MenuItem<TreeCommandNames>[]
-        },
-
-        { kind: "separator" },
-
-        {
             title: t("tree-context-menu.move-to"),
             command: "moveNotesTo",
             keyboardShortcut: "moveNotesTo",
@@ -372,6 +312,64 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             keyboardShortcut: "searchInSubtree",
             uiIcon: "bx bx-search",
             enabled: notSearch && noSelectedNotes
+        },
+
+        {
+            title: t("tree-context-menu.advanced"),
+            uiIcon: "bx bxs-wrench",
+            enabled: true,
+            items: [
+                { title: t("tree-context-menu.apply-bulk-actions"), command: "openBulkActionsDialog", uiIcon: "bx bx-list-plus", enabled: true },
+                {
+                    // One note at a time: the dialog is configured against what that note holds and
+                    // reports on what it changed there, neither of which a multi-selection has.
+                    title: t("compress-images"),
+                    uiIcon: "bx bx-collapse-alt",
+                    enabled: noSelectedNotes && notOptionsOrHelp,
+                    handler: () => void showImageCompressionDialog({ type: "note", noteId: note.noteId })
+                },
+
+                { kind: "separator" },
+
+                {
+                    title: t("tree-context-menu.edit-branch-prefix"),
+                    command: "editBranchPrefix",
+                    keyboardShortcut: "editBranchPrefix",
+                    uiIcon: "bx bx-rename",
+                    enabled: isNotRoot && parentNotSearch && notOptionsOrHelp
+                },
+                {
+                    title: t("tree-context-menu.convert-to-attachment"),
+                    command: "convertNoteToAttachment",
+                    uiIcon: "bx bx-paperclip",
+                    enabled: isNotRoot && !isHoisted && notOptionsOrHelp && selectedNotes.some((n) => n.isEligibleForConversionToAttachment())
+                },
+
+                { kind: "separator" },
+
+                !hasSubtreeHidden && !isMobileTarget && { title: t("tree-context-menu.expand-subtree"), command: "expandSubtree", keyboardShortcut: "expandSubtree", uiIcon: "bx bx-expand", enabled: noSelectedNotes },
+                !hasSubtreeHidden && !isMobileTarget && { title: t("tree-context-menu.collapse-subtree"), command: "collapseSubtree", keyboardShortcut: "collapseSubtree", uiIcon: "bx bx-collapse", enabled: noSelectedNotes },
+                {
+                    title: hasSubtreeHidden ? t("tree-context-menu.show-subtree") : t("tree-context-menu.hide-subtree"),
+                    uiIcon: "bx bx-show",
+                    enabled: isNotRoot,
+                    handler: async () => {
+                        attributes.setBooleanWithInheritance(note, "subtreeHidden", !hasSubtreeHidden);
+                    }
+                },
+                {
+                    title: t("tree-context-menu.sort-by"),
+                    command: "sortChildNotes",
+                    keyboardShortcut: "sortChildNotes",
+                    uiIcon: "bx bx-sort-down",
+                    enabled: noSelectedNotes && notSearch
+                },
+
+                { kind: "separator" },
+
+                { title: t("tree-context-menu.copy-note-path-to-clipboard"), command: "copyNotePathToClipboard", uiIcon: "bx bx-directions", enabled: true },
+                { title: t("tree-context-menu.recent-changes-in-subtree"), command: "recentChangesInSubtree", uiIcon: "bx bx-history", enabled: noSelectedNotes && notOptionsOrHelp }
+            ].filter(Boolean) as MenuItem<TreeCommandNames>[]
         }
     ];
 

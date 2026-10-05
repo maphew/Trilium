@@ -87,7 +87,7 @@ The rest of the menu lists its options one per row:
 
 The advanced options menu offers some of the less frequently used actions for notes.
 
-To access these options, first look for the _Advanced_ option in the contextual menu to reveal a sub-menu with:
+To access these options, first look for the _Advanced_ option at the bottom of the contextual menu to reveal a sub-menu with:
 
 *   **Apply bulk actions**
     *   Opens the <a class="reference-link" href="../../../Advanced%20Usage/Bulk%20Actions.md">Bulk Actions</a> dialog, to apply actions such as adding labels or moving notes to multiple notes at once (see <a class="reference-link" href="Multiple%20selection.md">Multiple selection</a>).

@@ -59,6 +59,14 @@ describe("buildTreeContextMenuItems", () => {
         expect(quickEdit.command).toBe("openNoteInPopup");
     });
 
+    it("ends with Advanced, right after Search in subtree", async () => {
+        const { build } = setUp();
+        const [ search, advanced ] = (await build()).slice(-2);
+
+        expect(search && "command" in search && search.command).toBe("searchInSubtree");
+        expect(advanced && "uiIcon" in advanced && advanced.uiIcon).toBe("bx bxs-wrench");
+    });
+
     it("protects or unprotects the subtree after Archive, as the note stands, with both in its submenu", async () => {
         const { child, build } = setUp();
 
