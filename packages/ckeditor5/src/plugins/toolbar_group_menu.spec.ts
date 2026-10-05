@@ -100,6 +100,18 @@ class SampleDropdown extends Plugin {
             return view;
         });
 
+        // A dropdown whose button carries an icon and no label.
+        this.editor.ui.componentFactory.add("iconOnly", (locale: Locale) => {
+            const dropdown = createDropdown(locale);
+            dropdown.buttonView.set({ icon: "<svg />" });
+
+            const items = new Collection<ListDropdownItemDefinition>();
+            items.add({ type: "button", model: new UIModel({ label: "Row", withText: true }) });
+            addListToDropdown(dropdown, items);
+
+            return dropdown;
+        });
+
         // A dropdown with no list of its own, which the menu has no rows to draw for.
         this.editor.ui.componentFactory.add("panelOnly", (locale: Locale) => {
             const dropdown = createDropdown(locale);
@@ -336,15 +348,19 @@ describe("ToolbarGroupMenu", () => {
             toolbar: {
                 items: [{
                     ...MENU_GROUP,
-                    items: ["plainView", "|", "bold", "-", "panelOnly", "|", "italic", "oddList", "|", "plainView"]
+                    items: [
+                        "plainView", "|", "bold", "-", "panelOnly", "|", "italic", "oddList",
+                        "iconOnly", "|", "plainView"
+                    ]
                 }]
             }
         });
 
         groupDropdown(getToolbar(editor), "Insert").isOpen = true;
-        expect(labels(last().items)).toStrictEqual(["Bold", "—", "Italic", "Odd list"]);
-        // A list's groups are passed over, and its unlabeled button is named "".
+        expect(labels(last().items)).toStrictEqual(["Bold", "—", "Italic", "Odd list", ""]);
+        // A list's groups are passed over, and an unlabeled button or dropdown is named "".
         expect(labels(entry(last().items, "Odd list").children ?? [])).toStrictEqual(["First", "—", ""]);
+        expect(labels(entry(last().items, "").children ?? [])).toStrictEqual(["Row"]);
     });
 
     it("converts a group of the block toolbar, filled after the plugin is set up", async () => {
