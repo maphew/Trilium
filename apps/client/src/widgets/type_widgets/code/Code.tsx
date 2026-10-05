@@ -115,6 +115,7 @@ export function EditableCode({ note, ntxId, noteContext, debounceUpdate, parentC
             const codeEditor = editorRef.current;
             if (!codeEditor) return;
             codeEditor.setText(content ?? "");
+            onContentChanged?.(content ?? "");
             codeEditor.setMimeType(note.mime);
             codeEditor.clearHistory();
 
