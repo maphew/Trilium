@@ -1,10 +1,25 @@
+import { Tooltip } from "bootstrap";
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MenuItem } from "../../menus/context_menu";
+import { formatShortcut, joinShortcut } from "../../services/keyboard_shortcut_display";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "./FormList";
 import Menu, { type MenuProps } from "./Menu";
 import { shouldDropStart } from "./menu_context";
+
+vi.mock("../../services/keyboard_actions", async (importOriginal) => {
+    const original = await importOriginal<typeof import("../../services/keyboard_actions")>();
+    return {
+        ...original,
+        default: {
+            ...original.default,
+            getAction: vi.fn(async (name: string) => (name === "cutNotesToClipboard"
+                ? { effectiveShortcuts: [ "CommandOrControl+X" ] }
+                : undefined))
+        }
+    };
+});
 
 describe("shouldDropStart", () => {
     /** A level 200px wide at `left`, in a viewport 1000px wide. */
@@ -276,9 +291,9 @@ describe("Menu with an action row", () => {
             {
                 kind: "actions",
                 items: [
-                    { title: "Cut", command: "cut", uiIcon: "bx bx-cut" },
+                    { title: "Cut", command: "cut", uiIcon: "bx bx-cut", keyboardShortcut: "cutNotesToClipboard" },
                     { title: "Copy", command: "copy", uiIcon: "bx bx-copy", enabled: false },
-                    { title: "Delete", command: "delete", uiIcon: "bx bx-trash", uiIconBadge: "bx bx-x" }
+                    { title: "Delete", command: "delete", uiIcon: "bx bx-trash", uiIconBadge: "bx bx-x", tooltip: "Delete, asking first" }
                 ]
             },
             { kind: "separator" },
@@ -325,6 +340,25 @@ describe("Menu with an action row", () => {
             "tn-icon bx bx-copy",
             "tn-icon bx bx-trash tn-menu-action-badged + tn-menu-action-badge bx bx-x"
         ]);
+    });
+
+    it("names each action, or describes it, with the shortcut a row would show in its tooltip", async () => {
+        const { menu } = renderMenu();
+        const [ cut, , remove ] = menu.querySelectorAll<HTMLElement>(".tn-menu-action");
+        const tooltipText = (button: HTMLElement | undefined) => {
+            const tooltip = button && Tooltip.getInstance(button);
+            if (!tooltip) return undefined;
+            tooltip.show();
+            const text = document.querySelector(".tooltip:last-of-type .tooltip-inner")?.textContent;
+            tooltip.hide();
+            return text;
+        };
+
+        // Formatted for display, as a row's shortcut is, rather than the raw `CommandOrControl+X`.
+        const shortcut = joinShortcut(formatShortcut("CommandOrControl+X"));
+        await vi.waitFor(() => expect(tooltipText(cut)).toBe(`Cut (${shortcut})`));
+        expect(shortcut).not.toContain("CommandOrControl");
+        expect(tooltipText(remove)).toBe("Delete, asking first");
     });
 
     it("keeps Right and Left for the submenus on the other rows, mirrored right to left", async () => {

@@ -10,7 +10,7 @@ import { t } from "../../services/i18n";
 import { isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
 import FormTextBox from "./FormTextBox";
-import { useUniqueName } from "./hooks";
+import { useStaticTooltipWithKeyboardShortcut, useUniqueName } from "./hooks";
 import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type MenuFilter, MenuFilterContext, MenuLevelContext, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart, useMenu } from "./menu_context";
 import Popup, { type PopupProps } from "./Popup";
 
@@ -69,6 +69,8 @@ const KEYS_OF_FILTER = new Set([ "ArrowUp", "ArrowDown", "Enter", "Escape", "Tab
 const FILTER_INPUT = "input.tn-menu-filter-input";
 /** The filter of a menu's own top level, which no row opened. */
 const TOP_LEVEL = { rowId: "", level: -1 };
+
+const ACTION_TOOLTIP = { placement: "top", animation: false } as const;
 
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
@@ -568,15 +570,19 @@ function MenuAction<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect:
     const id = useUniqueName("menu-row");
     const disabled = item.enabled === false;
     const select = (e: MouseEvent | KeyboardEvent) => onSelect?.(item, e);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    // The full title, which a narrow menu can cut short, and the shortcut a row would show.
+    useStaticTooltipWithKeyboardShortcut(buttonRef, item.tooltip ?? textOf(item.title), item.keyboardShortcut, ACTION_TOOLTIP);
 
     return (
         <button
             ref={(element) => {
+                buttonRef.current = element;
                 menu?.registerRow(id, element
                     ? { level, element, custom: false, disabled, hasSubmenu: false, inline: true, select }
                     : undefined);
             }}
-            id={menu ? id : undefined} type="button" role="menuitem" title={textOf(item.title)}
+            id={menu ? id : undefined} type="button" role="menuitem"
             className={clsx("tn-menu-action", menu?.active?.id === id && "tn-menu-active")}
             disabled={disabled} tabIndex={menu ? -1 : undefined}
             // The keyboard goes on from the action the pointer last pointed at, as from a row.

@@ -154,7 +154,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
                     uiIcon: "bx bx-cut",
                     enabled: isNotRoot && !isHoisted && parentNotSearch
                 },
-                { title: t("tree-context-menu.clone"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
+                { title: t("tree-context-menu.clone"), tooltip: t("tree-context-menu.clone-tooltip"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
                 // Shown only while something is cut or copied, which is when they are looked for.
                 ...(clipboard.isClipboardEmpty() ? [] : [
                     {

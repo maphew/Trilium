@@ -2540,7 +2540,8 @@
     "converted-to-attachments_other": "{{count}} notes have been converted to attachments.",
     "convert-to-attachment-confirm": "Are you sure you want to convert the selected notes into attachments of their parent notes? This operation only applies to Image notes, other notes will be skipped.",
     "open-in-popup": "Quick edit",
-    "clone": "Clone"
+    "clone": "Clone",
+    "clone-tooltip": "Clone, to have the same note in two places at once"
   },
   "shared_info": {
     "shared_publicly": "This note is shared publicly on {{- link}}.",

@@ -62,6 +62,11 @@ export interface MenuCommandItem<T> {
      */
     uiIconBadge?: string;
     /**
+     * What a row of actions shows in the item's tooltip in place of its title, for an action whose
+     * short title needs a word of explanation.
+     */
+    tooltip?: string;
+    /**
      * Classes tinting {@link uiIcon} with the colour of whatever the item stands for, as
      * `cssClassManager.createClassForColor()` and `FNote#getColorClass()` return them. Only the
      * icon is tinted, the label staying readable against the highlight.
