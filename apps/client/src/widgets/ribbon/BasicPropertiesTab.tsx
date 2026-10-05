@@ -146,13 +146,6 @@ interface CodeLanguageListProps {
     onConfigure?(): void;
 }
 
-/** The code languages to switch a note to, as rows of a menu or a list. See {@link codeLanguageItems}. */
-export function NoteTypeCodeNoteList({ setModalShown, ...props }: Omit<CodeLanguageListProps, "onConfigure"> & {
-    setModalShown?(shown: boolean): void;
-}) {
-    return <MenuItemRows items={codeLanguageItems({ ...props, onConfigure: setModalShown && (() => setModalShown(true)) })} />;
-}
-
 /** The code languages to switch a note to, the current one ticked, as menu items. */
 export function codeLanguageItems({ currentMimeType, mimeTypes, changeNoteType, onConfigure }: CodeLanguageListProps) {
     const items: MenuItem<unknown>[] = mimeTypes.map(({ title, mime }) => ({

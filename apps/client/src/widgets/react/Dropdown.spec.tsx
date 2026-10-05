@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Dropdown, { type DropdownHandle, DropdownPanel, type DropdownPanelProps } from "./Dropdown";
 import { FormDropdownSubmenu, FormListItem } from "./FormList";
+import { MenuItemRows } from "./Menu";
 
 // A dialog's focus trap would pull focus out of a menu portaled over it.
 const focusTraps = vi.hoisted(() => ({ suspend: vi.fn(() => () => {}) }));
@@ -113,6 +114,43 @@ describe("Dropdown", () => {
         key("Escape");
         await vi.waitFor(() => expect(popup()).toBeNull());
         expect(picked).toEqual([ "JavaScript" ]);
+    });
+
+    it("filters the rows a filterable submenu of components draws from data, on a desktop and on a phone", async () => {
+        for (const onMobile of [ false, true ]) {
+            layout.onMobile = onMobile;
+            const picked: string[] = [];
+            const row = (title: string) => ({ title, handler: () => picked.push(title) });
+            const { toggle } = renderDropdown({}, (
+                <FormDropdownSubmenu title="Language" filterable>
+                    <MenuItemRows items={[ row("Python"), row("JavaScript") ]} />
+                </FormDropdownSubmenu>
+            ));
+            const key = (name: string) => {
+                const event = new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true });
+                (document.activeElement ?? document.body).dispatchEvent(event);
+            };
+            const input = () => popup()?.querySelector<HTMLInputElement>("input.tn-menu-filter-input") ?? null;
+            const titles = () => [ ...popup()?.querySelectorAll("li.dropdown-item:not(.dropdown-submenu)") ?? [] ]
+                .map((item) => item.querySelector(".tn-menu-filter-title")?.textContent ?? item.textContent);
+
+            click(toggle);
+            await vi.waitFor(() => expect(document.activeElement).toBe(popup()));
+            key("ArrowDown");
+            // Each key waits for the one before it to render, as a key press arrives in a task of its own.
+            await vi.waitFor(() => expect(popup()?.getAttribute("aria-activedescendant")).toBeTruthy());
+            key(onMobile ? "Enter" : "ArrowRight");
+            await vi.waitFor(() => expect(input()).not.toBeNull());
+            expect(titles()).toEqual([ "Python", "JavaScript" ]);
+
+            key("j");
+            await vi.waitFor(() => expect(document.activeElement).toBe(input()));
+            expect(titles()).toEqual([ "JavaScript" ]);
+            key("Enter");
+            expect(picked).toEqual([ "JavaScript" ]);
+            await vi.waitFor(() => expect(popup()).toBeNull());
+            render(null, host);
+        }
     });
 
     it("opens a popup below its toggle on a click, and closes it on another", async () => {
