@@ -1727,7 +1727,7 @@ body.mobile #context-menu-container.mobile-bottom-menu {
     bottom: 0 !important;
     top: unset !important;
     max-height: var(--tn-modal-max-height);
-    overflow: auto !important;
+    overflow-y: auto !important;
     user-select: none;
     -webkit-user-select: none;
     padding-bottom: max(var(--safe-area-inset-bottom, env(safe-area-inset-bottom)), var(--padding, var(--menu-padding-size))) !important;
