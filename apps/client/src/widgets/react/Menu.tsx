@@ -10,7 +10,8 @@ import { t } from "../../services/i18n";
 import { isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
 import FormTextBox from "./FormTextBox";
-import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type MenuFilter, MenuFilterContext, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart, useMenu } from "./menu_context";
+import { useUniqueName } from "./hooks";
+import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type MenuFilter, MenuFilterContext, MenuLevelContext, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart, useMenu } from "./menu_context";
 import Popup, { type PopupProps } from "./Popup";
 
 /**
@@ -282,6 +283,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
                 closeLevel(level);
                 menuRef.current?.focus({ preventScroll: true });
             }
+        } else if (activeRow?.inline && !filterInput && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+            goTo(e.key === (rtl ? "ArrowLeft" : "ArrowRight") ? index + 1 : index - 1);
         } else if (filterInput || !filterKey(e, level, activeRow)) {
             switch (e.key) {
                 case "ArrowDown": goTo(index + 1); break;
@@ -547,21 +550,47 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
     );
 }
 
-/** A row of items side by side, each its icon over its title. */
+/**
+ * A row of items side by side, each its icon over its title. Each registers with the menu as a row
+ * of its own, so the keys step through them in order.
+ */
 function MenuActions<T>({ items, onSelect }: { items: MenuCommandItem<T>[], onSelect: MenuProps<T>["onSelect"] }) {
     return (
         <li className="tn-menu-actions" role="group">
-            {items.map((item, index) => (
-                <button
-                    key={index} type="button" role="menuitem" className="tn-menu-action"
-                    disabled={item.enabled === false} onClick={(e) => onSelect?.(item, e)}
-                >
-                    <span className={`tn-icon ${item.uiIcon ?? "bx bx-empty"}`} aria-hidden="true" />
-                    {/* Callers pass HTML, as for a row's title. */}
-                    <span className="tn-menu-action-title" dangerouslySetInnerHTML={{ __html: item.title }} />
-                </button>
-            ))}
+            {items.map((item, index) => <MenuAction key={index} item={item} onSelect={onSelect} />)}
         </li>
+    );
+}
+
+function MenuAction<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
+    const menu = useContext(MenuContext);
+    const level = useContext(MenuLevelContext);
+    const id = useUniqueName("menu-row");
+    const disabled = item.enabled === false;
+    const select = (e: MouseEvent | KeyboardEvent) => onSelect?.(item, e);
+
+    return (
+        <button
+            ref={(element) => {
+                menu?.registerRow(id, element
+                    ? { level, element, custom: false, disabled, hasSubmenu: false, inline: true, select }
+                    : undefined);
+            }}
+            id={menu ? id : undefined} type="button" role="menuitem"
+            className={clsx("tn-menu-action", menu?.active?.id === id && "tn-menu-active")}
+            disabled={disabled} tabIndex={menu ? -1 : undefined}
+            // The keyboard goes on from the action the pointer last pointed at, as from a row.
+            onPointerMove={(e) => {
+                if (menu && !disabled && menu.active?.id !== id && pointerMoved(e)) menu.setActive(level, id);
+            }}
+            // A press keeps focus where it was, as on a row.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={select}
+        >
+            <span className={`tn-icon ${item.uiIcon ?? "bx bx-empty"}`} aria-hidden="true" />
+            {/* Callers pass HTML, as for a row's title. */}
+            <span className="tn-menu-action-title" dangerouslySetInnerHTML={{ __html: item.title }} />
+        </button>
     );
 }
 

@@ -30,6 +30,11 @@ export interface RowEntry {
     hasSubmenu: boolean;
     /** Whether typing while its submenu is open filters it. */
     filterable?: boolean;
+    /**
+     * Stands beside its neighbours in a row of actions, where the arrow towards the end moves on
+     * as Down does and the one towards the start moves back as Up does.
+     */
+    inline?: boolean;
     /** Runs the row, as a press or Enter does, once its submenu, if it has one, is open. */
     select(e: MouseEvent | KeyboardEvent): void;
 }

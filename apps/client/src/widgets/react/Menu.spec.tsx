@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { MenuItem } from "../../menus/context_menu";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem } from "./FormList";
 import Menu, { type MenuProps } from "./Menu";
 import { shouldDropStart } from "./menu_context";
@@ -258,5 +259,79 @@ describe("Menu with declared rows", () => {
         } finally {
             vi.restoreAllMocks();
         }
+    });
+});
+
+describe("Menu with an action row", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    afterEach(() => {
+        render(null, host);
+        window.glob.isRtl = false;
+    });
+
+    function renderMenu() {
+        const onSelect = vi.fn();
+        const items: MenuItem<string>[] = [
+            {
+                kind: "actions",
+                items: [
+                    { title: "Cut", command: "cut", uiIcon: "bx bx-cut" },
+                    { title: "Copy", command: "copy", uiIcon: "bx bx-copy", enabled: false },
+                    { title: "Delete", command: "delete", uiIcon: "bx bx-trash" }
+                ]
+            },
+            { kind: "separator" },
+            { title: "Rename", command: "rename" },
+            { title: "More", items: [ { title: "Inner", command: "inner" } ] }
+        ];
+        render(<Menu anchor={{ x: 10, y: 10 }} items={items} onSelect={onSelect} onClose={vi.fn()} />, host);
+
+        const menu = document.querySelector<HTMLElement>(".tn-popup.tn-menu");
+        if (!menu) throw new Error("expected the menu to render");
+        return { menu, onSelect };
+    }
+
+    const key = (menu: HTMLElement, name: string) =>
+        menu.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+    const active = (menu: HTMLElement) =>
+        menu.querySelector(".tn-menu-active .tn-menu-action-title, li.tn-menu-active > span")?.textContent;
+
+    it("steps through the actions as rows, the arrow towards the end moving on as Down does", async () => {
+        const { menu, onSelect } = renderMenu();
+
+        key(menu, "ArrowDown");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
+        // The disabled "Copy" is passed over, and the last action leads on to the rows below.
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Delete"));
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Rename"));
+        key(menu, "ArrowUp");
+        await vi.waitFor(() => expect(active(menu)).toBe("Delete"));
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
+
+        key(menu, "Enter");
+        expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ command: "cut" }), expect.any(KeyboardEvent));
+    });
+
+    it("keeps Right and Left for the submenus on the other rows, mirrored right to left", async () => {
+        const { menu } = renderMenu();
+
+        key(menu, "ArrowUp");
+        await vi.waitFor(() => expect(active(menu)).toBe("More"));
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Inner"));
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(active(menu)).toBe("More"));
+
+        window.glob.isRtl = true;
+        key(menu, "Home");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
+        key(menu, "ArrowLeft");
+        await vi.waitFor(() => expect(active(menu)).toBe("Delete"));
+        key(menu, "ArrowRight");
+        await vi.waitFor(() => expect(active(menu)).toBe("Cut"));
     });
 });
