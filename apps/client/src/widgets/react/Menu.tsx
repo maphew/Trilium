@@ -2,11 +2,13 @@ import "./Menu.css";
 
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
-import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
+import { t } from "../../services/i18n";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
-import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart } from "./menu_context";
+import FormTextBox from "./FormTextBox";
+import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type MenuFilter, MenuFilterContext, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart, useMenu } from "./menu_context";
 import Popup, { type PopupProps } from "./Popup";
 
 /**
@@ -49,6 +51,9 @@ export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "co
 
 /** The keys the menu keeps while focus is inside a custom row: those that leave it. */
 const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab" ]);
+/** The keys the menu keeps while focus is in a submenu's filter input; the input edits with the rest. */
+const KEYS_OF_FILTER = new Set([ "ArrowUp", "ArrowDown", "Enter", "Escape", "Tab" ]);
+const FILTER_INPUT = "input.tn-menu-filter-input";
 
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
@@ -87,6 +92,13 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     /** The level whose first row becomes active once it has rendered, for a submenu a key opened. */
     const pendingFirstRow = useRef<number | undefined>(undefined);
     const typeahead = useRef({ text: "", timeout: 0 });
+    const [ filter, setFilterState ] = useState<MenuFilter>();
+    /** The filter as the keys last left it, ahead of the render that shows it: keys come faster. */
+    const filterRef = useRef<MenuFilter | undefined>(undefined);
+    const setFilter = useCallback((next: MenuFilter | undefined) => {
+        filterRef.current = next;
+        setFilterState(next);
+    }, []);
     /** Whether the keys moved the menu since the pointer last did. See `Menu.css`. */
     const [ keyboardDriven, setKeyboardDriven ] = useState(false);
     /** Whether the menu has asked to close, which it does once. */
@@ -116,7 +128,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         });
     }, [ rows ]);
     const context: MenuContextValue = {
-        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, dropStart, setDropStart, close, layerHost
+        open, openSubmenu, active, setActive, rows, registerRow, keyboardDriven, dropStart, setDropStart, close, filter, setFilter, layerHost
     };
 
     /** The ids of the rows the keys can stand on at `level`, in the order they stand in. */
@@ -140,13 +152,39 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     const activateFirstRowRef = useRef(activateFirstRow);
     activateFirstRowRef.current = activateFirstRow;
 
-    // After the commit: a submenu's rows register their elements only as they mount.
+    // After the commit: a submenu's rows register their elements only as they mount. A filter
+    // input with focus names the row too, as the keys pick it from there.
     useLayoutEffect(() => {
         const row = active && rows.get(active.id);
         const rowId = row && !row.custom ? row.element.id : undefined;
-        if (rowId) menuRef.current?.setAttribute("aria-activedescendant", rowId);
-        else menuRef.current?.removeAttribute("aria-activedescendant");
-    }, [ active, open, rows ]);
+        for (const element of [ menuRef.current, filterInputIn(menuRef.current) ]) {
+            if (!element) continue;
+            if (rowId) element.setAttribute("aria-activedescendant", rowId);
+            else element.removeAttribute("aria-activedescendant");
+        }
+    }, [ active, open, rows, filter ]);
+
+    // A filter ends with the submenu it filters, as the pointer or the keys close it.
+    useLayoutEffect(() => {
+        const current = filterRef.current;
+        if (current && open[current.level]?.id !== current.rowId) setFilter(undefined);
+    }, [ open, setFilter ]);
+
+    // The first match, or the first row once the input is emptied, is the one Enter runs. Typing
+    // that began in the menu goes on in the input.
+    const lastFilter = useRef<MenuFilter | undefined>(undefined);
+    useLayoutEffect(() => {
+        const level = (filter ?? lastFilter.current)?.level;
+        lastFilter.current = filter;
+        if (level === undefined) return;
+        if (!activateFirstRow(level + 1)) pendingFirstRow.current = level + 1;
+
+        const input = filterInputIn(menuRef.current);
+        if (filter && input && document.activeElement !== input) {
+            input.focus({ preventScroll: true });
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+    }, [ filter ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // A custom row takes focus in itself, for its own keys; any other row hands it back to the menu.
     useLayoutEffect(() => {
@@ -155,7 +193,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         if (!menu || !row) return;
         if (row.custom) {
             focusTarget(row.element)?.focus({ preventScroll: true });
-        } else if (document.activeElement !== menu && menu.contains(document.activeElement)) {
+        } else if (document.activeElement !== menu && menu.contains(document.activeElement)
+                && !document.activeElement?.matches(FILTER_INPUT)) {
             menu.focus({ preventScroll: true });
         }
     }, [ active, rows ]);
@@ -164,12 +203,13 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     keyHandler.current = onKeyDown;
     useLayoutEffect(() => {
         // Captured at the window: Bootstrap captures keys at the document for anything inside a
-        // `.dropdown-menu`, and takes them for a dropdown of its own. Inside a custom row, only the
-        // keys that leave it, so the control there keeps its own.
+        // `.dropdown-menu`, and takes them for a dropdown of its own. Inside a custom row or a
+        // filter input, only the keys that are the menu's, so the control there keeps its own.
         const listener = (e: KeyboardEvent) => {
             const menu = menuRef.current;
-            if (e.target === menu
-                    || (menu?.contains(e.target as Node) && KEYS_LEAVING_CUSTOM_ROW.has(e.key))) {
+            const inFilter = e.target instanceof Element && e.target.matches(FILTER_INPUT);
+            const keys = inFilter ? KEYS_OF_FILTER : KEYS_LEAVING_CUSTOM_ROW;
+            if (e.target === menu || (menu?.contains(e.target as Node) && keys.has(e.key))) {
                 keyHandler.current(e);
             }
         };
@@ -178,11 +218,14 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     }, []);
 
     function onKeyDown(e: KeyboardEvent) {
-        const level = active?.level ?? 0;
+        // From a filter input, the keys act on the rows of the submenu it filters.
+        const filterInput = e.target instanceof HTMLInputElement && e.target.matches(FILTER_INPUT) ? e.target : undefined;
+        const level = filterInput ? Number(filterInput.dataset.level) : active?.level ?? 0;
         const levelRows = navigableRows(level);
-        const index = active ? levelRows.indexOf(active.id) : -1;
+        const activeHere = active?.level === level ? active : undefined;
+        const index = activeHere ? levelRows.indexOf(activeHere.id) : -1;
         const count = levelRows.length;
-        const activeRow = active && rows.get(active.id);
+        const activeRow = activeHere && rows.get(activeHere.id);
         // A submenu goes with its row's highlight, as in a native menu, until Right opens it again.
         const moveTo = (rowId: string) => {
             if (open[level]?.id !== rowId) openSubmenu(level);
@@ -193,8 +236,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             if (rowId) moveTo(rowId);
         };
         const openActive = () => {
-            if (!active || !activeRow?.hasSubmenu || activeRow.custom) return;
-            openSubmenu(level, active.id, activeRow.element, true);
+            if (!activeHere || !activeRow?.hasSubmenu || activeRow.custom) return;
+            openSubmenu(level, activeHere.id, activeRow.element, true);
             // A submenu already open has its rows; one opening now has them once it renders.
             if (!activateFirstRow(level + 1)) pendingFirstRow.current = level + 1;
         };
@@ -206,45 +249,55 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         };
         const rtl = isRightToLeft();
 
-        switch (e.key) {
-            case "ArrowDown": goTo(index + 1); break;
-            case "ArrowUp": goTo(index < 0 ? -1 : index - 1); break;
-            case "Home": goTo(0); break;
-            case "End": goTo(-1); break;
-            // Into the active row's submenu.
-            case rtl ? "ArrowLeft" : "ArrowRight":
-                openActive();
-                break;
-            // Out of the submenu.
-            case rtl ? "ArrowRight" : "ArrowLeft":
-                if (level > 0) closeLevel(level);
-                break;
-            case "Enter":
-            case " ":
-                if (!activeRow || activeRow.custom) break;
-                openActive();
-                activeRow.select(e);
-                break;
-            case "Escape":
-                // One level at a time, then the menu itself.
-                if (open.length) closeLevel(open.length);
-                else close();
-                break;
-            // Focus stays in the menu until it closes.
-            case "Tab": break;
-            default: {
-                if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
-                const typed = typeahead.current;
-                window.clearTimeout(typed.timeout);
-                typed.timeout = window.setTimeout(() => typed.text = "", TYPEAHEAD_TIMEOUT);
-                typed.text += e.key.toLowerCase();
-                // A first letter looks past the active row, so pressing it again moves on.
-                const skip = typed.text.length === 1 ? 1 : 0;
-                for (let step = skip; step < count + skip; step++) {
-                    const rowId = levelRows[(index + step + count) % count];
-                    if (rowId && rows.get(rowId)?.element.textContent?.trim().toLowerCase().startsWith(typed.text)) {
-                        moveTo(rowId);
-                        break;
+        if (filterInput && e.key === "Escape") {
+            // Emptied first; empty, it closes the submenu and gives the menu its keys back.
+            if (filterInput.value) {
+                setFilter(undefined);
+            } else {
+                closeLevel(level);
+                menuRef.current?.focus({ preventScroll: true });
+            }
+        } else if (filterInput || !filterKey(e, level, activeRow)) {
+            switch (e.key) {
+                case "ArrowDown": goTo(index + 1); break;
+                case "ArrowUp": goTo(index < 0 ? -1 : index - 1); break;
+                case "Home": goTo(0); break;
+                case "End": goTo(-1); break;
+                // Into the active row's submenu.
+                case rtl ? "ArrowLeft" : "ArrowRight":
+                    openActive();
+                    break;
+                // Out of the submenu.
+                case rtl ? "ArrowRight" : "ArrowLeft":
+                    if (level > 0) closeLevel(level);
+                    break;
+                case "Enter":
+                case " ":
+                    if (!activeRow || activeRow.custom) break;
+                    openActive();
+                    activeRow.select(e);
+                    break;
+                case "Escape":
+                    // One level at a time, then the menu itself.
+                    if (open.length) closeLevel(open.length);
+                    else close();
+                    break;
+                // Focus stays in the menu until it closes.
+                case "Tab": break;
+                default: {
+                    if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+                    const typed = typeahead.current;
+                    window.clearTimeout(typed.timeout);
+                    typed.timeout = window.setTimeout(() => typed.text = "", TYPEAHEAD_TIMEOUT);
+                    typed.text += e.key.toLowerCase();
+                    // A first letter looks past the active row, so pressing it again moves on.
+                    const skip = typed.text.length === 1 ? 1 : 0;
+                    for (let step = skip; step < count + skip; step++) {
+                        const rowId = levelRows[(index + step + count) % count];
+                        if (rowId && rows.get(rowId)?.element.textContent?.trim().toLowerCase().startsWith(typed.text)) {
+                            moveTo(rowId);
+                            break;
+                        }
                     }
                 }
             }
@@ -252,6 +305,35 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         setKeyboardDriven(true);
         e.preventDefault();
         e.stopPropagation();
+    }
+
+    /**
+     * A letter typed while the menu has focus, into a filterable submenu: the one the active row
+     * opened, or the nearest one the keys stand in. It goes into that submenu's filter input, which
+     * takes focus for the rest. Returns whether the key went there.
+     */
+    function filterKey(e: KeyboardEvent, level: number, activeRow: RowEntry | undefined) {
+        if (e.key.length !== 1 || e.key === " " || e.ctrlKey || e.metaKey || e.altKey) return false;
+        const current = filterRef.current;
+        if (current) {
+            // Typed before the input took focus, as fast typing can.
+            setFilter({ ...current, text: current.text + e.key });
+            return true;
+        }
+
+        let target: Omit<MenuFilter, "text"> | undefined;
+        if (active && activeRow?.filterable && open[level]?.id === active.id) {
+            target = { rowId: active.id, level };
+        }
+        for (let parent = level - 1; !target && parent >= 0; parent--) {
+            const rowId = open[parent]?.id;
+            if (rowId && rows.get(rowId)?.filterable) target = { rowId, level: parent };
+        }
+        if (!target) return false;
+        // The submenus open inside it give way to the list of matches.
+        openSubmenu(target.level + 1);
+        setFilter({ ...target, text: e.key });
+        return true;
     }
 
     // The keys go to the menu while it is up; `contextMenu` gives focus back once it is hidden. A
@@ -315,7 +397,64 @@ function MenuItems<T>({ items, onSelect }: {
     items: MenuItem<T>[],
     onSelect: MenuProps<T>["onSelect"]
 }) {
-    return <>{menuRows(items).map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />)}</>;
+    const filter = useContext(MenuFilterContext);
+    const rows = filter?.text
+        ? <FilteredMenuItems items={items} text={filter.text} onSelect={onSelect} />
+        : menuRows(items).map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />);
+    return <>{filter && <MenuFilterInput filter={filter} />}{rows}</>;
+}
+
+/**
+ * The input at the top of a filterable submenu. It edits as any input does; the menu keeps Up,
+ * Down, Enter, Escape and Tab, to pick from the matches while focus stays here.
+ */
+function MenuFilterInput({ filter }: { filter: MenuFilter }) {
+    const menu = useMenu();
+    const inputRef = useRef<HTMLInputElement | null>(null);
+
+    // Leaving with focus, as when the pointer moves on and closes the submenu, it hands the keys
+    // back to the menu rather than to the page.
+    useLayoutEffect(() => () => {
+        if (document.activeElement === inputRef.current) menu.layerHost?.focus({ preventScroll: true });
+    }, [ menu.layerHost ]);
+
+    return (
+        <li className="tn-menu-filter-row" role="none">
+            <span className="bx bx-search" aria-hidden="true" />
+            <FormTextBox
+                inputRef={inputRef} className="tn-menu-filter-input" data-level={filter.level + 1}
+                currentValue={filter.text} placeholder={t("menu.filter_placeholder")} aria-label={t("menu.filter")}
+                autoComplete="off" spellcheck={false}
+                onChange={(text) => menu.setFilter(text ? { rowId: filter.rowId, level: filter.level, text } : undefined)}
+            />
+        </li>
+    );
+}
+
+/**
+ * The items of a filtered submenu: every item inside it, at any depth, that matches what was
+ * typed, each with the submenus it stands in and the matching part of its title marked.
+ */
+function FilteredMenuItems<T>({ items, text, onSelect }: {
+    items: MenuItem<T>[],
+    text: string,
+    onSelect: MenuProps<T>["onSelect"]
+}) {
+    const matches = filterMenuItems(items, text);
+    return <>
+        {matches.length === 0 && <li className="tn-menu-filter-empty" role="none">{t("menu.no_matches")}</li>}
+        {matches.map(({ item, title, path }, index) => (
+            <FormListItem
+                key={index}
+                icon={item.uiIcon ?? "bx bx-empty"} iconClassName={item.iconColorClass}
+                badges={item.badges?.map((badge) => ({ className: badge.className, text: badge.title }))}
+                closeOnSelect={false} onClick={(e) => onSelect?.(item, e)}
+            >
+                <span className="tn-menu-filter-title">{highlightMatch(title, text)}</span>
+                {path.length > 0 && <span className="tn-menu-filter-path">{path.join(" › ")}</span>}
+            </FormListItem>
+        ))}
+    </>;
 }
 
 function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
@@ -336,7 +475,7 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
         return (
             <FormDropdownSubmenu
                 icon={uiIcon ?? "bx bx-empty"} title={label} disabled={enabled === false}
-                className={className} onDropdownToggleClicked={select}
+                className={className} onDropdownToggleClicked={select} filterable={row.filterable}
             >
                 <MenuItems items={items} onSelect={onSelect} />
             </FormDropdownSubmenu>
@@ -355,6 +494,73 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
             {label}
         </FormListItem>
     );
+}
+
+interface MenuMatch<T> {
+    item: MenuCommandItem<T>;
+    /** The title as text. */
+    title: string;
+    /** The titles of the submenus the item stands in, outermost first. */
+    path: string[];
+}
+
+/**
+ * The items, at any depth, that run something and match `text`: every word of it is in the
+ * item's title or in those of the submenus it stands in. Those whose title starts with the text
+ * come first, then those whose title holds it, each group in menu order.
+ */
+function filterMenuItems<T>(items: MenuItem<T>[], text: string): MenuMatch<T>[] {
+    const query = text.trim().toLowerCase();
+    const words = query.split(/\s+/).filter(Boolean);
+    const found: (MenuMatch<T> & { rank: number })[] = [];
+
+    function collect(level: MenuItem<T>[], path: string[]) {
+        for (const item of level) {
+            if ("kind" in item) continue;
+            const title = textOf(item.title);
+            if (item.items) {
+                collect(item.items, [ ...path, title ]);
+                continue;
+            }
+            if (item.enabled === false) continue;
+            const lowerTitle = title.toLowerCase();
+            const haystack = [ ...path, title ].join(" ").toLowerCase();
+            if (!words.every((word) => haystack.includes(word))) continue;
+            const rank = lowerTitle.startsWith(query) ? 0 : lowerTitle.includes(query) ? 1 : 2;
+            found.push({ item, title, path, rank });
+        }
+    }
+
+    collect(items, []);
+    return found.sort((a, b) => a.rank - b.rank);
+}
+
+/**
+ * The text an item's title shows. Titles are HTML, read through a `<template>`, whose content is
+ * inert: an `<img>` in it neither loads nor runs its handlers, as one in a detached `<div>` would.
+ */
+function textOf(html: string) {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    return template.content.textContent ?? "";
+}
+
+/** `title` with the first place the typed text, or else one of its words, occurs in it marked. */
+function highlightMatch(title: string, text: string) {
+    const lowerTitle = title.toLowerCase();
+    const query = text.trim().toLowerCase();
+    for (const candidate of [ query, ...query.split(/\s+/) ].filter(Boolean)) {
+        const start = lowerTitle.indexOf(candidate);
+        if (start < 0) continue;
+        const end = start + candidate.length;
+        return <>{title.slice(0, start)}<mark>{title.slice(start, end)}</mark>{title.slice(end)}</>;
+    }
+    return title;
+}
+
+/** The filter input of the submenu open in `menu`, if one is. */
+function filterInputIn(menu: HTMLElement | null) {
+    return menu?.querySelector<HTMLInputElement>(FILTER_INPUT) ?? null;
 }
 
 /** Where a custom row takes focus: the element its content marks as its way in with `tabindex="0"`. */

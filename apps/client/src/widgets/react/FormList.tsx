@@ -13,7 +13,7 @@ import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef, useUniqueName } from "./hooks";
 import Icon, { SvgIcon } from "./Icon";
-import { isRightToLeft, MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, pointerMoved, shouldDropStart, useMenu } from "./menu_context";
+import { isRightToLeft, MenuContext, type MenuContextValue, MenuFilterContext, MenuLevelContext, type OpenSubmenu, pointerMoved, shouldDropStart, useMenu } from "./menu_context";
 import { placeFloating } from "./Popup";
 import { joinElements } from "./react_utils";
 import { renderShortcutKbds } from "./shortcut_kbd";
@@ -381,6 +381,8 @@ export interface FormDropdownSubmenuProps {
     onDropdownToggleClicked?: (e: MouseEvent) => void;
     disabled?: boolean;
     className?: string;
+    /** Inside a menu, whether typing while the submenu is open filters it. See `MenuCommandItem.filterable`. */
+    filterable?: boolean;
 }
 
 /**
@@ -394,12 +396,13 @@ export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
     return <MenuSubmenu {...props} menu={menu} />;
 }
 
-function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
+function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, disabled, className, filterable }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
     const level = useContext(MenuLevelContext);
     const id = useUniqueName("menu-row");
     const openSubmenu = menu.open[level];
     const open = openSubmenu?.id === id;
     const isActive = menu.active?.id === id;
+    const filter = filterable ? { rowId: id, level, text: menu.filter?.rowId === id ? menu.filter.text : "" } : undefined;
 
     /** Runs the row's own action for the keys, with the modifiers of the key that ran it. */
     function select(e: MouseEvent | KeyboardEvent) {
@@ -417,7 +420,7 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
         <li
             id={id}
             ref={(element) => {
-                menu.registerRow(id, element ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: true, select } : undefined);
+                menu.registerRow(id, element ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: true, filterable, select } : undefined);
             }}
             className={clsx("dropdown-item dropdown-submenu", open && "submenu-open", isActive && "tn-menu-active",
                 disabled && "disabled", className)}
@@ -465,11 +468,15 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                 // A phone has no room beside the menu, so an open submenu unfolds under its row.
                 ? (
                     <ul className={clsx("dropdown-menu", open && "show")} role="menu" aria-labelledby={titleId(id)}>
-                        <MenuLevelContext.Provider value={level + 1}>{open && children}</MenuLevelContext.Provider>
+                        <MenuLevelContext.Provider value={level + 1}>
+                            <MenuFilterContext.Provider value={filter}>{open && children}</MenuFilterContext.Provider>
+                        </MenuLevelContext.Provider>
                     </ul>
                 )
                 : open && openSubmenu && menu.layerHost && createPortal((
-                    <SubmenuLayer level={level + 1} submenu={openSubmenu}>{children}</SubmenuLayer>
+                    <SubmenuLayer level={level + 1} submenu={openSubmenu}>
+                        <MenuFilterContext.Provider value={filter}>{children}</MenuFilterContext.Provider>
+                    </SubmenuLayer>
                 ), menu.layerHost)}
         </li>
     );

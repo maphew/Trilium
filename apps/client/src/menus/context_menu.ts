@@ -73,6 +73,11 @@ export interface MenuCommandItem<T> {
      * icon standing — for a list where that icon is what tells one entry from another.
      */
     trailingIcon?: string;
+    /**
+     * For an item with {@link items}: typing while its submenu is open filters every item inside
+     * it, at any depth, into one list, which shows what was typed.
+     */
+    filterable?: boolean;
 }
 
 export type MenuItem<T> = MenuCommandItem<T> | CustomMenuItem | MenuSeparatorItem | MenuHeader;

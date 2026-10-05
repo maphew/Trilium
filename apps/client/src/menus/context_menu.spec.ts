@@ -825,6 +825,236 @@ describe("contextMenu", () => {
             await vi.waitFor(() => expect(activeRow()).toBe("Paste"));
         });
 
+        describe("filtering a filterable submenu", () => {
+            const filterableItems = [
+                { title: "Cut" },
+                {
+                    title: "Insert child note", filterable: true, items: [
+                        { title: "Text" },
+                        { title: "Code", items: [ { title: "Plain text" }, { title: "Python" }, { title: "JavaScript" } ] },
+                        { kind: "separator" as const },
+                        { title: "Collection", items: [ { title: "Table" }, { title: "Board", badges: [ { title: "New" } ] } ] },
+                        { kind: "header" as const, title: "Templates" },
+                        { title: "Meeting &amp; <b>notes</b>" }
+                    ]
+                }
+            ];
+            const unfiltered = [ "Text|", "Code|", "Collection|", "Meeting & notes|" ];
+
+            async function openFilterable(picked: string[] = []) {
+                buildPage();
+                const contextMenu = await buildContextMenu();
+                await contextMenu.show({
+                    x: 10, y: 10, items: filterableItems,
+                    selectMenuItemHandler: (item) => picked.push(String(item.title))
+                });
+                await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
+                return contextMenu;
+            }
+
+            /** Goes down to the filterable row and into its submenu, a key at a time. */
+            async function openSubmenuByKeys() {
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+                key("ArrowRight");
+                await vi.waitFor(() => expect(activeRow()).toBe("Text"));
+            }
+
+            function filterInput() {
+                return menuElement()?.querySelector<HTMLInputElement>("div.dropdown-submenu input.tn-menu-filter-input") ?? null;
+            }
+
+            /** Sets what the input holds, as typing, deleting or pasting into it does. */
+            function edit(value: string) {
+                const input = filterInput();
+                if (!input) throw new Error("no filter input");
+                input.value = value;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+
+            /**
+             * Types without waiting, as fast typing does: a key while the menu has focus, the
+             * input's own editing once it has.
+             */
+            function type(text: string) {
+                for (const character of text) {
+                    const input = filterInput();
+                    if (input && document.activeElement === input) edit(input.value + character);
+                    else key(character);
+                }
+            }
+
+            /** The open layer: what the input holds, and each row as its title and the path it came from. */
+            function layer() {
+                const list = menuElement()?.querySelector("div.dropdown-submenu .tn-menu-scroll");
+                const rows = [ ...list?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ];
+                return {
+                    filter: filterInput()?.value ?? null,
+                    rows: rows.map((row) => [
+                        row.querySelector(".tn-menu-filter-title")?.textContent ?? row.textContent,
+                        row.querySelector(".tn-menu-filter-path")?.textContent ?? ""
+                    ].join("|")),
+                    empty: !!list?.querySelector(".tn-menu-filter-empty")
+                };
+            }
+
+            it("offers an input to filter with, which typing from the menu moves into", async () => {
+                await openFilterable();
+                await openSubmenuByKeys();
+                // There before anything is typed, empty, and with the keys still on the rows.
+                expect(layer()).toEqual({ filter: "", rows: unfiltered, empty: false });
+                expect(document.activeElement).toBe(menuElement());
+
+                type("p");
+                await vi.waitFor(() => expect(document.activeElement).toBe(filterInput()));
+                expect(filterInput()?.selectionStart).toBe(1);
+                expect(layer().filter).toBe("p");
+                // Those starting with it first, then those holding it, each group in menu order.
+                expect(layer().rows).toEqual([ "Plain text|Code", "Python|Code", "JavaScript|Code" ]);
+                expect(activeRow()).toMatch(/^Plain text/);
+
+                type("y");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Python|Code" ]));
+                expect(menuElement()?.querySelector(".tn-menu-filter-title mark")?.textContent).toBe("Py");
+                expect(activeRow()).toMatch(/^Python/);
+
+                edit("p");
+                await vi.waitFor(() => expect(layer().rows).toHaveLength(3));
+                // Emptied, it lists the submenu as it was, and keeps focus for more typing.
+                edit("");
+                await vi.waitFor(() => expect(layer().rows).toEqual(unfiltered));
+                expect(document.activeElement).toBe(filterInput());
+                expect(activeRow()).toBe("Text");
+            });
+
+            it("leaves editing to the input, and keeps the keys that pick a match", async () => {
+                const picked: string[] = [];
+                const contextMenu = await openFilterable(picked);
+                await openSubmenuByKeys();
+                type("p");
+                await vi.waitFor(() => expect(document.activeElement).toBe(filterInput()));
+
+                // The caret's keys are the input's: nothing moves in the menu, and the submenu stays.
+                for (const name of [ "Home", "End", "ArrowLeft", "ArrowRight", "Backspace", " " ]) {
+                    expect(key(name).defaultPrevented).toBe(false);
+                }
+                expect(activeRow()).toMatch(/^Plain text/);
+                expect(filterInput()).not.toBeNull();
+
+                // Up and Down go through the matches, with focus kept in the input.
+                expect(key("ArrowDown").defaultPrevented).toBe(true);
+                await vi.waitFor(() => expect(activeRow()).toMatch(/^Python/));
+                expect(document.activeElement).toBe(filterInput());
+                key("ArrowUp");
+                await vi.waitFor(() => expect(activeRow()).toMatch(/^Plain text/));
+                expect(key("Tab").defaultPrevented).toBe(true);
+
+                key("Enter");
+                expect(picked).toEqual([ "Plain text" ]);
+                expect(contextMenu.isShown).toBe(false);
+            });
+
+            it("matches the submenus a row stands in, every word apart, and the text a title shows", async () => {
+                await openFilterable();
+                await openSubmenuByKeys();
+
+                type("collection");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Table|Collection", "Board|Collection" ]));
+                // A badge stays with its row.
+                expect(menuElement()?.querySelector(".tn-menu-scroll .badge")?.textContent).toBe("New");
+
+                edit("code java");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "JavaScript|Code" ]));
+
+                edit("& n");
+                // The title is HTML; what is matched and shown is its text, and none of its markup.
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Meeting & notes|" ]));
+                expect(menuElement()?.querySelector(".tn-menu-filter-title b")).toBeNull();
+
+                edit("& nzz");
+                await vi.waitFor(() => expect(layer().empty).toBe(true));
+                expect(layer().rows).toEqual([]);
+            });
+
+            it("filters right after the pointer opened the submenu, and runs the match on Enter", async () => {
+                const picked: string[] = [];
+                const contextMenu = await openFilterable(picked);
+                const parent = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-submenu") ?? [] ]
+                    .find((row) => row.textContent?.includes("Insert child note"));
+                parent?.dispatchEvent(new PointerEvent("pointerenter"));
+                await vi.waitFor(() => expect(filterInput()).not.toBeNull());
+
+                type("boa");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Board|Collection" ]));
+                expect(activeRow()).toMatch(/^Board/);
+                key("Enter");
+                expect(picked).toEqual([ "Board" ]);
+                expect(contextMenu.isShown).toBe(false);
+            });
+
+            it("takes a press into the input, as a phone needs to bring up its keyboard", async () => {
+                await openFilterable();
+                const parent = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-submenu") ?? [] ]
+                    .find((row) => row.textContent?.includes("Insert child note"));
+                parent?.dispatchEvent(new PointerEvent("pointerenter"));
+                await vi.waitFor(() => expect(filterInput()).not.toBeNull());
+
+                const press = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+                filterInput()?.dispatchEvent(press);
+                expect(press.defaultPrevented).toBe(false);
+                filterInput()?.focus();
+                edit("tab");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Table|Collection" ]));
+                expect(activeRow()).toMatch(/^Table/);
+            });
+
+            it("lets Escape empty the input before it closes anything, and gives the menu its keys back", async () => {
+                const contextMenu = await openFilterable();
+                // Not a filterable level: the first letters go to a row, and no input is offered.
+                type("c");
+                await vi.waitFor(() => expect(activeRow()).toBe("Cut"));
+                expect(menuElement()?.querySelector("input.tn-menu-filter-input")).toBeNull();
+
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+                key("ArrowRight");
+                await vi.waitFor(() => expect(activeRow()).toBe("Text"));
+                type("ta");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Table|Collection" ]));
+
+                key("Escape");
+                await vi.waitFor(() => expect(layer()).toEqual({ filter: "", rows: unfiltered, empty: false }));
+                expect(document.activeElement).toBe(filterInput());
+                expect(contextMenu.isShown).toBe(true);
+
+                // Empty, Escape closes the submenu, and the menu has the keys again.
+                key("Escape");
+                await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+                expect(filterInput()).toBeNull();
+                expect(document.activeElement).toBe(menuElement());
+
+                // The submenu closing under a filled input, as the pointer moving on does, ends the
+                // filter and gives the menu its keys too.
+                key("ArrowRight");
+                await vi.waitFor(() => expect(activeRow()).toBe("Text"));
+                type("ta");
+                await vi.waitFor(() => expect(document.activeElement).toBe(filterInput()));
+                const cut = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-item") ?? [] ]
+                    .find((row) => row.textContent === "Cut");
+                cut?.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, movementX: 3 }));
+                await vi.waitFor(() => expect(filterInput()).toBeNull());
+                expect(document.activeElement).toBe(menuElement());
+                key("ArrowRight");
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+                key("ArrowRight");
+                await vi.waitFor(() => expect(layer().filter).toBe(""));
+                expect(layer().rows).toEqual(unfiltered);
+            });
+        });
+
         it("opens a submenu towards it and closes it back, one level at a time", async () => {
             const dialogHeard = vi.fn();
             document.addEventListener("keydown", dialogHeard);

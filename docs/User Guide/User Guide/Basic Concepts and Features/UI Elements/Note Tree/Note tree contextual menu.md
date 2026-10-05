@@ -26,6 +26,7 @@ The contextual menu can operate:
     *   Allows easy creation of a note with a specified [note type](../../../Note%20Types.md).
     *   <a class="reference-link" href="../../../Advanced%20Usage/Snippets.md">Snippets</a> and <a class="reference-link" href="../../../Collections.md">Collections</a> are grouped in the _Snippet_ and _Collection_ submenus, and the note types created less often in the _More_ submenu.
     *   <a class="reference-link" href="../../../Advanced%20Usage/Templates.md">Templates</a> will also be present (if any) at the end of the list.
+    *   To find an entry quickly, type into the search box at the top of the submenu, or just start typing while the submenu is open. The submenu then lists every matching entry, including those inside its own submenus (such as a code language or a collection), each with the submenu it comes from. Use <kbd>↑</kbd> and <kbd>↓</kbd> to pick a match, <kbd>Enter</kbd> to create it, and <kbd>Esc</kbd> to clear the search.
     *   The note will be added on the same level of hierarchy as the note selected.
 *   **Insert child note**
     *   Same as _Insert note after_, but the note will be created as a child of the selected note.

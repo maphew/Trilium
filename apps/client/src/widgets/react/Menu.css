@@ -78,3 +78,46 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
     background-color: transparent !important;
     border-color: transparent !important;
 }
+
+/* The input at the top of a filterable submenu, above its rows or its matches. */
+.tn-menu-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin: 0 0.25rem 0.25rem;
+    padding: 0 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--dropdown-border-color);
+    color: var(--muted-text-color);
+
+    /* Bootstrap draws `.form-control` and its focus as a field; in a menu the row is the field. */
+    .tn-menu-filter-input,
+    .tn-menu-filter-input:focus {
+        flex: 1;
+        min-width: 10em;
+        padding: 0.125rem 0;
+        border: none;
+        background: transparent;
+        box-shadow: none;
+        color: var(--menu-text-color);
+    }
+}
+
+.tn-menu-filter-empty {
+    padding: 0.25rem 0.75rem;
+    color: var(--muted-text-color);
+    font-style: italic;
+}
+
+.tn-menu-filter-title mark {
+    padding: 0;
+    color: inherit;
+    background-color: transparent;
+    font-weight: bold;
+}
+
+/* The submenus a match stands in, after its title. */
+.tn-menu-filter-path {
+    margin-inline-start: 0.75em;
+    color: var(--muted-text-color);
+    font-size: 0.9em;
+}

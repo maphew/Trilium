@@ -4587,5 +4587,10 @@
   },
   "split_button": {
     "more_actions": "More actions"
+  },
+  "menu": {
+    "no_matches": "No matches",
+    "filter": "Filter",
+    "filter_placeholder": "Type to filter…"
   }
 }
