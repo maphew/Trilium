@@ -1,5 +1,5 @@
 import {
-    buildNoteTypeId, buildTemplateId, type NoteType as CommonNoteType, type NoteTypeId,
+    buildNoteTypeId, buildTemplateId, getCodeLanguageIcon, type NoteType as CommonNoteType, type NoteTypeId,
     type TemplatesResponse
 } from "@triliumnext/commons";
 
@@ -311,7 +311,13 @@ function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandN
     mimeTypes.loadMimeTypes();
     const languages = mimeTypes.getMimeTypes()
         .filter((mimeType) => mimeType.enabled && mimeType.mime !== MARKDOWN_NOTE_TYPE_MIME)
-        .map<MenuItem<TreeCommandNames>>(({ title, mime }) => ({ title: escapeHtml(title), command, type: "code", mime }));
+        .map<MenuItem<TreeCommandNames>>((mimeType) => ({
+            title: escapeHtml(mimeType.title),
+            uiIcon: getCodeLanguageIcon(mimeType),
+            command,
+            type: "code",
+            mime: mimeType.mime
+        }));
 
     return [
         ...languages,

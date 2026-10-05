@@ -558,6 +558,8 @@ describe("new template badges", () => {
             // Plain text is always enabled; Markdown has an entry of its own.
             expect(languages.map((i: any) => i.mime)).toEqual([ "text/plain", "text/x-python" ]);
             expect(languages.every((i: any) => i.type === "code" && i.command === "insertChildNote")).toBe(true);
+            // The icon the note takes in the tree once created.
+            expect(languages.map((i: any) => i.uiIcon)).toEqual([ "bx bx-file", "bx bxl-python" ]);
 
             const configure = code.items.at(-1);
             expect(configure.command).toBeUndefined();
@@ -568,6 +570,8 @@ describe("new template badges", () => {
             options.set("codeNotesMimeTypes", JSON.stringify([ "text/x-python", "text/apl" ]));
             const again = codeRow(noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never));
             expect(again.items.filter((i: any) => i.mime).map((i: any) => i.mime)).toContain("text/apl");
+            // A language without an icon of its own takes that of the code note type.
+            expect(again.items.find((i: any) => i.mime === "text/apl").uiIcon).toBe("bx bx-code");
 
         } finally {
             options.set("codeNotesMimeTypes", original);

@@ -12,7 +12,7 @@ import { codeLanguageItems } from "./BasicPropertiesTab";
 
 describe("codeLanguageItems", () => {
     const mimeTypes = [
-        { title: "Plain text", mime: "text/plain" },
+        { title: "Plain text", mime: "text/plain", icon: "bx bx-file" },
         { title: "C++ <templates>", mime: "text/x-c++src" }
     ] as MimeType[];
 
@@ -26,6 +26,8 @@ describe("codeLanguageItems", () => {
             "Plain text", "C++ &lt;templates&gt;", "separator", "basic_properties.configure_code_notes"
         ]);
         expect(items.map((item) => "checked" in item && item.checked)).toEqual([ false, true, false, false ]);
+        // A language's own icon, or the code note type's when it has none, as the note tree shows it.
+        expect(items.slice(0, 2).map((item) => "uiIcon" in item && item.uiIcon)).toEqual([ "bx bx-file", "bx bx-code" ]);
 
         const [ plain, , , configure ] = items;
         if ("kind" in plain || "kind" in configure) throw new Error("expected rows");

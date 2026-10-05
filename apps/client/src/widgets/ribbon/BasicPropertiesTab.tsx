@@ -1,6 +1,6 @@
 import "./BasicPropertiesTab.css";
 
-import { MimeType, NoteType, ToggleInParentResponse } from "@triliumnext/commons";
+import { getCodeLanguageIcon, MimeType, NoteType, ToggleInParentResponse } from "@triliumnext/commons";
 import { createPortal } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
@@ -148,10 +148,11 @@ interface CodeLanguageListProps {
 
 /** The code languages to switch a note to, the current one ticked, as menu items. */
 export function codeLanguageItems({ currentMimeType, mimeTypes, changeNoteType, onConfigure }: CodeLanguageListProps) {
-    const items: MenuItem<unknown>[] = mimeTypes.map(({ title, mime }) => ({
-        title: escapeHtml(title),
-        checked: mime === currentMimeType,
-        handler: () => changeNoteType("code", mime)
+    const items: MenuItem<unknown>[] = mimeTypes.map((mimeType) => ({
+        title: escapeHtml(mimeType.title),
+        uiIcon: getCodeLanguageIcon(mimeType),
+        checked: mimeType.mime === currentMimeType,
+        handler: () => changeNoteType("code", mimeType.mime)
     }));
     if (onConfigure) {
         items.push({ kind: "separator" }, { title: t("basic_properties.configure_code_notes"), uiIcon: "bx bx-cog", handler: onConfigure });

@@ -1,6 +1,6 @@
 import "./StatusBar.css";
 
-import { Locale, NOTE_TYPE_ICONS, NoteType } from "@triliumnext/commons";
+import { getCodeLanguageIcon, Locale, NOTE_TYPE_ICONS, NoteType } from "@triliumnext/commons";
 import clsx from "clsx";
 import { type ComponentChildren, createPortal, RefObject } from "preact";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -606,7 +606,7 @@ function CodeNoteSwitcher({ note }: StatusBarContext) {
     return (noteType === "code" &&
         <>
             <StatusBarDropdown
-                icon={correspondingMimeType?.icon ?? "bx bx-code-curly"}
+                icon={getCodeLanguageIcon(correspondingMimeType)}
                 text={correspondingMimeType?.title}
                 title={t("status_bar.code_note_switcher")}
                 dropdownContainerClassName="dropdown-code-note-switcher"
