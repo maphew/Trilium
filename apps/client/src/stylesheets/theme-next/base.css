@@ -173,7 +173,7 @@ body.backdrop-effects-disabled {
 }
 
 /* The row's own icon is spaced by the `.tn-menu-gap` beside it. */
-.dropdown-menu.tn-dropdown-menu .dropdown-item .tn-icon:not(.dropdown-item > span > :first-child) {
+.dropdown-menu.tn-dropdown-menu .dropdown-item .tn-icon:not(.dropdown-item > span > :first-child, .menu-trailing-icon) {
     margin-inline-end: 6px;
 }
 
@@ -244,6 +244,10 @@ body.desktop .dropdown-item.dropdown-submenu .dropdown-toggle,
     padding-bottom: var(--menu-item-vertical-padding) !important;
     padding-inline-start: var(--menu-item-start-padding) !important;
     padding-inline-end: var(--menu-item-end-padding) !important;
+}
+
+.dropdown-item:not(.dropdown-submenu) span.menu-trailing-icon {
+    margin-inline-end: calc(var(--menu-item-start-padding) - var(--menu-item-end-padding));
 }
 
 .dropdown-item.dropdown-submenu {
