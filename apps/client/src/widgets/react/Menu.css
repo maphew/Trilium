@@ -54,7 +54,7 @@ body.desktop .dropdown-submenu > .dropdown-menu.tn-menu.tn-menu-immediate {
 /*
  * On a phone, a submenu is a page that takes its menu's place (`SubmenuPage`), and the frame
  * follows the height of the page on show. The level under a page keeps its rows and its scroll
- * position, hidden out of the flow. The slides are master_detail.css's.
+ * position, hidden out of the flow. The slides are slide_animations.css's.
  */
 .tn-menu-page {
     --tn-popup-padding: var(--padding, var(--menu-padding-size));
@@ -91,18 +91,18 @@ body.desktop .dropdown-submenu > .dropdown-menu.tn-menu.tn-menu-immediate {
 
     &:has(+ .tn-menu-page-entering) {
         visibility: visible;
-        animation: tn-master-detail-out-start 0.35s ease-in-out forwards;
+        animation: tn-slide-out-to-left 0.35s ease-in-out forwards;
     }
 
     &:has(+ .tn-menu-page-leaving) {
-        animation: tn-master-detail-in-start 0.35s ease-in-out forwards;
+        animation: tn-slide-in-from-left 0.35s ease-in-out forwards;
     }
 }
 
 .dropdown-menu.tn-menu > .tn-menu-page-entering {
     position: relative;
     z-index: 1;
-    animation: tn-master-detail-in-end 0.35s ease-in-out forwards;
+    animation: tn-slide-in-from-right 0.35s ease-in-out forwards;
 }
 
 .dropdown-menu.tn-menu > .tn-menu-page-leaving {
@@ -110,24 +110,24 @@ body.desktop .dropdown-submenu > .dropdown-menu.tn-menu.tn-menu-immediate {
     inset: 0;
     margin: 0;
     z-index: 1;
-    animation: tn-master-detail-out-end 0.35s ease-in-out forwards;
+    animation: tn-slide-out-to-right 0.35s ease-in-out forwards;
 }
 
 body[dir="rtl"] .dropdown-menu.tn-menu {
     > :is(.tn-menu-scroll, .tn-menu-page):has(+ .tn-menu-page-entering) {
-        animation-name: tn-master-detail-out-end;
+        animation-name: tn-slide-out-to-right;
     }
 
     > :is(.tn-menu-scroll, .tn-menu-page):has(+ .tn-menu-page-leaving) {
-        animation-name: tn-master-detail-in-end;
+        animation-name: tn-slide-in-from-right;
     }
 
     > .tn-menu-page-entering {
-        animation-name: tn-master-detail-in-start;
+        animation-name: tn-slide-in-from-left;
     }
 
     > .tn-menu-page-leaving {
-        animation-name: tn-master-detail-out-start;
+        animation-name: tn-slide-out-to-left;
     }
 }
 

@@ -1,4 +1,5 @@
 import "./Menu.css";
+import "./slide_animations.css";
 
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";

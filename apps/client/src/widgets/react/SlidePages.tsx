@@ -1,3 +1,4 @@
+import "./slide_animations.css";
 import "./SlidePages.css";
 
 import clsx from "clsx";

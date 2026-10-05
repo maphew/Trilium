@@ -1,4 +1,5 @@
 import "./master_detail.css";
+import "./slide_animations.css";
 
 import clsx from "clsx";
 import { ComponentChildren, createContext, RefObject } from "preact";
@@ -21,8 +22,8 @@ import Modal, { ModalProps } from "./Modal";
  *  master-detail flow. */
 export const MASTER_DETAIL_TABLET_MIN_WIDTH = 768;
 
-/** What every slide of the flow is named with, which is how a finished one is recognised. */
-const SLIDE_ANIMATION_PREFIX = "tn-master-detail-";
+/** What the slides of slide_animations.css are named with, which is how a finished one is recognized. */
+const SLIDE_ANIMATION_PREFIX = "tn-slide-";
 
 export interface MobileMasterDetail {
     /** True on narrow mobile viewports where the list and detail collapse into a master-detail flow. */
