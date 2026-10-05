@@ -8,6 +8,7 @@ import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import type { TreeCommandNames } from "../../menus/tree_context_menu";
 import attributes from "../../services/attributes";
 import { t } from "../../services/i18n";
+import { applyNotePreset } from "../../services/note_presets";
 import note_types, { MARKDOWN_NOTE_TYPE_MIME, NOTE_TYPES, type NoteTypeData } from "../../services/note_types";
 import server from "../../services/server";
 import { Badge, BadgeWithDropdown } from "../react/Badge";
@@ -131,7 +132,8 @@ const NOT_SWITCHED_TO = new Set<string>([ "text", "search" ]);
 
 /**
  * The note type menu's rows, each switching the note to what it creates: a note type changes the
- * note's type, a template becomes the note's `~template`. A row with a handler of its own keeps it.
+ * note's type, a template becomes the note's `~template`, a preset sets the type, label and content
+ * of its own. A row with a handler of its own keeps it.
  */
 export function toSwitcherItems(items: MenuItem<TreeCommandNames>[], noteId: string): MenuItem<unknown>[] {
     return items.flatMap((item): MenuItem<unknown>[] => {
@@ -144,8 +146,12 @@ export function toSwitcherItems(items: MenuItem<TreeCommandNames>[], noteId: str
     });
 }
 
-function switchTo(noteId: string, { type, mime, templateNoteId }: MenuCommandItem<TreeCommandNames>) {
+function switchTo(
+    noteId: string,
+    { type, mime, templateNoteId, notePreset }: MenuCommandItem<TreeCommandNames>
+) {
     if (templateNoteId) return attributes.setRelation(noteId, "template", templateNoteId);
+    if (notePreset) return applyNotePreset(noteId, notePreset);
     if (type) return switchNoteType(noteId, type, mime);
 }
 

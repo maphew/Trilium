@@ -315,6 +315,13 @@ describe("createNoteFromSuggestion", () => {
 
         await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "X", parentNoteId: "p" });
         expect(createNote).toHaveBeenCalledWith("chosen/path", expect.objectContaining({ type: "code", mime: "text/x-python" }));
+
+        // A preset adds its label to the type it names.
+        chooseNoteType.mockResolvedValue({ success: true, noteType: "code", mime: "text/css", notePreset: "appCss", notePath: "chosen/path" });
+        await createNoteFromSuggestion({ action: "create-child-note", noteTitle: "X", parentNoteId: "p" });
+        expect(createNote).toHaveBeenLastCalledWith("chosen/path", expect.objectContaining({
+            type: "code", mime: "text/css", attributes: [ { type: "label", name: "appCss", value: "" } ]
+        }));
     });
 
     it.each([

@@ -9,6 +9,7 @@ import type { ChooseNoteTypeResponse } from "../widgets/dialogs/note_type_choose
 import branchService from "./branches.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
+import { notePresetOptions } from "./note_presets.js";
 import protectedSessionHolder from "./protected_session_holder.js";
 import server from "./server.js";
 import toastService from "./toast.js";
@@ -151,7 +152,9 @@ async function chooseNoteType() {
 }
 
 async function createNoteWithTypePrompt(parentNotePath: string, options: CreateNoteOpts = {}) {
-    const { success, noteType, mime, templateNoteId, notePath, cloneToNoteIds } = await chooseNoteType();
+    const {
+        success, noteType, mime, templateNoteId, notePreset, notePath, cloneToNoteIds
+    } = await chooseNoteType();
 
     if (!success) {
         return;
@@ -161,6 +164,7 @@ async function createNoteWithTypePrompt(parentNotePath: string, options: CreateN
     options.mime = mime;
     options.templateNoteId = templateNoteId;
     options.cloneToNoteIds = cloneToNoteIds;
+    Object.assign(options, notePresetOptions(notePreset));
 
     return await createNote(notePath || parentNotePath, options);
 }

@@ -53,7 +53,7 @@ describe("NoteTypeSwitcher", () => {
 });
 
 describe("toSwitcherItems", () => {
-    it("switches the note to the row's note type or template, keeping rows of their own and leaving out what the note is or cannot become", () => {
+    it("switches the note to the row's note type, template or preset, keeping rows of their own and leaving out what the note is or cannot become", async () => {
         const put = vi.spyOn(server, "put").mockResolvedValue({});
         const setRelation = vi.spyOn(attributes, "setRelation").mockResolvedValue(undefined);
         const configure = vi.fn();
@@ -65,15 +65,16 @@ describe("toSwitcherItems", () => {
             row({ type: "code", mime: "text/plain", items: [ row({ type: "code", mime: "text/x-python" }), { kind: "separator" }, row({ title: "Configure", handler: configure }) ] }),
             { kind: "separator" },
             row({ title: "More", items: [ row({ type: "search" }), row({ type: "webView", mime: "" }) ] }),
-            row({ title: "Meeting", type: "text", templateNoteId: "_meeting" })
+            row({ title: "Meeting", type: "text", templateNoteId: "_meeting" }),
+            row({ title: "Custom CSS", type: "code", mime: "text/css", notePreset: "appCss" })
         ], "someNote");
 
         const commandItems = (list: MenuItem<unknown>[]) => list.filter((item): item is MenuCommandItem<unknown> => !("kind" in item));
         const run = (item: MenuCommandItem<unknown> | undefined) => item?.handler?.(item, new MouseEvent("click"));
-        const [ code, more, template ] = commandItems(items);
+        const [ code, more, template, preset ] = commandItems(items);
 
         // Text is what the note already is, and a text note does not become a saved search.
-        expect(commandItems(items).map((item) => item.title)).toEqual([ "code", "More", "Meeting" ]);
+        expect(commandItems(items).map((item) => item.title)).toEqual([ "code", "More", "Meeting", "Custom CSS" ]);
         expect(commandItems(more.items ?? []).map((item) => item.title)).toEqual([ "webView" ]);
         expect(commandItems(items).every((item) => item.command === undefined)).toBe(true);
 
@@ -85,6 +86,12 @@ describe("toSwitcherItems", () => {
         run(template);
         expect(setRelation).toHaveBeenCalledWith("someNote", "template", "_meeting");
         expect(put).toHaveBeenCalledTimes(1);
+
+        // A preset gives the note its type, then its label.
+        run(preset);
+        await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(3));
+        expect(put).toHaveBeenNthCalledWith(2, "notes/someNote/type", { type: "code", mime: "text/css" });
+        expect(put).toHaveBeenNthCalledWith(3, "notes/someNote/set-attribute", expect.objectContaining({ name: "appCss" }), undefined);
     });
 });
 

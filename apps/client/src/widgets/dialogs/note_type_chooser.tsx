@@ -4,6 +4,7 @@ import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
 import type { TreeCommandNames } from "../../menus/tree_context_menu";
 import { t } from "../../services/i18n";
 import type { Suggestion } from "../../services/note_autocomplete";
+import type { NotePresetId } from "../../services/note_presets";
 import note_types from "../../services/note_types";
 import FormGroup from "../react/FormGroup";
 import { useTriliumEvent } from "../react/hooks";
@@ -17,6 +18,7 @@ export interface ChooseNoteTypeResponse {
     /** The MIME type of the note, for a code note of a given language. */
     mime?: string;
     templateNoteId?: string;
+    notePreset?: NotePresetId;
     notePath?: string;
     /** Extra parents to clone the created note into, from the template's default parents. */
     cloneToNoteIds?: string[];
@@ -72,6 +74,7 @@ export default function NoteTypeChooserDialogComponent() {
             noteType: item.type,
             mime: item.mime,
             templateNoteId: item.templateNoteId,
+            notePreset: item.notePreset,
             notePath: parentNote?.notePath
         });
         setShown(false);

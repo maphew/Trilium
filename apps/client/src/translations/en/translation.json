@@ -2580,7 +2580,8 @@
     "spreadsheet": "Spreadsheet",
     "note-types": "Note types",
     "built-in-templates": "Built-in templates",
-    "more": "More"
+    "more": "More",
+    "widget-preset-sample": "Hello from a widget"
   },
   "template_selection": {
     "add-existing": "Add existing template",

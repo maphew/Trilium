@@ -13,6 +13,7 @@ import dialogService from "../services/dialog.js";
 import froca from "../services/froca.js";
 import { t } from "../services/i18n.js";
 import noteCreateService from "../services/note_create.js";
+import { notePresetOptions } from "../services/note_presets.js";
 import noteTypesService from "../services/note_types.js";
 import server from "../services/server.js";
 import toastService from "../services/toast.js";
@@ -363,7 +364,7 @@ export async function handleTreeContextMenuSelect(
     item: MenuCommandItem<TreeCommandNames>,
     ctx: TreeContextMenuContext
 ) {
-    const { command, type, mime, templateNoteId } = item;
+    const { command, type, mime, templateNoteId, notePreset } = item;
     const resolved = resolveContext(ctx);
     const { note, branch, notePath, component, selectedOrActiveBranchIds, selectedOrActiveNoteIds } = resolved;
 
@@ -381,6 +382,7 @@ export async function handleTreeContextMenuSelect(
             mime,
             isProtected: parentNote?.isProtected ?? false,
             templateNoteId,
+            ...notePresetOptions(notePreset),
             noteContext: resolved.noteContext
         });
     } else if (command === "insertChildNote") {
@@ -389,6 +391,7 @@ export async function handleTreeContextMenuSelect(
             mime,
             isProtected: note.isProtected,
             templateNoteId,
+            ...notePresetOptions(notePreset),
             noteContext: resolved.noteContext
         });
     } else if (command === "openNoteInSplit") {

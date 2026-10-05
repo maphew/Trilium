@@ -346,6 +346,21 @@ describe("createNoteWithTypePrompt", () => {
         );
     });
 
+    it("creates a note from a chosen preset with the label it owns", async () => {
+        setActiveContext(true);
+        triggerCommand.mockImplementation((_name: string, data: any) => {
+            data.callback({ success: true, noteType: "code", mime: "text/css", notePreset: "appCss" });
+        });
+
+        await noteCreateService.createNoteWithTypePrompt("parent", {});
+
+        expect(server.post).toHaveBeenCalledWith(
+            `notes/parent/children?target=into&targetBranchId=`,
+            expect.objectContaining({ type: "code", mime: "text/css", attributes: [ { type: "label", name: "appCss", value: "" } ] }),
+            undefined
+        );
+    });
+
     it("falls back to the passed parentNotePath when the chooser returns none", async () => {
         setActiveContext(true);
         triggerCommand.mockImplementation((_name: string, data: any) => {

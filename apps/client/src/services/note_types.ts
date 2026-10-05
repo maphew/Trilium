@@ -9,6 +9,7 @@ import type { NoteType } from "../entities/fnote.js";
 import type { MenuCommandItem, MenuItem, MenuItemBadge, MenuSeparatorItem } from "../menus/context_menu.js";
 import type { TreeCommandNames } from "../menus/tree_context_menu.js";
 import { isExperimentalFeatureEnabled } from "./experimental_features.js";
+import { getNotePresetItems } from "./note_presets.js";
 import froca from "./froca.js";
 import { t } from "./i18n.js";
 import mimeTypes from "./mime_types.js";
@@ -253,7 +254,14 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
         ...builtIn("snippet"),
         ...(isExperimentalFeatureEnabled("llm") ? builtIn("aiQuickAction") : [])
     ];
-    items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: [ ...inGroup(MORE_GROUP), ...withLeading(SEPARATOR, editorTemplates) ] });
+    items.push({
+        title: t("note_types.more"),
+        uiIcon: "bx bx-dots-horizontal-rounded",
+        items: [
+            ...inGroup(MORE_GROUP),
+            ...withLeading(SEPARATOR, editorTemplates)
+        ]
+    });
 
     items.push(...getUserTemplates(command, userTemplateNotes, newTemplates));
     return items;
@@ -303,9 +311,9 @@ function getBlankNoteTypes(command?: TreeCommandNames): MenuCommandItem<TreeComm
 }
 
 /**
- * The code languages enabled in the code note options, Markdown aside since it has an entry of its
- * own, then a row to configure them. The options are read again each time, so a language enabled
- * since the last menu is offered.
+ * The scripting presets, then the code languages enabled in the code note options, Markdown aside
+ * since it has an entry of its own, then a row to configure them. The options are read again each
+ * time, so a language enabled since the last menu is offered.
  */
 function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandNames>[] {
     mimeTypes.loadMimeTypes();
@@ -320,6 +328,8 @@ function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandN
         }));
 
     return [
+        ...getNotePresetItems(command),
+        SEPARATOR,
         ...languages,
         SEPARATOR,
         {

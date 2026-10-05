@@ -3,6 +3,7 @@ import { Tooltip } from "bootstrap";
 import { h, JSX, render } from "preact";
 
 import note_tooltip from "../services/note_tooltip.js";
+import type { NotePresetId } from "../services/note_presets.js";
 import utils from "../services/utils.js";
 import { suspendModalFocusTraps } from "../widgets/react/modal_focustrap";
 
@@ -57,6 +58,8 @@ export interface MenuCommandItem<T> {
     iconColorClass?: string;
     badges?: MenuItemBadge[];
     templateNoteId?: string;
+    /** The scripting preset the item creates a note from, adding a label and content to its type. */
+    notePreset?: NotePresetId;
     enabled?: boolean;
     handler?: MenuHandler<T>;
     items?: MenuItem<T>[] | null;

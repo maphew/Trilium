@@ -456,6 +456,36 @@ describe("new template badges", () => {
         }
     });
 
+    it("puts the scripting presets at the top of Code, above its languages", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([ fakeTemplate("tpl-code-snippet", [ "template", "snippet" ], "Code snippet") ]);
+        const key = (i: any) => i.notePreset ?? i.templateNoteId ?? i.mime ?? i.kind;
+        const original = options.get("codeNotesMimeTypes");
+        try {
+            options.set("codeNotesMimeTypes", JSON.stringify([ "text/x-python" ]));
+            const data = await noteTypesService.loadNoteTypeData();
+            const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
+
+            const code = menu.find((i) => i.type === "code" && i.mime === "text/plain");
+            expect(code.items.map(key)).toEqual([
+                "appCss", "widget", "backendScript",
+                "separator",
+                "text/plain", "text/x-python",
+                "separator",
+                undefined
+            ]);
+            expect(code.items.slice(0, 3).every((i: any) => i.command === "insertChildNote")).toBe(true);
+
+            // Neither the top level nor More offers them a second time.
+            const more = menu.find((i) => i.title === "note_types.more");
+            expect([ ...menu, ...more.items ].some((i) => i.notePreset)).toBe(false);
+            expect(more.items.map(key).slice(-2)).toEqual([ "separator", "tpl-code-snippet" ]);
+        } finally {
+            options.set("codeNotesMimeTypes", original);
+            restore();
+        }
+    });
+
     it("groups the note types of the menu by kind, common ones first, and offers each exactly once", async () => {
         withTemplates();
         const restore = withTemplatesRoot([ fakeTemplate("tpl-ai", [ "template", "aiQuickAction" ], "AI quick action") ]);
@@ -473,7 +503,8 @@ describe("new template badges", () => {
             ]);
 
             // No creatable type is left out or offered twice, at the top level and under More.
-            const offered = [ ...menu, ...menu.at(-1).items ].filter((i) => i.command && !i.templateNoteId).map(key);
+            const offered = [ ...menu, ...menu.at(-1).items ]
+                .filter((i) => i.command && !i.templateNoteId && !i.notePreset).map(key);
             const creatable = selectableNoteTypes(false).filter((nt) => nt.type !== "book")
                 .map((nt) => (nt.mime === "text/x-markdown" ? "markdown" : nt.type));
             expect([ ...offered ].sort()).toEqual([ ...creatable, "noteMap", "search" ].sort());
@@ -554,7 +585,8 @@ describe("new template badges", () => {
             const code = codeRow(noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never));
             // The row still makes a plain text code note of its own.
             expect(code.command).toBe("insertChildNote");
-            const languages = code.items.filter((i: any) => i.mime);
+            // The scripting presets lead the submenu; the languages follow them.
+            const languages = code.items.filter((i: any) => i.mime && !i.notePreset);
             // Plain text is always enabled; Markdown has an entry of its own.
             expect(languages.map((i: any) => i.mime)).toEqual([ "text/plain", "text/x-python" ]);
             expect(languages.every((i: any) => i.type === "code" && i.command === "insertChildNote")).toBe(true);

@@ -5,6 +5,7 @@ import commandRegistry from "./command_registry.js";
 import dateNoteService from "./date_notes.js";
 import { t } from "./i18n.js";
 import noteCreateService from "./note_create.js";
+import { notePresetOptions } from "./note_presets.js";
 import server from "./server.js";
 import { escapeHtml } from "./utils.js";
 import { logError } from "./ws.js";
@@ -112,7 +113,9 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
  * need not be.
  */
 export async function createNoteFromSuggestion(suggestion: Suggestion, childParentNotePath?: string | null) {
-    const { success, noteType, mime, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
+    const {
+        success, noteType, mime, templateNoteId, notePreset, notePath, cloneToNoteIds
+    } = await noteCreateService.chooseNoteType();
     if (!success) {
         return;
     }
@@ -130,6 +133,7 @@ export async function createNoteFromSuggestion(suggestion: Suggestion, childPare
         type: noteType,
         mime,
         templateNoteId,
+        ...notePresetOptions(notePreset),
         cloneToNoteIds
     });
 
