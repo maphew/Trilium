@@ -439,7 +439,7 @@ describe("new template badges", () => {
         }
     });
 
-    it("puts the snippets in a submenu of the menu, and the AI quick action beside the AI chat", async () => {
+    it("puts the snippets in a submenu of the menu, and the AI quick action under More", async () => {
         withTemplates();
         const restore = withTemplatesRoot([
             fakeTemplate("tpl-text-snippet", [ "template", "textSnippet" ], "Text snippet"),
@@ -459,8 +459,11 @@ describe("new template badges", () => {
             expect(submenu.items.every((i: any) => i.command === "insertChildNote")).toBe(true);
             // Only in the submenu, and followed by no other group of built-in templates.
             expect(menu.some((i) => i.templateNoteId === "tpl-code-snippet")).toBe(false);
-            const types = titles(menu);
-            expect(types.indexOf("tpl-ai")).toBe(types.indexOf("llmChat") + 1);
+            // The AI quick action is configuration, created as rarely as the other entries of More.
+            expect(titles(menu)).not.toContain("tpl-ai");
+            const more = menu.find((i) => i.title === "note_types.more");
+            // After the note types it holds, as the templates follow the note types everywhere in the menu.
+            expect(titles(more.items).slice(-2)).toEqual([ "separator", "tpl-ai" ]);
 
             // The chooser's flat list keeps the snippets inline, after a separator.
             const list: any[] = await noteTypesService.getNoteTypeItems();
@@ -472,7 +475,9 @@ describe("new template badges", () => {
 
             // Without the AI features, neither the chat nor the quick action is offered.
             llmFlag.mockReturnValue(false);
-            const withoutAi = titles(noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never));
+            const withoutAiMenu: any[] = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
+            const withoutAi = titles([ ...withoutAiMenu, ...withoutAiMenu.at(-1).items ]);
+            expect(withoutAiMenu.at(-1).title).toBe("note_types.more");
             expect(withoutAi).not.toContain("llmChat");
             expect(withoutAi).not.toContain("tpl-ai");
         } finally {
@@ -489,15 +494,12 @@ describe("new template badges", () => {
             const data = await noteTypesService.loadNoteTypeData();
             const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
             expect(menu.map(key)).toEqual([
-                "text", "markdown", "code", "spreadsheet",
+                "text", "markdown", "code", "spreadsheet", "llmChat",
                 "separator",
                 "canvas", "mermaid", "mindMap", "relationMap",
                 "separator",
-                "llmChat", "text",
-                "separator",
                 "note_types.more"
             ]);
-            expect(menu[11].templateNoteId).toBe("tpl-ai");
 
             // No creatable type is left out or offered twice, at the top level and under More.
             const offered = [ ...menu, ...menu.at(-1).items ].filter((i) => i.command && !i.templateNoteId).map(key);
@@ -505,10 +507,10 @@ describe("new template badges", () => {
                 .map((nt) => (nt.mime === "text/x-markdown" ? "markdown" : nt.type));
             expect([ ...offered ].sort()).toEqual([ ...creatable, "noteMap", "search" ].sort());
 
-            // Without AI, its group leaves no separator behind.
+            // Without AI, the chat is left out of its group.
             llmFlag.mockReturnValue(false);
             const withoutAi = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never).map(key);
-            expect(withoutAi.slice(-3)).toEqual([ "relationMap", "separator", "note_types.more" ]);
+            expect(withoutAi.slice(0, 5)).toEqual([ "text", "markdown", "code", "spreadsheet", "separator" ]);
 
             // The chooser's flat list keeps the order of `NOTE_TYPES`, which the note type switcher shares.
             const list = (await noteTypesService.getNoteTypeItems()).map(key);

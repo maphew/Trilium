@@ -225,8 +225,8 @@ type NoteTypeLayout = "menu" | "list";
  * The note type items. A `"menu"` groups the note types by kind ({@link MENU_GROUPS}) and opens the
  * snippets, the collections and the rarely created note types from submenus; a `"list"`, such as
  * the note type chooser draws, cannot open one, so it lists them inline in the order of
- * {@link NOTE_TYPES}. The AI quick action template stands beside the AI chat note type, and is
- * offered only alongside it.
+ * {@link NOTE_TYPES}. The AI quick action template is offered only where AI is enabled: last in
+ * the menu's "More" submenu, after its note types, and beside the AI chat note type in the list.
  */
 function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: NoteTypeLayout = "menu") {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
@@ -246,9 +246,8 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layo
  * last group opens from the "More" submenu. A note type in none of them is not offered.
  */
 const MENU_GROUPS: Pick<NoteTypeMapping, "type" | "mime">[][] = [
-    [ { type: "text" }, { type: "code", mime: MARKDOWN_NOTE_TYPE_MIME }, { type: "code", mime: "text/plain" }, { type: "spreadsheet" } ],
-    [ { type: "canvas" }, { type: "mermaid" }, { type: "mindMap" }, { type: "relationMap" } ],
-    [ { type: "llmChat" } ]
+    [ { type: "text" }, { type: "code", mime: MARKDOWN_NOTE_TYPE_MIME }, { type: "code", mime: "text/plain" }, { type: "spreadsheet" }, { type: "llmChat" } ],
+    [ { type: "canvas" }, { type: "mermaid" }, { type: "mindMap" }, { type: "relationMap" } ]
 ];
 const MORE_GROUP: Pick<NoteTypeMapping, "type" | "mime">[] = [
     { type: "noteMap" }, { type: "render" }, { type: "search" }, { type: "webView" }
@@ -261,7 +260,7 @@ function buildMenuItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn
         const item = blankTypes.find((blankType) => blankType.type === type && (mime === undefined || blankType.mime === mime));
         if (!item) return [];
         if (type === "code" && mime === "text/plain") item.items = getCodeLanguageItems(command);
-        return type === "llmChat" ? [ item, ...builtIn("aiQuickAction") ] : [ item ];
+        return [ item ];
     });
 
     const items: MenuItem<TreeCommandNames>[] = [];
@@ -277,7 +276,8 @@ function buildMenuItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn
     items.push(...withLeading(SEPARATOR, builtIn("other")), SEPARATOR);
     if (snippets.length > 0) items.push({ title: t("note_types.snippet"), uiIcon: "bx bx-align-left", items: snippets });
     if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
-    items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: inGroup(MORE_GROUP) });
+    const aiQuickActions = isExperimentalFeatureEnabled("llm") ? builtIn("aiQuickAction") : [];
+    items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: [ ...inGroup(MORE_GROUP), ...withLeading(SEPARATOR, aiQuickActions) ] });
     return items;
 }
 
