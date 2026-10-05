@@ -219,43 +219,17 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
     return { builtInTemplateNotes, userTemplateNotes, newTemplates: new Set(newTemplateNoteIds) };
 }
 
-type NoteTypeLayout = "menu" | "list";
-
 /**
- * The note type items. A `"menu"` groups the note types by kind ({@link MENU_GROUPS}) and opens the
- * snippets, the collections and the rarely created note types from submenus; a `"list"`, such as
- * the note type chooser draws, cannot open one, so it lists them inline in the order of
- * {@link NOTE_TYPES}. The AI quick action template is offered only where AI is enabled: last in
- * the menu's "More" submenu, after its note types, and beside the AI chat note type in the list.
+ * The menu of what a new note can be made from, as the note tree's insert menus and the note type
+ * chooser offer it: the note types grouped by kind ({@link MENU_GROUPS}), the snippets, the
+ * collections and the rarely created note types in submenus, then the user's templates. The AI
+ * quick action template, offered only where AI is enabled, closes the "More" submenu.
  */
-function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: NoteTypeLayout = "menu") {
+function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
     const builtIn = (group: BuiltInTemplateGroup) =>
-        getBuiltInTemplates(command, builtInTemplateNotes, group, newTemplates, layout);
+        getBuiltInTemplates(command, builtInTemplateNotes, group, newTemplates);
     const blankTypes = getBlankNoteTypes(command);
-
-    const items = layout === "menu"
-        ? buildMenuItems(blankTypes, builtIn, command)
-        : buildListItems(blankTypes, builtIn);
-    items.push(...getUserTemplates(command, userTemplateNotes, newTemplates, layout));
-    return items;
-}
-
-/**
- * How the menus order and group the blank note types, each group set apart by a separator. The
- * last group opens from the "More" submenu. A note type in none of them is not offered.
- */
-const MENU_GROUPS: Pick<NoteTypeMapping, "type" | "mime">[][] = [
-    [ { type: "text" }, { type: "code", mime: MARKDOWN_NOTE_TYPE_MIME }, { type: "code", mime: "text/plain" }, { type: "spreadsheet" }, { type: "llmChat" } ],
-    [ { type: "canvas" }, { type: "mermaid" }, { type: "mindMap" }, { type: "relationMap" } ]
-];
-const MORE_GROUP: Pick<NoteTypeMapping, "type" | "mime">[] = [
-    { type: "noteMap" }, { type: "render" }, { type: "search" }, { type: "webView" }
-];
-
-type BuiltInTemplates = (group: BuiltInTemplateGroup) => MenuItem<TreeCommandNames>[];
-
-function buildMenuItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn: BuiltInTemplates, command?: TreeCommandNames) {
     const inGroup = (group: Pick<NoteTypeMapping, "type" | "mime">[]) => group.flatMap(({ type, mime }) => {
         const item = blankTypes.find((blankType) => blankType.type === type && (mime === undefined || blankType.mime === mime));
         if (!item) return [];
@@ -278,23 +252,26 @@ function buildMenuItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn
     if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
     const aiQuickActions = isExperimentalFeatureEnabled("llm") ? builtIn("aiQuickAction") : [];
     items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: [ ...inGroup(MORE_GROUP), ...withLeading(SEPARATOR, aiQuickActions) ] });
+
+    items.push(...getUserTemplates(command, userTemplateNotes, newTemplates));
     return items;
 }
 
-function buildListItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn: BuiltInTemplates) {
-    const items: MenuItem<TreeCommandNames>[] = [];
-    for (const blankType of blankTypes) {
-        items.push(blankType);
-        if (blankType.type === "llmChat") items.push(...builtIn("aiQuickAction"));
-    }
-    items.push(...withLeading(SEPARATOR, [ ...builtIn("snippet"), ...builtIn("other") ]));
-    items.push(...withLeading({ title: t("note_types.collections"), kind: "header" }, builtIn("collection")));
-    return items;
-}
+/**
+ * How the menus order and group the blank note types, each group set apart by a separator. The
+ * last group opens from the "More" submenu. A note type in none of them is not offered.
+ */
+const MENU_GROUPS: Pick<NoteTypeMapping, "type" | "mime">[][] = [
+    [ { type: "text" }, { type: "code", mime: MARKDOWN_NOTE_TYPE_MIME }, { type: "code", mime: "text/plain" }, { type: "spreadsheet" }, { type: "llmChat" } ],
+    [ { type: "canvas" }, { type: "mermaid" }, { type: "mindMap" }, { type: "relationMap" } ]
+];
+const MORE_GROUP: Pick<NoteTypeMapping, "type" | "mime">[] = [
+    { type: "noteMap" }, { type: "render" }, { type: "search" }, { type: "webView" }
+];
 
-/** Builds the note type list of the note type chooser. Use {@link loadNoteTypeData} directly to build several. */
+/** Builds a single note type menu. Use {@link loadNoteTypeData} directly to build several. */
 async function getNoteTypeItems(command?: TreeCommandNames) {
-    return buildNoteTypeItems(await loadNoteTypeData(), command, "list");
+    return buildNoteTypeItems(await loadNoteTypeData(), command);
 }
 
 function getBlankNoteTypes(command?: TreeCommandNames): MenuCommandItem<TreeCommandNames>[] {
@@ -345,7 +322,7 @@ function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandN
     ];
 }
 
-function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>, layout: NoteTypeLayout) {
+function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>) {
     if (templateNotes.length === 0) {
         return [];
     }
@@ -359,7 +336,8 @@ function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: 
 
     for (const templateNote of templateNotes) {
         const item: MenuItem<TreeCommandNames> = {
-            title: templateTitle(templateNote, layout),
+            // A menu renders titles as HTML.
+            title: escapeHtml(templateNote.title),
             uiIcon: templateNote.getIcon(),
             command,
             type: templateNote.type,
@@ -395,7 +373,7 @@ function builtInTemplateGroup(templateNote: FNote): BuiltInTemplateGroup {
     return "other";
 }
 
-function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], group: BuiltInTemplateGroup, newTemplates: Set<string>, layout: NoteTypeLayout) {
+function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], group: BuiltInTemplateGroup, newTemplates: Set<string>) {
     const items: MenuItem<TreeCommandNames>[] = [];
 
     for (const templateNote of childNotes) {
@@ -404,7 +382,8 @@ function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: 
         }
 
         const item: MenuItem<TreeCommandNames> = {
-            title: templateTitle(templateNote, layout),
+            // A menu renders titles as HTML.
+            title: escapeHtml(templateNote.title),
             uiIcon: templateNote.getIcon(),
             command,
             type: templateNote.type,
@@ -425,11 +404,6 @@ function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: 
         items.push(item);
     }
     return items;
-}
-
-/** A template's title as the layout renders it: `Menu` renders titles as HTML, a list as text. */
-function templateTitle(templateNote: FNote, layout: NoteTypeLayout) {
-    return layout === "menu" ? escapeHtml(templateNote.title) : templateNote.title;
 }
 
 /** `items` led by `lead`, or nothing when there are no items to lead. */

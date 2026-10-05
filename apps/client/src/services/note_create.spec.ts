@@ -325,12 +325,13 @@ describe("createNoteWithTypePrompt", () => {
         expect(triggerCommand).toHaveBeenCalledWith("chooseNoteType", expect.anything());
     });
 
-    it("creates a note with chosen type/template, preferring the chooser notePath", async () => {
+    it("creates a note with chosen type/MIME/template, preferring the chooser notePath", async () => {
         setActiveContext(true);
         triggerCommand.mockImplementation((_name: string, data: any) => {
             data.callback({
                 success: true,
                 noteType: "code",
+                mime: "text/x-python",
                 templateNoteId: "tpl-1",
                 notePath: "chosen-parent"
             });
@@ -340,7 +341,7 @@ describe("createNoteWithTypePrompt", () => {
 
         expect(server.post).toHaveBeenCalledWith(
             `notes/chosen-parent/children?target=into&targetBranchId=`,
-            expect.objectContaining({ type: "code", templateNoteId: "tpl-1" }),
+            expect.objectContaining({ type: "code", mime: "text/x-python", templateNoteId: "tpl-1" }),
             undefined
         );
     });

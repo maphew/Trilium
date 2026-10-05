@@ -151,13 +151,14 @@ async function chooseNoteType() {
 }
 
 async function createNoteWithTypePrompt(parentNotePath: string, options: CreateNoteOpts = {}) {
-    const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await chooseNoteType();
+    const { success, noteType, mime, templateNoteId, notePath, cloneToNoteIds } = await chooseNoteType();
 
     if (!success) {
         return;
     }
 
     options.type = noteType;
+    options.mime = mime;
     options.templateNoteId = templateNoteId;
     options.cloneToNoteIds = cloneToNoteIds;
 

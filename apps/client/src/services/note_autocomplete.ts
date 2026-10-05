@@ -112,7 +112,7 @@ export async function getNoteSuggestions(term: string, { allowCreatingNotes, all
  * need not be.
  */
 export async function createNoteFromSuggestion(suggestion: Suggestion, childParentNotePath?: string | null) {
-    const { success, noteType, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
+    const { success, noteType, mime, templateNoteId, notePath, cloneToNoteIds } = await noteCreateService.chooseNoteType();
     if (!success) {
         return;
     }
@@ -128,6 +128,7 @@ export async function createNoteFromSuggestion(suggestion: Suggestion, childPare
         title: suggestion.noteTitle,
         activate: false,
         type: noteType,
+        mime,
         templateNoteId,
         cloneToNoteIds
     });

@@ -31,6 +31,11 @@ export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "co
      * The `.mobile-bottom-menu` rules place and cap it.
      */
     bottomSheet?: boolean;
+    /**
+     * Stands in the flow of the element given as `container`, as a list does, rather than beside
+     * its anchor: a menu that is part of a dialog.
+     */
+    inline?: boolean;
     /** Makes the first or the last row the active one as the menu takes focus, for a menu a key opened. */
     startAt?: "first" | "last";
     /** Called on a press outside the menu and its anchor. It answers Escape itself, with {@link onClose}. */
@@ -65,7 +70,7 @@ const TOP_LEVEL = { rowId: "", level: -1 };
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
 
-export default function Menu<T>({ id, className, anchor, placement, bottomSheet, startAt, items, filterable, onSelect, children, onClose, onDismiss, isWanted, elementRef, ...popupProps }: MenuProps<T>) {
+export default function Menu<T>({ id, className, anchor, placement, bottomSheet, inline, startAt, items, filterable, onSelect, children, onClose, onDismiss, isWanted, elementRef, ...popupProps }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement | null>(null);
     // The submenus' layers render into the menu element, which rows reach through the context.
     const [ layerHost, setLayerHost ] = useState<HTMLElement | null>(null);
@@ -375,7 +380,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
                 {...popupProps}
                 anchor={anchor}
                 placement={placement ?? (anchor instanceof HTMLElement ? "bottom-start" : "right-start")}
-                placedByStylesheet={bottomSheet}
+                placedByStylesheet={bottomSheet || inline}
                 onPlaced={() => {
                     const menu = menuRef.current;
                     if (menu) {
@@ -387,7 +392,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
                 onDismiss={onDismiss && (() => onDismiss())}
                 escapeDismisses={false}
                 elementRef={setMenuElement} id={id} role="menu" tabIndex={-1}
-                className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu",
+                className={clsx("dropdown-menu show tn-menu", bottomSheet && "mobile-bottom-menu", inline && "tn-menu-inline",
                     keyboardDriven && "tn-menu-keyboard", className)}
                 onPointerMove={(e) => {
                     if (pointerMoved(e)) setKeyboardDriven(false);

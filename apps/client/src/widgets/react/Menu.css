@@ -51,6 +51,13 @@ body.desktop .dropdown-submenu > .dropdown-menu.tn-menu.tn-menu-immediate {
     animation: none;
 }
 
+/* A menu in the flow of what holds it, as a list is, rather than beside an anchor. */
+.dropdown-menu.tn-menu.tn-menu-inline {
+    position: static;
+    width: 100%;
+    min-width: unset;
+}
+
 /* The menu holds focus for its keys; the row they act on shows where they are instead. */
 .dropdown-menu.tn-menu:focus {
     outline: none;

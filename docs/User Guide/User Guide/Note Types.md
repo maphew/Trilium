@@ -19,6 +19,8 @@ The note types created less often, <a class="reference-link" href="Note%20Types/
 *   When adding a [link](Note%20Types/Text/Links.md) in a <a class="reference-link" href="Note%20Types/Text.md">Text</a> note, type the desired title of the new note and press Enter. Afterwards the type of the note will be asked.
 *   Similarly, when creating a new tab, type the desired title and press Enter.
 
+The note type is chosen from the same menu as in the note tree, with its submenus (code languages, snippets, collections and the note types created less often) and its search box: type to narrow the list, then press <kbd>Enter</kbd> to create the first match. <kbd>Enter</kbd> right away creates a Text note.
+
 ## Changing the type of a note
 
 It is possible to change the type of a note after it has been created via the _Basic Properties_ tab in the <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/Ribbon.md">Ribbon</a>. Note that it's generally a good idea to change the note type only if the note is empty. Can also be used to edit the [source of a note](Advanced%20Usage/Note%20source.md).
