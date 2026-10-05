@@ -480,6 +480,35 @@ describe("new template badges", () => {
         }
     });
 
+    it("puts the rarely created note types in a More submenu of the menu, after the snippets and collections", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([
+            fakeTemplate("tpl-snippet", [ "template", "snippet" ], "Snippet"),
+            fakeTemplate("tpl-coll", [ "template", "collection" ], "Coll")
+        ]);
+        const rare = [ "noteMap", "render", "search", "webView" ];
+        try {
+            const data = await noteTypesService.loadNoteTypeData();
+            const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertNoteAfter" as never);
+
+            const more = menu.find((i) => i.title === "note_types.more");
+            expect(more).toBeDefined();
+            expect(more.command).toBeUndefined();
+            expect(more.items.map((i: any) => i.type)).toEqual(rare);
+            expect(more.items.every((i: any) => i.command === "insertNoteAfter")).toBe(true);
+            expect(menu.some((i) => rare.includes(i.type))).toBe(false);
+            const submenus = menu.filter((i) => i.items && i.type === undefined).map((i) => i.title);
+            expect(submenus).toEqual([ "note_types.snippet", "note_types.book", "note_types.more" ]);
+
+            // The chooser's flat list keeps them inline.
+            const list: any[] = await noteTypesService.getNoteTypeItems();
+            expect(rare.every((type) => list.some((i) => i.type === type))).toBe(true);
+            expect(list.some((i) => i.title === "note_types.more")).toBe(false);
+        } finally {
+            restore();
+        }
+    });
+
     it("escapes template titles for the menu, which renders HTML, and not for the list, which renders text", async () => {
         const user = buildNote({ id: "userTemplateHtml", title: "<img src=x onerror=alert(1)>", "#template": "" });
         withTemplates([ user.noteId ]);

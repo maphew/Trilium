@@ -222,8 +222,9 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
 type NoteTypeLayout = "menu" | "list";
 
 /**
- * The note type items. In a `"menu"` the snippets and the collections each form a submenu; a
- * `"list"`, such as the note type chooser draws, cannot open one, so there they stay inline. The AI
+ * The note type items. In a `"menu"` the snippets, the collections and the rarely created note
+ * types ({@link MORE_NOTE_TYPES}) each form a submenu; a `"list"`, such as the note type chooser
+ * draws, cannot open one, so there they stay inline. The AI
  * quick action template stands beside the AI chat note type, and is offered only alongside it.
  */
 function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: NoteTypeLayout = "menu") {
@@ -234,7 +235,12 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layo
     const collections = builtIn("collection");
 
     const items: MenuItem<TreeCommandNames>[] = [];
+    const more: MenuItem<TreeCommandNames>[] = [];
     for (const blankType of getBlankNoteTypes(command)) {
+        if (layout === "menu" && "type" in blankType && blankType.type && MORE_NOTE_TYPES.has(blankType.type)) {
+            more.push(blankType);
+            continue;
+        }
         if (layout === "menu" && "mime" in blankType && blankType.type === "code" && blankType.mime === "text/plain") {
             blankType.items = getCodeLanguageItems(command);
         }
@@ -246,15 +252,18 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layo
         items.push(...withLeading(SEPARATOR, [ ...snippets, ...builtIn("other") ]));
         items.push(...withLeading({ title: t("note_types.collections"), kind: "header" }, collections));
     } else {
-        items.push(...withLeading(SEPARATOR, builtIn("other")));
-        if (snippets.length > 0 || collections.length > 0) items.push(SEPARATOR);
+        items.push(...withLeading(SEPARATOR, builtIn("other")), SEPARATOR);
         if (snippets.length > 0) items.push({ title: t("note_types.snippet"), uiIcon: "bx bx-align-left", items: snippets });
         if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
+        items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: more });
     }
 
     items.push(...getUserTemplates(command, userTemplateNotes, newTemplates, layout));
     return items;
 }
+
+/** The note types created rarely enough that the menus offer them from a "More" submenu. */
+const MORE_NOTE_TYPES = new Set<string>([ "noteMap", "render", "search", "webView" ]);
 
 /** Builds the note type list of the note type chooser. Use {@link loadNoteTypeData} directly to build several. */
 async function getNoteTypeItems(command?: TreeCommandNames) {

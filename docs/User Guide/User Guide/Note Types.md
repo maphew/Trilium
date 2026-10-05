@@ -10,6 +10,8 @@ To create a new note of a different type, head to the <a class="reference-link"
 *   _Insert note after_, to put the new note underneath the one selected.
 *   _Insert child note_, to insert the note as a child of the selected note.
 
+The note types created less often, <a class="reference-link" href="Note%20Types/Saved%20Search.md">Saved Search</a>, <a class="reference-link" href="Note%20Types/Render%20Note.md">Render Note</a>, <a class="reference-link" href="Note%20Types/Web%20View.md">Web View</a> and <a class="reference-link" href="Note%20Types/Note%20Map.md">Note Map</a>, are in the _More_ submenu.
+
 ![](Note%20Types_image.png)
 
 ## Creating a new note of a different type via add link or new tab
