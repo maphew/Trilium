@@ -238,7 +238,7 @@ describe("getBuiltInTemplates", () => {
     /** Every item, those in submenus included. */
     const allItems = (items: any[]): any[] => items.flatMap((i) => [ i, ...allItems(i.items ?? []) ]);
     const builtInSubmenus = (items: any[]) => items
-        .filter((i) => i.title === "note_types.snippet" || i.title === "note_types.book")
+        .filter((i) => i.title === "note_types.book")
         .map((i) => i.title);
 
     it("warns and offers no built-in templates when the templates root is missing", async () => {
@@ -422,7 +422,7 @@ describe("new template badges", () => {
         }
     });
 
-    it("puts the snippets in a submenu of the menu, and the AI quick action under More", async () => {
+    it("puts the snippets and the AI quick action under More, after its note types", async () => {
         withTemplates();
         const restore = withTemplatesRoot([
             fakeTemplate("tpl-text-snippet", [ "template", "textSnippet" ], "Text snippet"),
@@ -435,18 +435,12 @@ describe("new template badges", () => {
             const data = await noteTypesService.loadNoteTypeData();
             const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
 
-            const submenu = menu.find((i) => i.title === "note_types.snippet");
-            expect(submenu).toBeDefined();
-            expect(submenu.command).toBeUndefined();
-            expect(titles(submenu.items)).toEqual([ "tpl-text-snippet", "tpl-code-snippet" ]);
-            expect(submenu.items.every((i: any) => i.command === "insertChildNote")).toBe(true);
-            // Only in the submenu, and followed by no other group of built-in templates.
-            expect(menu.some((i) => i.templateNoteId === "tpl-code-snippet")).toBe(false);
-            // The AI quick action is configuration, created as rarely as the other entries of More.
-            expect(titles(menu)).not.toContain("tpl-ai");
+            // Notes the text editor reads, created as rarely as the other entries of More.
+            expect(titles(menu).filter((title) => String(title).startsWith("tpl-"))).toEqual([]);
             const more = menu.find((i) => i.title === "note_types.more");
             // After the note types it holds, as the templates follow the note types everywhere in the menu.
-            expect(titles(more.items).slice(-2)).toEqual([ "separator", "tpl-ai" ]);
+            expect(titles(more.items).slice(-4)).toEqual([ "separator", "tpl-text-snippet", "tpl-code-snippet", "tpl-ai" ]);
+            expect(more.items.slice(-3).every((i: any) => i.command === "insertChildNote")).toBe(true);
 
 
             // Without the AI features, neither the chat nor the quick action is offered.
@@ -456,6 +450,7 @@ describe("new template badges", () => {
             expect(withoutAiMenu.at(-1).title).toBe("note_types.more");
             expect(withoutAi).not.toContain("llmChat");
             expect(withoutAi).not.toContain("tpl-ai");
+            expect(withoutAi.slice(-3)).toEqual([ "separator", "tpl-text-snippet", "tpl-code-snippet" ]);
         } finally {
             restore();
         }
@@ -493,7 +488,7 @@ describe("new template badges", () => {
         }
     });
 
-    it("puts the rarely created note types in a More submenu of the menu, after the snippets and collections", async () => {
+    it("puts the rarely created note types in a More submenu of the menu, after the collections", async () => {
         withTemplates();
         const restore = withTemplatesRoot([
             fakeTemplate("tpl-snippet", [ "template", "snippet" ], "Snippet"),
@@ -507,11 +502,11 @@ describe("new template badges", () => {
             const more = menu.find((i) => i.title === "note_types.more");
             expect(more).toBeDefined();
             expect(more.command).toBeUndefined();
-            expect(more.items.map((i: any) => i.type)).toEqual(rare);
-            expect(more.items.every((i: any) => i.command === "insertNoteAfter")).toBe(true);
+            expect(more.items.slice(0, rare.length).map((i: any) => i.type)).toEqual(rare);
+            expect(more.items.every((i: any) => i.kind === "separator" || i.command === "insertNoteAfter")).toBe(true);
             expect(menu.some((i) => rare.includes(i.type))).toBe(false);
             const submenus = menu.filter((i) => i.items && i.type === undefined).map((i) => i.title);
-            expect(submenus).toEqual([ "note_types.snippet", "note_types.book", "note_types.more" ]);
+            expect(submenus).toEqual([ "note_types.book", "note_types.more" ]);
 
         } finally {
             restore();

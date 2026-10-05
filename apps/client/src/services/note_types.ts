@@ -221,9 +221,10 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
 
 /**
  * The menu of what a new note can be made from, as the note tree's insert menus and the note type
- * chooser offer it: the note types grouped by kind ({@link MENU_GROUPS}), the snippets, the
- * collections and the rarely created note types in submenus, then the user's templates. The AI
- * quick action template, offered only where AI is enabled, closes the "More" submenu.
+ * chooser offer it: the note types grouped by kind ({@link MENU_GROUPS}), the collections in a
+ * submenu, then the user's templates. The "More" submenu holds the rarely created note types, then
+ * the templates whose notes the text editor reads: the snippets and, where AI is enabled, the AI
+ * quick action.
  */
 function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
@@ -245,13 +246,14 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
         items.push(...groupItems);
     }
 
-    const snippets = builtIn("snippet");
     const collections = builtIn("collection");
     items.push(...withLeading(SEPARATOR, builtIn("other")), SEPARATOR);
-    if (snippets.length > 0) items.push({ title: t("note_types.snippet"), uiIcon: "bx bx-align-left", items: snippets });
     if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
-    const aiQuickActions = isExperimentalFeatureEnabled("llm") ? builtIn("aiQuickAction") : [];
-    items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: [ ...inGroup(MORE_GROUP), ...withLeading(SEPARATOR, aiQuickActions) ] });
+    const editorTemplates = [
+        ...builtIn("snippet"),
+        ...(isExperimentalFeatureEnabled("llm") ? builtIn("aiQuickAction") : [])
+    ];
+    items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: [ ...inGroup(MORE_GROUP), ...withLeading(SEPARATOR, editorTemplates) ] });
 
     items.push(...getUserTemplates(command, userTemplateNotes, newTemplates));
     return items;

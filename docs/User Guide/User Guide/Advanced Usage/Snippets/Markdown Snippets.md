@@ -7,7 +7,7 @@ In the <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/
 
 1.  Right-click the note where you want to place the snippet.
 2.  Select _Insert child note_.
-3.  Select _Snippet_ → _Markdown snippet_.
+3.  Select _More_ → _Markdown snippet_.
 
 Then simply type the desired content into the note.
 
