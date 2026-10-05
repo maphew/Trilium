@@ -23,22 +23,77 @@
   <p>When multiple notes are selected, only a subset of notes will be active.
     The ones that do support multiple notes will mention this in the list below.</p>
 </aside>
+<p>The most frequent actions stand side by side at the top of the menu, each
+  as an icon over its name. Use <kbd>←</kbd> and <kbd>→</kbd>, or <kbd>↑</kbd> and <kbd>↓</kbd>,
+  to move between them.</p>
 <ul>
-  <li><strong>Open in a new tab</strong>
+  <li><strong>Cut</strong>
     <ul>
-      <li>Will open a single note in a new <a href="#root/_help_3seOhtN8uLIY">tab</a>.</li>
+      <li>Will place the given notes in clipboard.</li>
+      <li>Use one of the two paste functions (or the keyboard shortcuts) to move
+        them to the desired location.</li>
     </ul>
   </li>
-  <li><strong>Open in a new split</strong>
+  <li><strong>Clone</strong>
     <ul>
-      <li>Will open a split to the right with the given note within the current
-        tab.</li>
+      <li>Will place the given notes in clipboard.</li>
+      <li>Use one of the two paste functions (or the keyboard shortcuts) to copy
+        them to the desired location.</li>
+      <li>Note that the copy function here works according to the <a class="reference-link"
+        href="#root/_help_IakOLONlIfGI">Cloning Notes</a> functionality (i.e. the
+        note itself will be present in two locations at once, and editing it in
+        one place will edit it everywhere).</li>
+      <li>To simply create a duplicate note that can be modified independently,
+        look for <em>Duplicate</em>.</li>
+    </ul>
+  </li>
+  <li><strong>Paste into</strong>
+    <ul>
+      <li>Pastes the notes in clipboard as child notes of the right-clicked one.</li>
+      <li>Shown only after notes have been cut or cloned.</li>
+    </ul>
+  </li>
+  <li><strong>Paste after</strong>
+    <ul>
+      <li>Pastes the notes in clipboard underneath the right-clicked one.</li>
+      <li>Shown only after notes have been cut or cloned.</li>
+    </ul>
+  </li>
+  <li><strong>Delete</strong>
+    <ul>
+      <li>Will delete the given notes, asking for confirmation first.</li>
+      <li>In the dialog, the following options can be configured:
+        <ul>
+          <li><em>Delete also all clones</em> to ensure that the note will be deleted
+            everywhere if it has been placed into multiple locations (see <a class="reference-link"
+            href="#root/_help_IakOLONlIfGI">Cloning Notes</a>).</li>
+          <li><em>Erase notes permanently</em> will ensure that the note cannot be recovered
+            from <a class="reference-link" href="#root/_help_r5JGHN99bVKn">Recent Changes</a>.</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+<p>The rest of the menu lists its options one per row:</p>
+<ul>
+  <li><strong>Open note</strong>
+    <ul>
+      <li>Clicking it opens the note in a new <a href="#root/_help_3seOhtN8uLIY">tab</a>.</li>
+      <li>Hovering it or clicking its arrow opens a submenu with the places the
+        note can be opened in: <em>Open in a new tab</em>, <em>Open in a new split</em> (to
+        the right of the note, within the current tab) and <em>Open in a new window</em>.</li>
+    </ul>
+  </li>
+  <li><strong>Quick edit</strong>
+    <ul>
+      <li>Opens the note in <a class="reference-link" href="#root/_help_ZjLYv08Rp3qC">Quick edit</a>,
+        over the current one.</li>
     </ul>
   </li>
   <li><strong>Hoist note</strong>
     <ul>
-      <li>Will focus the note tree on this note. See&nbsp;<a class="reference-link"
-        href="#root/_help_OR8WJ7Iz9K4U">Note Hoisting</a>&nbsp;for more information.</li>
+      <li>Will focus the note tree on this note. See <a class="reference-link" href="#root/_help_OR8WJ7Iz9K4U">Note Hoisting</a> for
+        more information.</li>
     </ul>
   </li>
   <li><strong>Insert note after</strong>
@@ -50,9 +105,9 @@
         follow.</li>
       <li><a class="reference-link" href="#root/_help_GTwFsgaA0lCt">Collections</a> are
         grouped in the <em>Collection</em> submenu. The note types created less often,
-        the&nbsp;<a class="reference-link" href="#root/_help_B2ORr7OVEZtc">Snippets</a> and
+        the <a class="reference-link" href="#root/_help_B2ORr7OVEZtc">Snippets</a> and
         the AI quick action are in the <em>More</em> submenu.</li>
-      <li><a class="reference-link" href="#root/_help_KC1HB96bqqHX">Templates</a>&nbsp;will
+      <li><a class="reference-link" href="#root/_help_KC1HB96bqqHX">Templates</a> will
         also be present (if any) at the end of the list.</li>
       <li>To find an entry quickly, type into the search box at the top of the submenu,
         or just start typing while the submenu is open. The submenu then lists
@@ -67,50 +122,6 @@
     <ul>
       <li>Same as <em>Insert note after</em>, but the note will be created as a child
         of the selected note.</li>
-    </ul>
-  </li>
-  <li><strong>Protect subtree</strong>
-    <ul>
-      <li>Will mark this note and all of its descendents as protected. See&nbsp;<a
-        class="reference-link" href="#root/_help_bwg0e8ewQMak">Protected Notes</a>&nbsp;for
-        more information.</li>
-    </ul>
-  </li>
-  <li><strong>Unprotect subtree</strong>
-    <ul>
-      <li>Will unprotect this note and all of its descendents.</li>
-    </ul>
-  </li>
-  <li><strong>Cut</strong>
-    <ul>
-      <li>Will place the given notes in clipboard.</li>
-      <li>Use one of the two paste functions (or the keyboard shortcuts) to move
-        them to the desired location.</li>
-    </ul>
-  </li>
-  <li><strong>Copy / clone</strong>
-    <ul>
-      <li>Will place the given notes in clipboard.</li>
-      <li>Use one of the two paste functions (or the keyboard shortcuts) to copy
-        them to the desired location.</li>
-      <li>Note that the copy function here works according to the&nbsp;<a class="reference-link"
-        href="#root/_help_IakOLONlIfGI">Cloning Notes</a>&nbsp;functionality (i.e.
-        the note itself will be present in two locations at once, and editing it
-        in one place will edit it everywhere).</li>
-      <li>To simply create a duplicate note that can be modified independently,
-        look for <em>Duplicate</em>.</li>
-    </ul>
-  </li>
-  <li><strong>Paste into</strong>
-    <ul>
-      <li>If there are any notes in clipboard, they will be pasted as child notes
-        to the right-clicked one.</li>
-    </ul>
-  </li>
-  <li><strong>Paste after</strong>
-    <ul>
-      <li>If there are any notes in clipboard, they will be pasted underneath the
-        right-clicked one.</li>
     </ul>
   </li>
   <li><strong>Move to…</strong>
@@ -137,9 +148,9 @@
             children keep pointing at them.</li>
         </ul>
       </li>
-      <li>This process is different from&nbsp;<a class="reference-link" href="#root/_help_IakOLONlIfGI">Cloning Notes</a>&nbsp;since
+      <li>This process is different from <a class="reference-link" href="#root/_help_IakOLONlIfGI">Cloning Notes</a> since
         the duplicated note can be edited independently from the original.</li>
-      <li>An alternative to this, if done regularly, would be&nbsp;<a class="reference-link"
+      <li>An alternative to this, if done regularly, would be <a class="reference-link"
         href="#root/_help_KC1HB96bqqHX">Templates</a>.</li>
     </ul>
   </li>
@@ -152,18 +163,15 @@
         be disabled.</li>
     </ul>
   </li>
-  <li><strong>Delete</strong>
+  <li><strong>Protect subtree/Unprotect subtree</strong>
     <ul>
-      <li>Will delete the given notes, asking for confirmation first.</li>
-      <li>In the dialog, the following options can be configured:
-        <ul>
-          <li><em>Delete also all clones</em> to ensure that the note will be deleted
-            everywhere if it has been placed into multiple locations (see&nbsp;<a class="reference-link"
-            href="#root/_help_IakOLONlIfGI">Cloning Notes</a>).</li>
-          <li><em>Erase notes permanently</em> will ensure that the note cannot be recovered
-            from&nbsp;<a class="reference-link" href="#root/_help_r5JGHN99bVKn">Recent Changes</a>.</li>
-        </ul>
-      </li>
+      <li>On a note that is not protected, <em>Protect subtree</em> marks this note
+        and all of its descendants as protected. On a protected note, the item
+        reads <em>Unprotect subtree</em> and unprotects them instead. See <a class="reference-link"
+        href="#root/_help_bwg0e8ewQMak">Protected Notes</a> for more information.</li>
+      <li>Hovering the item or clicking its arrow opens a submenu with both actions,
+        for instance to unprotect the protected notes below a note that is not
+        protected itself.</li>
     </ul>
   </li>
   <li><strong>Import into note</strong>
