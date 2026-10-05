@@ -41,6 +41,11 @@ export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "co
      */
     isWanted?(): boolean;
     items?: MenuItem<T>[];
+    /**
+     * For a menu of {@link items}: offers an input at its top that filters every item, at any depth,
+     * as `MenuCommandItem.filterable` does for a submenu.
+     */
+    filterable?: boolean;
     /** Called when one of {@link items} is pressed with the primary button, or run from the keyboard. */
     onSelect?(item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent): void;
     children?: ComponentChildren;
@@ -54,11 +59,13 @@ const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab
 /** The keys the menu always keeps while focus is in a submenu's filter input. See `isFilterKey()`. */
 const KEYS_OF_FILTER = new Set([ "ArrowUp", "ArrowDown", "Enter", "Escape", "Tab" ]);
 const FILTER_INPUT = "input.tn-menu-filter-input";
+/** The filter of a menu's own top level, which no row opened. */
+const TOP_LEVEL = { rowId: "", level: -1 };
 
 /** How long typed letters keep adding to the text a row is looked up by. */
 const TYPEAHEAD_TIMEOUT = 500;
 
-export default function Menu<T>({ id, className, anchor, placement, bottomSheet, startAt, items, onSelect, children, onClose, onDismiss, isWanted, elementRef, ...popupProps }: MenuProps<T>) {
+export default function Menu<T>({ id, className, anchor, placement, bottomSheet, startAt, items, filterable, onSelect, children, onClose, onDismiss, isWanted, elementRef, ...popupProps }: MenuProps<T>) {
     const menuRef = useRef<HTMLDivElement | null>(null);
     // The submenus' layers render into the menu element, which rows reach through the context.
     const [ layerHost, setLayerHost ] = useState<HTMLElement | null>(null);
@@ -172,7 +179,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     // A filter ends with the submenu it filters, as the pointer or the keys close it.
     useLayoutEffect(() => {
         const current = filterRef.current;
-        if (current && open[current.level]?.id !== current.rowId) setFilter(undefined);
+        if (current && current.level >= 0 && open[current.level]?.id !== current.rowId) setFilter(undefined);
     }, [ open, setFilter ]);
 
     // The first match, or the first row once the input is emptied, is the one Enter runs. Typing
@@ -261,6 +268,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             // Emptied first; empty, it closes the submenu and gives the menu its keys back.
             if (filterInput.value) {
                 setFilter(undefined);
+            } else if (level === 0) {
+                close();
             } else {
                 closeLevel(level);
                 menuRef.current?.focus({ preventScroll: true });
@@ -338,6 +347,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             const rowId = open[parent]?.id;
             if (rowId && rows.get(rowId)?.filterable) target = { rowId, level: parent };
         }
+        if (!target && filterable && items) target = TOP_LEVEL;
         if (!target) return false;
         // The submenus open inside it give way to the list of matches.
         openSubmenu(target.level + 1);
@@ -393,7 +403,13 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
                     menu's `::before` stays behind them. A `<menu>`, as rows are its list items, out of
                     the accessibility tree so they read as the menu's own. */}
                 <menu className="tn-menu-scroll" role="none">
-                    {items ? <MenuItems items={items} onSelect={onSelect} /> : children}
+                    {items && filterable && (
+                        <MenuFilterContext.Provider value={{ ...TOP_LEVEL, text: filter?.level === TOP_LEVEL.level ? filter.text : "" }}>
+                            <MenuItems items={items} onSelect={onSelect} />
+                        </MenuFilterContext.Provider>
+                    )}
+                    {items && !filterable && <MenuItems items={items} onSelect={onSelect} />}
+                    {!items && children}
                 </menu>
                 {/* The submenus' layers follow the scroller in here, portaled by their rows. */}
             </Popup>
@@ -402,6 +418,20 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
 }
 
 /** `items` drawn as the rows that stand for them, with a run of separators reduced to one. */
+/**
+ * {@link items} drawn as the rows a menu of items draws, for a menu of components or a list
+ * outside any menu. A row runs its `handler`, then closes the menu it stands in, if any.
+ */
+export function MenuItemRows<T>({ items }: { items: MenuItem<T>[] }) {
+    const menu = useContext(MenuContext);
+    return (
+        <MenuItems items={items} onSelect={(item, e) => {
+            item.handler?.(item, e);
+            if (!item.items) menu?.close();
+        }} />
+    );
+}
+
 function MenuItems<T>({ items, onSelect }: {
     items: MenuItem<T>[],
     onSelect: MenuProps<T>["onSelect"]

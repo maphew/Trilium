@@ -74,6 +74,47 @@ describe("Dropdown", () => {
         element.click();
     };
 
+    it("draws its rows from data, filters them from an input at its top, and runs the one chosen", async () => {
+        const picked: string[] = [];
+        const row = (title: string) => ({ title, handler: () => picked.push(title) });
+        const { toggle } = renderDropdown({
+            filterable: true,
+            items: [ row("Python"), row("JavaScript"), row("Plain text"), { kind: "separator" }, { ...row("Configure"), uiIcon: "bx bx-cog" } ]
+        }, null);
+        const key = (name: string) => {
+            const event = new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true });
+            (document.activeElement ?? document.body).dispatchEvent(event);
+        };
+        const input = () => popup()?.querySelector<HTMLInputElement>("input.tn-menu-filter-input") ?? null;
+        const titles = () => [ ...popup()?.querySelectorAll("li.dropdown-item") ?? [] ]
+            .map((item) => item.querySelector(".tn-menu-filter-title")?.textContent ?? item.textContent);
+
+        click(toggle);
+        await vi.waitFor(() => expect(document.activeElement).toBe(popup()));
+        expect(input()?.value).toBe("");
+        expect(titles()).toEqual([ "Python", "JavaScript", "Plain text", "Configure" ]);
+
+        // Typing in the menu goes on in the input, and Enter runs the first match.
+        key("j");
+        await vi.waitFor(() => expect(document.activeElement).toBe(input()));
+        expect(titles()).toEqual([ "JavaScript" ]);
+        key("Enter");
+        expect(picked).toEqual([ "JavaScript" ]);
+        await vi.waitFor(() => expect(popup()).toBeNull());
+
+        // Escape empties the input, then, with nothing to go back to, closes the menu.
+        click(toggle);
+        await vi.waitFor(() => expect(document.activeElement).toBe(popup()));
+        key("x");
+        await vi.waitFor(() => expect(input()?.value).toBe("x"));
+        key("Escape");
+        await vi.waitFor(() => expect(input()?.value).toBe(""));
+        expect(popup()).not.toBeNull();
+        key("Escape");
+        await vi.waitFor(() => expect(popup()).toBeNull());
+        expect(picked).toEqual([ "JavaScript" ]);
+    });
+
     it("opens a popup below its toggle on a click, and closes it on another", async () => {
         const onShown = vi.fn();
         const onHidden = vi.fn();
