@@ -937,6 +937,8 @@ describe("contextMenu", () => {
                 await vi.waitFor(() => expect(document.activeElement).toBe(filterInput()));
 
                 // The caret's keys are the input's: nothing moves in the menu, and the submenu stays.
+                // From the start of the text, as Right at its end is the menu's.
+                filterInput()?.setSelectionRange(0, 0);
                 for (const name of [ "Home", "End", "ArrowLeft", "ArrowRight", "Backspace", " " ]) {
                     expect(key(name).defaultPrevented).toBe(false);
                 }
@@ -992,6 +994,43 @@ describe("contextMenu", () => {
                 key("Enter");
                 expect(picked).toEqual([ "Board" ]);
                 expect(contextMenu.isShown).toBe(false);
+            });
+
+            it("gives Right and Left to the menu where the caret has nowhere to go", async () => {
+                await openFilterable();
+                await openSubmenuByKeys();
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Code"));
+                filterInput()?.focus();
+
+                // Right in an empty input opens the active row's submenu, whose rows take the keys.
+                expect(key("ArrowRight").defaultPrevented).toBe(true);
+                await vi.waitFor(() => expect(activeRow()).toBe("Plain text"));
+                expect(document.activeElement).toBe(menuElement());
+                key("ArrowLeft");
+                await vi.waitFor(() => expect(activeRow()).toBe("Code"));
+
+                // With text, the caret moves until it reaches the end.
+                filterInput()?.focus();
+                edit("tex");
+                await vi.waitFor(() => expect(layer().rows).toEqual([ "Text|", "Plain text|Code" ]));
+                filterInput()?.setSelectionRange(1, 1);
+                expect(key("ArrowRight").defaultPrevented).toBe(false);
+                expect(key("ArrowLeft").defaultPrevented).toBe(false);
+                filterInput()?.setSelectionRange(0, 3);
+                expect(key("ArrowRight").defaultPrevented).toBe(false);
+                // At the end, Right is the menu's, and a match has no submenu to open.
+                filterInput()?.setSelectionRange(3, 3);
+                expect(key("ArrowRight").defaultPrevented).toBe(true);
+                expect(document.activeElement).toBe(filterInput());
+
+                // Left in an empty input closes the submenu, as it does from its rows.
+                edit("");
+                await vi.waitFor(() => expect(layer().rows).toEqual(unfiltered));
+                expect(key("ArrowLeft").defaultPrevented).toBe(true);
+                await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
+                expect(filterInput()).toBeNull();
+                expect(document.activeElement).toBe(menuElement());
             });
 
             it("takes a press into the input, as a phone needs to bring up its keyboard", async () => {

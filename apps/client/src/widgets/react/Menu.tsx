@@ -51,7 +51,7 @@ export interface MenuProps<T> extends Pick<PopupProps, "anchor" | "offset" | "co
 
 /** The keys the menu keeps while focus is inside a custom row: those that leave it. */
 const KEYS_LEAVING_CUSTOM_ROW = new Set([ "ArrowUp", "ArrowDown", "Escape", "Tab" ]);
-/** The keys the menu keeps while focus is in a submenu's filter input; the input edits with the rest. */
+/** The keys the menu always keeps while focus is in a submenu's filter input. See `isFilterKey()`. */
 const KEYS_OF_FILTER = new Set([ "ArrowUp", "ArrowDown", "Enter", "Escape", "Tab" ]);
 const FILTER_INPUT = "input.tn-menu-filter-input";
 
@@ -207,9 +207,10 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
         // filter input, only the keys that are the menu's, so the control there keeps its own.
         const listener = (e: KeyboardEvent) => {
             const menu = menuRef.current;
-            const inFilter = e.target instanceof Element && e.target.matches(FILTER_INPUT);
-            const keys = inFilter ? KEYS_OF_FILTER : KEYS_LEAVING_CUSTOM_ROW;
-            if (e.target === menu || (menu?.contains(e.target as Node) && keys.has(e.key))) {
+            const takes = e.target instanceof HTMLInputElement && e.target.matches(FILTER_INPUT)
+                ? isFilterKey(e.target, e.key)
+                : KEYS_LEAVING_CUSTOM_ROW.has(e.key);
+            if (e.target === menu || (menu?.contains(e.target as Node) && takes)) {
                 keyHandler.current(e);
             }
         };
@@ -240,6 +241,8 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             openSubmenu(level, activeHere.id, activeRow.element, true);
             // A submenu already open has its rows; one opening now has them once it renders.
             if (!activateFirstRow(level + 1)) pendingFirstRow.current = level + 1;
+            // Its rows take the keys, which the filter input would keep at its own level.
+            if (filterInput) menuRef.current?.focus({ preventScroll: true });
         };
         const closeLevel = (closing: number) => {
             const parent = open[closing - 1];
@@ -270,6 +273,7 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
                 // Out of the submenu.
                 case rtl ? "ArrowRight" : "ArrowLeft":
                     if (level > 0) closeLevel(level);
+                    if (filterInput) menuRef.current?.focus({ preventScroll: true });
                     break;
                 case "Enter":
                 case " ":
@@ -556,6 +560,20 @@ function highlightMatch(title: string, text: string) {
         return <>{title.slice(0, start)}<mark>{title.slice(start, end)}</mark>{title.slice(end)}</>;
     }
     return title;
+}
+
+/**
+ * Whether a key pressed in a filter input is the menu's: Up, Down, Enter, Escape and Tab always,
+ * the arrow into a submenu once the caret has nowhere further to go, and the arrow out of the
+ * submenu while the input is empty. The input moves its caret with the arrows otherwise.
+ */
+function isFilterKey(input: HTMLInputElement, key: string) {
+    if (KEYS_OF_FILTER.has(key)) return true;
+    const rtl = isRightToLeft();
+    if (key === (rtl ? "ArrowLeft" : "ArrowRight")) {
+        return input.selectionStart === input.selectionEnd && input.selectionEnd === input.value.length;
+    }
+    return key === (rtl ? "ArrowRight" : "ArrowLeft") && input.value === "";
 }
 
 /** The filter input of the submenu open in `menu`, if one is. */
