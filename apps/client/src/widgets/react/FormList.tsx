@@ -474,7 +474,7 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                     </ul>
                 )
                 : open && openSubmenu && menu.layerHost && createPortal((
-                    <SubmenuLayer level={level + 1} submenu={openSubmenu}>
+                    <SubmenuLayer level={level + 1} submenu={openSubmenu} pinned={!!filter?.text}>
                         <MenuFilterContext.Provider value={filter}>{children}</MenuFilterContext.Provider>
                     </SubmenuLayer>
                 ), menu.layerHost)}
@@ -484,16 +484,31 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
 
 /**
  * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
- * so a scrolling menu neither clips it nor scrolls it away.
+ * so a scrolling menu neither clips it nor scrolls it away. While {@link pinned}, as while it is
+ * filtered, it keeps the top it had when pinned, relative to its row, and only its height follows
+ * its content.
  */
-function SubmenuLayer({ level, submenu, children }: {
+function SubmenuLayer({ level, submenu, pinned, children }: {
     level: number,
     submenu: OpenSubmenu,
+    pinned?: boolean,
     children: ComponentChildren
 }) {
     const layerRef = useRef<HTMLDivElement>(null);
     const { dropStart: dropStartLevels, setDropStart } = useMenu();
     const dropStart = !!dropStartLevels[level - 1];
+    /** How far below its row's top the layer stands while pinned. */
+    const pinnedOffset = useRef<number | undefined>(undefined);
+
+    // Taken as the content changes, before the layer is placed again for its new height.
+    useLayoutEffect(() => {
+        const layer = layerRef.current;
+        if (!pinned || !layer) {
+            pinnedOffset.current = undefined;
+        } else if (pinnedOffset.current === undefined) {
+            pinnedOffset.current = parseFloat(layer.style.top) - submenu.anchor.getBoundingClientRect().top;
+        }
+    }, [ pinned, submenu.anchor ]);
 
     useLayoutEffect(() => {
         const layer = layerRef.current;
@@ -513,7 +528,14 @@ function SubmenuLayer({ level, submenu, children }: {
             },
             shiftAcross: true, capHeight: true, hideWithAnchor: true
         } as const;
-        return autoUpdate(submenu.anchor, layer, () => void placeFloating(layer, submenu.anchor, options).then((placed) => {
+        const place = () => {
+            const offset = pinnedOffset.current;
+            const pinTop = offset === undefined || Number.isNaN(offset)
+                ? undefined
+                : submenu.anchor.getBoundingClientRect().top + offset;
+            return placeFloating(layer, submenu.anchor, { ...options, pinTop });
+        };
+        return autoUpdate(submenu.anchor, layer, () => void place().then((placed) => {
             // After a flip, the parent level follows, so its rows' arrows match.
             const placedDropStart = placed.startsWith(startSide);
             if (placedDropStart !== dropStart) {

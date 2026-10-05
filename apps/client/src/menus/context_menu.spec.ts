@@ -1033,6 +1033,49 @@ describe("contextMenu", () => {
                 expect(document.activeElement).toBe(menuElement());
             });
 
+            it("keeps its top while filtered, as its height follows the matches", async () => {
+                // A browser's layout, which happy-dom has none of: a submenu taller than the room
+                // beside its row, low in the viewport, which moves it up to fit.
+                let height = 400;
+                vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
+                vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+                vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(200);
+                vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => height);
+                const submenuLayer = () => menuElement()?.querySelector<HTMLElement>("div.dropdown-submenu > .dropdown-menu");
+                /** Lets Floating UI place the layer again, as it does when the layer resizes. */
+                const relayout = () => new Promise((resolve) => {
+                    window.dispatchEvent(new Event("resize"));
+                    setTimeout(resolve, 20);
+                });
+                try {
+                    await openFilterable();
+                    const parent = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-submenu") ?? [] ]
+                        .find((row) => row.textContent?.includes("Insert child note"));
+                    if (!parent) throw new Error("no submenu row");
+                    vi.spyOn(parent, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: 10, y: 600, width: 200, height: 30 }));
+                    await openSubmenuByKeys();
+                    await vi.waitFor(() => expect(submenuLayer()?.style.visibility).toBe("visible"));
+                    const top = submenuLayer()?.style.top;
+                    expect(parseFloat(top ?? "")).toBeLessThan(600);
+
+                    type("p");
+                    await vi.waitFor(() => expect(layer().rows).toHaveLength(3));
+                    height = 100;
+                    await relayout();
+                    // Short enough to stand beside its row, it stays where the reader was looking.
+                    expect(submenuLayer()?.style.top).toBe(top);
+                    expect(submenuLayer()?.style.maxHeight).toBe(`${800 - parseFloat(top ?? "") - 5}px`);
+
+                    // Emptied, it is placed as it opened, which is where it already stands.
+                    edit("");
+                    height = 400;
+                    await relayout();
+                    expect(submenuLayer()?.style.top).toBe(top);
+                } finally {
+                    vi.restoreAllMocks();
+                }
+            });
+
             it("scrolls back to the input when the keys come round to the first row", async () => {
                 await openFilterable();
                 await openSubmenuByKeys();
