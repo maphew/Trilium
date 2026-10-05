@@ -156,13 +156,15 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
                     title: t("tree-context-menu.paste-into"),
                     command: "pasteNotesFromClipboard",
                     keyboardShortcut: "pasteNotesFromClipboard",
-                    uiIcon: "bx bx-paste",
+                    uiIcon: "bx bx-clipboard",
+                    uiIconBadge: "bx bx-subdirectory-right",
                     enabled: !clipboard.isClipboardEmpty() && notSearch && noSelectedNotes
                 },
                 {
                     title: t("tree-context-menu.paste-after"),
                     command: "pasteNotesAfterFromClipboard",
-                    uiIcon: "bx bx-paste",
+                    uiIcon: "bx bx-clipboard",
+                    uiIconBadge: "bx bx-down-arrow-alt",
                     enabled: !clipboard.isClipboardEmpty() && isNotRoot && !isHoisted && parentNotSearch && noSelectedNotes
                 },
                 {

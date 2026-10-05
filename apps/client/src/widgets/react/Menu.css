@@ -284,14 +284,28 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
         background: var(--menu-item-delimiter-color);
     }
 
-    > .tn-icon {
-        color: var(--menu-item-icon-color);
-        font-size: 1.5em;
-    }
-
-    &:not(:disabled) > .destructive-action-icon {
+    &:not(:disabled) .destructive-action-icon {
         color: var(--dropdown-item-icon-destructive-color);
     }
+}
+
+.tn-menu-action-icon {
+    position: relative;
+    display: inline-flex;
+    color: var(--menu-item-icon-color);
+    font-size: 1.5em;
+}
+
+/* The circle must stay centered on `.tn-menu-action-badge`, whose offset and size place it. */
+.tn-menu-action-badged {
+    mask-image: radial-gradient(circle at 80% 80%, transparent 0.36em, #000 0.37em);
+}
+
+.tn-menu-action-badge {
+    position: absolute;
+    right: -0.08em;
+    bottom: -0.08em;
+    font-size: 0.6em;
 }
 
 .tn-menu-action-title {

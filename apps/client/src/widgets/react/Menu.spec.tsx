@@ -278,7 +278,7 @@ describe("Menu with an action row", () => {
                 items: [
                     { title: "Cut", command: "cut", uiIcon: "bx bx-cut" },
                     { title: "Copy", command: "copy", uiIcon: "bx bx-copy", enabled: false },
-                    { title: "Delete", command: "delete", uiIcon: "bx bx-trash" }
+                    { title: "Delete", command: "delete", uiIcon: "bx bx-trash", uiIconBadge: "bx bx-x" }
                 ]
             },
             { kind: "separator" },
@@ -314,6 +314,17 @@ describe("Menu with an action row", () => {
 
         key(menu, "Enter");
         expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ command: "cut" }), expect.any(KeyboardEvent));
+    });
+
+    it("sets an action's badge over the corner of its icon, which gives way around it", () => {
+        const { menu } = renderMenu();
+        const icons = [ ...menu.querySelectorAll(".tn-menu-action-icon") ].map((icon) =>
+            [ ...icon.children ].map((child) => child.className).join(" + "));
+        expect(icons).toEqual([
+            "tn-icon bx bx-cut",
+            "tn-icon bx bx-copy",
+            "tn-icon bx bx-trash tn-menu-action-badged + tn-menu-action-badge bx bx-x"
+        ]);
     });
 
     it("keeps Right and Left for the submenus on the other rows, mirrored right to left", async () => {

@@ -57,6 +57,11 @@ export interface MenuCommandItem<T> {
      */
     uiIcon?: string;
     /**
+     * A smaller icon set over the bottom corner of {@link uiIcon}, which tells apart items that
+     * share one. Drawn in a row of actions only.
+     */
+    uiIconBadge?: string;
+    /**
      * Classes tinting {@link uiIcon} with the colour of whatever the item stands for, as
      * `cssClassManager.createClassForColor()` and `FNote#getColorClass()` return them. Only the
      * icon is tinted, the label staying readable against the highlight.

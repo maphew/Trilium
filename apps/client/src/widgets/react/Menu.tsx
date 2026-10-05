@@ -587,7 +587,10 @@ function MenuAction<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect:
             onMouseDown={(e) => e.preventDefault()}
             onClick={select}
         >
-            <span className={`tn-icon ${item.uiIcon ?? "bx bx-empty"}`} aria-hidden="true" />
+            <span className="tn-menu-action-icon" aria-hidden="true">
+                <span className={clsx("tn-icon", item.uiIcon ?? "bx bx-empty", item.uiIconBadge && "tn-menu-action-badged")} />
+                {item.uiIconBadge && <span className={clsx("tn-menu-action-badge", item.uiIconBadge)} />}
+            </span>
             {/* Callers pass HTML, as for a row's title. */}
             <span className="tn-menu-action-title" dangerouslySetInnerHTML={{ __html: item.title }} />
         </button>
