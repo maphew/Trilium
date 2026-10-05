@@ -317,8 +317,8 @@ importers:
         specifier: 2.15.6
         version: 2.15.6
       katex:
-        specifier: 0.18.10
-        version: 0.18.10
+        specifier: 0.19.0
+        version: 0.19.0
       maplibre-gl:
         specifier: 6.11.2
         version: 6.11.2
@@ -949,8 +949,8 @@ importers:
         specifier: 2.15.6
         version: 2.15.6
       katex:
-        specifier: 0.18.10
-        version: 0.18.10
+        specifier: 0.19.0
+        version: 0.19.0
       maplibre-gl:
         specifier: 6.11.2
         version: 6.11.2
@@ -1370,8 +1370,8 @@ importers:
         specifier: 7.5.0
         version: 7.5.0
       katex:
-        specifier: 0.18.10
-        version: 0.18.10
+        specifier: 0.19.0
+        version: 0.19.0
     devDependencies:
       '@digitak/esrun':
         specifier: 3.2.26
@@ -8269,8 +8269,8 @@ packages:
     resolution: {integrity: sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==}
     hasBin: true
 
-  katex@0.18.10:
-    resolution: {integrity: sha512-/B6p9eY9DX7aHBfpkHdpirDTZ5QH9xTwL9y837PWuzuv41O5jFdqNQwVQEQsimY0/iVNkwBY4+4hMfhQ7d4Dbw==}
+  katex@0.19.0:
+    resolution: {integrity: sha512-v6Tznz3zJ7u3niRCoDTsumM2+HA2XXcCu+WAacCeHD2z3p9A9Ks987o5FzfTGBN0e8A0vjEgIDvLbICrXpdw/Q==}
     hasBin: true
 
   kdbush@4.1.0:
@@ -19991,7 +19991,7 @@ snapshots:
     dependencies:
       commander: 8.3.0
 
-  katex@0.18.10:
+  katex@0.19.0:
     dependencies:
       commander: 15.0.0
 
