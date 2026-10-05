@@ -53,7 +53,7 @@ The contextual menu can operate:
     *   Will display a modal to specify where to [clone](../../Notes/Cloning%20Notes.md) the desired notes.
 *   **Duplicate**
     *   Creates a copy of the note and its descendants, placed right after the original.
-    *   When the note has child notes, hovering the item opens a submenu:
+    *   When the note has child notes, the item also has an arrow, set apart by a divider. Hovering the item or clicking the arrow opens a submenu:
         *   _Note and its children_ does the same as clicking _Duplicate_.
         *   _This note only_ copies the note with its content and attributes, but without any of its child notes. Links and relations to the original children keep pointing at them.
     *   This process is different from <a class="reference-link" href="../../Notes/Cloning%20Notes.md">Cloning Notes</a> since the duplicated note can be edited independently from the original.

@@ -652,8 +652,11 @@ describe("contextMenu", () => {
             expect(picked).toEqual([ "Templates", "Meeting", "Weekly" ]);
             expect(contextMenu.isShown).toBe(false);
 
-            // A row with a command of its own runs it and closes the menu, like any other.
+            // A row with a command of its own is split, unlike a row that only opens its submenu,
+            // and runs the command and closes the menu like any other.
             const again = await openMenu((title) => picked.push(title));
+            expect(row("Templates").classList.contains("tn-menu-split")).toBe(false);
+            expect(row("Insert child note").classList.contains("tn-menu-split")).toBe(true);
             press(row("Insert child note"));
             expect(picked.at(-1)).toBe("Insert child note");
             expect(again.isShown).toBe(false);

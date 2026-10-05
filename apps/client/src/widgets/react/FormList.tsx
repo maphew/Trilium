@@ -388,6 +388,12 @@ export interface FormDropdownSubmenuProps {
     children: ComponentChildren;
     /** Called when the row is clicked, or run from the keyboard, on the desktop. */
     onDropdownToggleClicked?: (e: MouseEvent) => void;
+    /**
+     * Whether the row runs an action of its own besides opening the submenu. A split row draws a
+     * divider before its arrow, and a click on the arrow only opens the submenu. Defaults to
+     * whether {@link onDropdownToggleClicked} is set.
+     */
+    split?: boolean;
     disabled?: boolean;
     className?: string;
     /** Inside a menu, whether typing while the submenu is open filters it. See `MenuCommandItem.filterable`. */
@@ -405,7 +411,7 @@ export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
     return <MenuSubmenu {...props} menu={menu} />;
 }
 
-function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, disabled, className, filterable }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
+function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, split = !!onDropdownToggleClicked, disabled, className, filterable }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
     const level = useContext(MenuLevelContext);
     const id = useUniqueName("menu-row");
     const openSubmenu = menu.open[level];
@@ -434,7 +440,7 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                 menu.registerRow(id, element ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: true, filterable, select } : undefined);
             }}
             className={clsx("dropdown-item dropdown-submenu", open && "submenu-open", isActive && "tn-menu-active",
-                disabled && "disabled", className)}
+                split && !isMobile() && "tn-menu-split", disabled && "disabled", className)}
             role="menuitem"
             aria-disabled={disabled || undefined}
             aria-haspopup="menu"
@@ -466,6 +472,17 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                 <span className="tn-menu-gap" />
                 <span id={titleId(id)}>{title}</span>
             </span>
+            {split && !isMobile() && (
+                <span
+                    className="tn-menu-split-toggle"
+                    aria-hidden="true"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        const row = e.currentTarget.parentElement;
+                        if (!disabled && row) menu.openSubmenu(level, id, row, true);
+                    }}
+                />
+            )}
             {isMobile()
                 // A phone has no room beside the menu, so a submenu replaces it as a page of its own.
                 ? (open || pageSlide.from !== undefined) && menu.layerHost && createPortal((

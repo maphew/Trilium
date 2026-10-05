@@ -524,7 +524,8 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
         return (
             <FormDropdownSubmenu
                 icon={uiIcon ?? "bx bx-empty"} title={label} disabled={enabled === false}
-                className={className} onDropdownToggleClicked={select} filterable={row.filterable}
+                className={className} onDropdownToggleClicked={select} split={!!(row.command || row.handler)}
+                filterable={row.filterable}
             >
                 <MenuItems items={items} onSelect={onSelect} />
             </FormDropdownSubmenu>

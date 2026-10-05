@@ -175,6 +175,35 @@ describe("Menu with declared rows", () => {
         expect(activeTitle(unwanted)).toBeUndefined();
     });
 
+    it("splits a submenu row that runs an action of its own: the row runs it, its arrow only opens", async () => {
+        const toggled = vi.fn();
+        render((
+            <Menu anchor={{ x: 10, y: 10 }} onClose={vi.fn()}>
+                <FormDropdownSubmenu title="Duplicate" icon="bx bx-outline" onDropdownToggleClicked={toggled}>
+                    <FormListItem>This note only</FormListItem>
+                </FormDropdownSubmenu>
+                <FormDropdownSubmenu title="Advanced" icon="bx bx-chip">
+                    <FormListItem>Reload</FormListItem>
+                </FormDropdownSubmenu>
+            </Menu>
+        ), host);
+        const menu = document.querySelector<HTMLElement>(".tn-popup.tn-menu");
+        if (!menu) throw new Error("expected the menu to render");
+
+        expect(rowTitled("Advanced").querySelector(".tn-menu-split-toggle")).toBeNull();
+        const duplicateRow = rowTitled("Duplicate");
+        expect(duplicateRow.classList.contains("tn-menu-split")).toBe(true);
+        const arrow = duplicateRow.querySelector<HTMLElement>(".tn-menu-split-toggle");
+        if (!arrow) throw new Error("expected the split row to draw its arrow as a target");
+
+        press(arrow);
+        await vi.waitFor(() => expect(layers(menu)).toEqual([ [ "This note only" ] ]));
+        expect(toggled).not.toHaveBeenCalled();
+
+        press(duplicateRow);
+        expect(toggled).toHaveBeenCalledOnce();
+    });
+
     it("neither opens nor runs a disabled submenu row", async () => {
         const toggled = vi.fn();
         render((
