@@ -219,15 +219,17 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
     return { builtInTemplateNotes, userTemplateNotes, newTemplates: new Set(newTemplateNoteIds) };
 }
 
+type NoteTypeLayout = "menu" | "list";
+
 /**
  * The note type items. In a `"menu"` the snippets and the collections each form a submenu; a
  * `"list"`, such as the note type chooser draws, cannot open one, so there they stay inline. The AI
  * quick action template stands beside the AI chat note type, and is offered only alongside it.
  */
-function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: "menu" | "list" = "menu") {
+function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: NoteTypeLayout = "menu") {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
     const builtIn = (group: BuiltInTemplateGroup) =>
-        getBuiltInTemplates(command, builtInTemplateNotes, group, newTemplates);
+        getBuiltInTemplates(command, builtInTemplateNotes, group, newTemplates, layout);
     const snippets = builtIn("snippet");
     const collections = builtIn("collection");
 
@@ -250,7 +252,7 @@ function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layo
         if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
     }
 
-    items.push(...getUserTemplates(command, userTemplateNotes, newTemplates));
+    items.push(...getUserTemplates(command, userTemplateNotes, newTemplates, layout));
     return items;
 }
 
@@ -307,7 +309,7 @@ function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandN
     ];
 }
 
-function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>) {
+function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>, layout: NoteTypeLayout) {
     if (templateNotes.length === 0) {
         return [];
     }
@@ -321,7 +323,7 @@ function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: 
 
     for (const templateNote of templateNotes) {
         const item: MenuItem<TreeCommandNames> = {
-            title: templateNote.title,
+            title: templateTitle(templateNote, layout),
             uiIcon: templateNote.getIcon(),
             command,
             type: templateNote.type,
@@ -357,7 +359,7 @@ function builtInTemplateGroup(templateNote: FNote): BuiltInTemplateGroup {
     return "other";
 }
 
-function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], group: BuiltInTemplateGroup, newTemplates: Set<string>) {
+function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], group: BuiltInTemplateGroup, newTemplates: Set<string>, layout: NoteTypeLayout) {
     const items: MenuItem<TreeCommandNames>[] = [];
 
     for (const templateNote of childNotes) {
@@ -366,7 +368,7 @@ function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: 
         }
 
         const item: MenuItem<TreeCommandNames> = {
-            title: templateNote.title,
+            title: templateTitle(templateNote, layout),
             uiIcon: templateNote.getIcon(),
             command,
             type: templateNote.type,
@@ -387,6 +389,11 @@ function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: 
         items.push(item);
     }
     return items;
+}
+
+/** A template's title as the layout renders it: `Menu` renders titles as HTML, a list as text. */
+function templateTitle(templateNote: FNote, layout: NoteTypeLayout) {
+    return layout === "menu" ? escapeHtml(templateNote.title) : templateNote.title;
 }
 
 /** `items` led by `lead`, or nothing when there are no items to lead. */

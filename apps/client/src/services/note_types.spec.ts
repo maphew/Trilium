@@ -480,6 +480,37 @@ describe("new template badges", () => {
         }
     });
 
+    it("escapes template titles for the menu, which renders HTML, and not for the list, which renders text", async () => {
+        const user = buildNote({ id: "userTemplateHtml", title: "<img src=x onerror=alert(1)>", "#template": "" });
+        withTemplates([ user.noteId ]);
+        const restore = withTemplatesRoot([
+            fakeTemplate("tpl-snippet", [ "template", "snippet" ], "A & <b>B</b>"),
+            fakeTemplate("tpl-coll", [ "template", "collection" ], "<i>Board</i>")
+        ]);
+        const all = (items: any[]): any[] => items.flatMap((i) => [ i, ...all(i.items ?? []) ]);
+        const titleOf = (items: any[], templateNoteId: string) =>
+            all(items).find((i) => i.templateNoteId === templateNoteId)?.title;
+        try {
+            const data = await noteTypesService.loadNoteTypeData();
+            const menu = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
+            /** What `Menu` shows for a title: the title as HTML, here as its elements and its text. */
+            const rendered = (title: string) => {
+                const element = document.createElement("span");
+                element.innerHTML = title;
+                return { elements: element.children.length, text: element.textContent };
+            };
+            expect(rendered(titleOf(menu, user.noteId))).toEqual({ elements: 0, text: "<img src=x onerror=alert(1)>" });
+            expect(rendered(titleOf(menu, "tpl-snippet"))).toEqual({ elements: 0, text: "A & <b>B</b>" });
+            expect(rendered(titleOf(menu, "tpl-coll"))).toEqual({ elements: 0, text: "<i>Board</i>" });
+
+            const list = await noteTypesService.getNoteTypeItems();
+            expect(titleOf(list, user.noteId)).toBe("<img src=x onerror=alert(1)>");
+            expect(titleOf(list, "tpl-snippet")).toBe("A & <b>B</b>");
+        } finally {
+            restore();
+        }
+    });
+
     it("offers the enabled code languages in a submenu of Code, as they stand when the menu opens", async () => {
         withTemplates();
         const restore = withTemplatesRoot([]);
