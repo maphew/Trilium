@@ -152,9 +152,58 @@ describe("parseNavigationStateFromUrl", () => {
         expect((card as any).viewScope).toMatchObject({ card: "card00000001" });
     });
 
+    it("carries a PDF reference through, for the page and for an annotation on it", () => {
+        const page = parseNavigationStateFromUrl("#root/aaaaaaaaaaaa?page=5");
+        expect((page as any).viewScope).toMatchObject({ page: "5" });
+
+        const annotation = parseNavigationStateFromUrl("#root/aaaaaaaaaaaa?page=5&annotation=12R");
+        expect((annotation as any).viewScope).toMatchObject({ page: "5", annotation: "12R" });
+    });
+
     it("returns empty object when the note path does not match the id pattern", () => {
         // hash present at index 0, but the path is too short to be a valid note id
         expect(parseNavigationStateFromUrl("#ab")).toStrictEqual({});
+    });
+
+    it("parses the app's own address with a query or a slash-less sub-path before the hash", () => {
+        const note = { notePath: "root/WWaBNf3SSA1b", noteId: "WWaBNf3SSA1b" };
+        const desktop = new URL("https://host/?desktop");
+        const mobile = new URL("https://host/?mobile");
+        const subPath = new URL("https://host/trilium");
+
+        expect(parseNavigationStateFromUrl("https://host/?desktop#root/WWaBNf3SSA1b", desktop))
+            .toMatchObject(note);
+        expect(parseNavigationStateFromUrl("https://host/?mobile#root/WWaBNf3SSA1b", mobile))
+            .toMatchObject(note);
+        expect(parseNavigationStateFromUrl("https://host/trilium#root/WWaBNf3SSA1b", subPath))
+            .toMatchObject(note);
+        expect(parseNavigationStateFromUrl("https://host/?desktop#?searchString=hello", desktop))
+            .toMatchObject({ searchString: "hello" });
+
+        // Another origin or another pathname is an external document, whatever its hash holds.
+        expect(parseNavigationStateFromUrl("https://other/?desktop#root/WWaBNf3SSA1b", desktop))
+            .toStrictEqual({});
+        expect(parseNavigationStateFromUrl("https://host/wiki/Page?x=1#root/WWaBNf3SSA1b", desktop))
+            .toStrictEqual({});
+
+        // A different query string, such as the `?print` entry point, is an external document too.
+        expect(parseNavigationStateFromUrl("https://host/?print#root/WWaBNf3SSA1b", new URL("https://host/")))
+            .toStrictEqual({});
+        expect(parseNavigationStateFromUrl("https://host/?print#root/WWaBNf3SSA1b", desktop))
+            .toStrictEqual({});
+    });
+
+    it("compares against window.location by default", () => {
+        const { happyDOM } = window as unknown as { happyDOM: { setURL(url: string): void } };
+        const previousUrl = window.location.href;
+        happyDOM.setURL("https://host/?desktop");
+
+        try {
+            expect(parseNavigationStateFromUrl("https://host/?desktop#root/WWaBNf3SSA1b"))
+                .toMatchObject({ notePath: "root/WWaBNf3SSA1b" });
+        } finally {
+            happyDOM.setURL(previousUrl);
+        }
     });
 });
 
@@ -190,6 +239,17 @@ describe("calculateHash", () => {
 
         expect(calculateHash({ notePath: "root/abc", viewScope: { card: "card00000001" } } as any))
             .toBe("#root/abc?card=card00000001");
+    });
+
+    it("writes a PDF reference back into the hash it was read from", () => {
+        const hash = calculateHash({
+            notePath: "root/abc",
+            viewScope: { page: "5", annotation: "12R" }
+        } as any);
+        expect(hash).toBe("#root/abc?page=5&annotation=12R");
+        const read = `http://localhost:8080/#root/aaaaaaaaaaaa${hash.slice("#root/abc".length)}`;
+        expect(parseNavigationStateFromUrl(read))
+            .toMatchObject({ viewScope: { page: "5", annotation: "12R" } });
     });
 
     it("omits params that are at their defaults", () => {
@@ -505,7 +565,7 @@ describe("createLink", () => {
             showNoteIcon: true,
             viewScope: { viewMode: "source" }
         });
-        expect($el.find("span.bx.bx-code-curly").length).toBe(1);
+        expect($el.find("span.tn-icon.bx.bx-code-curly").length).toBe(1);
     });
 
     it("uses an attachments-mode icon when showing the icon for an attachments view", async () => {
@@ -515,7 +575,7 @@ describe("createLink", () => {
             showNoteIcon: true,
             viewScope: { viewMode: "attachments", attachmentId: "att-x" }
         });
-        expect($el.find("span.bx.bx-file").length).toBe(1);
+        expect($el.find("span.tn-icon.bx.bx-file").length).toBe(1);
     });
 
     it("renders no icon for a view mode without a dedicated icon", async () => {
@@ -736,6 +796,22 @@ describe("goToLinkExt", () => {
         expect(triggerCommand).not.toHaveBeenCalled();
     });
 
+    it("opens nothing on a right click on a target=_blank link, leaving it to the context menu", () => {
+        const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+        // Browsers fire auxclick for the right button as well as the middle one.
+        const rightClick = () => ({ type: "auxclick", which: 3, preventDefault: vi.fn(), stopPropagation: vi.fn() }) as any;
+
+        goToLinkExt(rightClick(), "https://example.com", $("<a>").attr({ href: "https://example.com", target: "_blank" }));
+        goToLinkExt(rightClick(), "#root/aaaaaaaaaaaa", $("<a>").attr({ href: "#root/aaaaaaaaaaaa", target: "_blank" }));
+        expect(openSpy).not.toHaveBeenCalled();
+        expect(openTabWithNoteWithHoisting).not.toHaveBeenCalled();
+
+        // A left click on the same link still opens it in a new tab.
+        goToLinkExt(leftClick(), "#root/aaaaaaaaaaaa", $("<a>").attr({ href: "#root/aaaaaaaaaaaa", target: "_blank" }));
+        expect(openTabWithNoteWithHoisting).toHaveBeenCalledWith("root/aaaaaaaaaaaa", expect.objectContaining({ activate: true }));
+        openSpy.mockRestore();
+    });
+
     it("does not handle a non-root hash anchor that does not resolve to an element", () => {
         const $link = $("<a>").attr("href", "#missing-anchor");
         // no .ck-content ancestor containing #missing-anchor => handleAnchor returns false
@@ -769,18 +845,27 @@ describe("getReferenceLinkTitle / getReferenceLinkTitleSync", () => {
         expect(await linkService.getReferenceLinkTitle(`#root/${note.noteId}`)).toBe("Referenced");
     });
 
-    it("getReferenceLinkTitle resolves attachment titles", async () => {
+    it("getReferenceLinkTitle resolves an attachment among those of the linked note", async () => {
         const note = buildNote({ title: "WithAtt" });
-        note.getAttachmentById = vi.fn(async () => ({ title: "Att" }) as any);
-        const title = await linkService.getReferenceLinkTitle(`#root/${note.noteId}?viewMode=attachments&attachmentId=a1`);
+        note.attachments = [];
+        const getAttachmentOfNote = vi.spyOn(froca, "getAttachmentOfNote")
+            .mockResolvedValue({ title: "Att" } as any);
+        const title = await linkService.getReferenceLinkTitle(
+            `#root/${note.noteId}?viewMode=attachments&attachmentId=a1`
+        );
         expect(title).toBe("Att");
+        expect(getAttachmentOfNote).toHaveBeenCalledWith(note.noteId, "a1");
+        getAttachmentOfNote.mockRestore();
     });
 
     it("getReferenceLinkTitle returns [missing attachment] when attachment not found", async () => {
         const note = buildNote({ title: "WithAtt2" });
-        note.getAttachmentById = vi.fn(async () => null as any);
-        const title = await linkService.getReferenceLinkTitle(`#root/${note.noteId}?viewMode=attachments&attachmentId=a2`);
+        const getAttachmentOfNote = vi.spyOn(froca, "getAttachmentOfNote").mockResolvedValue(null);
+        const title = await linkService.getReferenceLinkTitle(
+            `#root/${note.noteId}?viewMode=attachments&attachmentId=a2`
+        );
         expect(title).toBe("[missing attachment]");
+        getAttachmentOfNote.mockRestore();
     });
 
     it("getReferenceLinkTitleSync covers missing note, attachments and bookmark variants", () => {
@@ -823,6 +908,16 @@ describe("getReferenceLinkTitle / getReferenceLinkTitleSync", () => {
         // The link body is the board, so the column shows only where a suffix can be drawn.
         expect(await linkService.getReferenceLinkTitle(href)).toBe("Board");
         expect(linkService.getReferenceLinkTitleSync(href)).toBe("Board: To Do");
+    });
+
+    it("names the PDF a reference points at, and the page or the annotation after it", async () => {
+        const pdf = buildNote({ title: "Paper" });
+        const href = `#root/${pdf.noteId}?page=5&annotation=12R`;
+
+        expect(await linkService.getReferenceLinkTitle(href)).toBe("Paper");
+        expect(linkService.getReferenceLinkTitleSync(href)).toBe("Paper - pdf.annotation_reference");
+        expect(linkService.getReferenceLinkTitleSync(`#root/${pdf.noteId}?page=5`))
+            .toBe("Paper - pdf.page_reference");
     });
 
     it("getReferenceLinkTitleSync returns [missing note] when the note is not in cache", () => {
@@ -913,6 +1008,20 @@ describe("loadReferenceLinkTitle", () => {
         expect($column.hasClass("color-FF8800")).toBe(true);
     });
 
+    it("appends the page a PDF reference points at, or says it is an annotation on it", async () => {
+        const pdf = buildNote({ title: "Paper" });
+        const $page = $("<span>");
+        const $annotation = $("<span>");
+
+        await linkService.loadReferenceLinkTitle($page, `#root/${pdf.noteId}?page=5`);
+        await linkService.loadReferenceLinkTitle($annotation, `#root/${pdf.noteId}?page=5&annotation=12R`);
+
+        expect($page.text()).toBe("Paperpdf.page_reference");
+        expect($page.find("small span").hasClass("bx-file")).toBe(true);
+        expect($annotation.text()).toBe("Paperpdf.annotation_reference");
+        expect($annotation.find("small span").hasClass("bx-comment-detail")).toBe(true);
+    });
+
     it("falls back to a column glyph for a reference carrying no icon of its own", async () => {
         const board = buildNote({ title: "Board" });
         const $el = $("<span>");
@@ -952,6 +1061,14 @@ describe("loadReferenceLinkTitle", () => {
         await linkService.loadReferenceLinkTitle($el, `#root/${note.noteId}`);
         expect($el.text()).toContain("NoIconRef");
         expect($el.children("span").length).toBe(0);
+    });
+
+    it("gives the source view icon the tn-icon class that the link CSS targets", async () => {
+        const note = buildNote({ title: "SourceRef" });
+        const href = `#root/${note.noteId}?viewMode=source`;
+        const $el = $("<span>").append($("<a>").attr("href", href));
+        await linkService.loadReferenceLinkTitle($el, href);
+        expect($el.children("span.tn-icon.bx-code-curly").length).toBe(1);
     });
 });
 

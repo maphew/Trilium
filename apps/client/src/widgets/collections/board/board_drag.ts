@@ -129,7 +129,7 @@ export interface BoardDragCallbacks {
  * @param disabled whether to leave presses alone.
  */
 export function useBoardDrag(
-    containerRef: RefObject<HTMLElement>,
+    containerRef: RefObject<HTMLElement | null>,
     callbacks: BoardDragCallbacks,
     disabled = false
 ) {

@@ -3,7 +3,7 @@
  */
 
 import { isFontMimeType } from "./font_mimes.js";
-import { MIME_TYPES_DICT } from "./mime_type.js";
+import { MIME_TYPES_DICT, type MimeTypeDefinition } from "./mime_type.js";
 import { NoteType } from "./rows.js";
 
 export const NOTE_TYPE_ICONS = {
@@ -55,6 +55,21 @@ export function getImageAttachmentTitle(type: NoteType | null | undefined): stri
     return (NOTE_TYPE_IMAGE_ATTACHMENTS as Partial<Record<NoteType, string>>)[type];
 }
 
+/** The media type of a canvas drawing saved in an attachment, such as one in a text note. */
+export const CANVAS_ATTACHMENT_MIME = "application/vnd.excalidraw+json";
+
+/** The title of the attachment a new canvas drawing is saved in. */
+export const CANVAS_ATTACHMENT_TITLE = "Canvas.excalidraw";
+
+/** The content of a new, empty canvas drawing. */
+export const EMPTY_CANVAS_CONTENT = JSON.stringify({
+    type: "excalidraw",
+    version: 2,
+    elements: [],
+    files: {},
+    appState: {}
+});
+
 /**
  * The note a mind map node's link points at, or `null` where it points somewhere else entirely.
  *
@@ -89,6 +104,7 @@ const FILE_MIME_MAPPINGS: Record<string, string> = {
     "application/vnd.oasis.opendocument.spreadsheet": "bx bx-spreadsheet",
     "application/vnd.ms-excel": "bx bx-spreadsheet",
     "text/csv": "bx bx-spreadsheet",
+    [CANVAS_ATTACHMENT_MIME]: NOTE_TYPE_ICONS.canvas
 };
 
 const IMAGE_MIME_MAPPINGS: Record<string, string> = {
@@ -159,8 +175,7 @@ export function getNoteIcon({
         }
         return "bx bx-note";
     } else if (type === "code") {
-        const correspondingMimeType = MIME_TYPES_DICT.find(m => m.mime === mime);
-        return correspondingMimeType?.icon ?? NOTE_TYPE_ICONS.code;
+        return getCodeLanguageIcon(MIME_TYPES_DICT.find(m => m.mime === mime));
     } else if (type === "file") {
         return getFileMimeIcon(mime);
     } else if (type === "image") {
@@ -183,6 +198,14 @@ export function getMimeIcon(mime: string | undefined | null): string {
     }
 
     return mime.startsWith("image/") ? getImageMimeIcon(mime) : getFileMimeIcon(mime);
+}
+
+/**
+ * The icon of a code note in `language`: the language's own, or the code note type's for a language
+ * without one or a mime `MIME_TYPES_DICT` does not know.
+ */
+export function getCodeLanguageIcon(language: Pick<MimeTypeDefinition, "icon"> | undefined): string {
+    return language?.icon ?? NOTE_TYPE_ICONS.code;
 }
 
 function getFileMimeIcon(mime: string): string {

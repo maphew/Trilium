@@ -25,7 +25,14 @@ Depending on the note type, the inline title will also present some more interac
 
 ### New note type switcher
 
-When a new <a class="reference-link" href="../../Note%20Types/Text.md">Text</a> note is created, a note type switcher will appear below the _Inline title_. Apart from changing the note type, it's also possible to apply a [template](../../Advanced%20Usage/Templates.md).
+When a new <a class="reference-link" href="../../Note%20Types/Text.md">Text</a> note is created, a note type switcher will appear below the _Inline title_. Apart from changing the note type, it's also possible to apply a [template](../../Advanced%20Usage/Templates.md):
+
+*   _Markdown_ and _Canvas_ switch the note to that type in one click.
+*   _Code_ lists the scripting notes (_Custom CSS_, _Widget_ and _Backend script_), then the enabled code languages.
+*   _Collection_ and _Template_ list the collections and the templates.
+*   _All types_ offers everything at once, the shortcuts above included: the same menu as _Insert note after_ in the <a class="reference-link" href="Note%20Tree/Note%20tree%20contextual%20menu.md">Note tree contextual menu</a>, with every note type and template grouped the same way.
+
+Typing while the _Code_, _Template_ or _All types_ menu is open narrows it down to the matching entries.
 
 The switcher will disappear as soon as a text is entered.
 
@@ -55,7 +62,7 @@ The following sections have been made collapsible:
 *   _Promoted Attributes_
     *   For full-height notes such as <a class="reference-link" href="../../Note%20Types/Canvas.md">Canvas</a>, the promoted attributes are collapsed by default to make room.
     *   The keyboard shortcut previously used to trigger the promoted attributes ribbon tab (which was no longer working) has been repurposed to toggle the promoted attributes instead.
-*   _Edited Notes_, which appears for <a class="reference-link" href="../../Advanced%20Usage/Advanced%20Showcases/Day%20Notes.md">[missing note]</a> is now shown underneath the title.
+*   _Edited Notes_, which appears for <a class="reference-link" href="../../Advanced%20Usage/Advanced%20Showcases/Day%20Notes.md">Day Notes</a> is now shown underneath the title.
     *   Whether the section is collapsed or not depends on the choice in <a class="reference-link" href="Options.md">Options</a> → Appearance.
 *   _Search Properties_, which appears for the full <a class="reference-link" href="../Navigation/Search.md">Search</a> and <a class="reference-link" href="../../Note%20Types/Saved%20Search.md">Saved Search</a>.
 
@@ -125,9 +132,9 @@ The sidebar (also known as the right pane) also received some important changes.
 
 Most importantly, v0.105.0 splits the sidebar into multiple tabs with additional functionality:
 
-*   <a class="reference-link" href="Right%20Sidebar/Outline%20tab.md">[missing note]</a>, which gathers the table of contents and highlights lists.
-*   <a class="reference-link" href="Right%20Sidebar/Attributes%20tab.md">[missing note]</a>, which provides a graphical method of editing labels, relations and (promoted) attribute definitions.
-*   A dedicated <a class="reference-link" href="Right%20Sidebar/AI%20chat%20tab.md">[missing note]</a>.
+*   <a class="reference-link" href="Right%20Sidebar/Outline%20tab.md">Outline tab</a>, which gathers the table of contents and highlights lists.
+*   <a class="reference-link" href="Right%20Sidebar/Attributes%20tab.md">Attributes tab</a>, which provides a graphical method of editing labels, relations and (promoted) attribute definitions.
+*   A dedicated <a class="reference-link" href="Right%20Sidebar/AI%20chat%20tab.md">AI chat tab</a>.
 *   <a class="reference-link" href="Right%20Sidebar/Connections%20tab.md">Connections tab</a>, which groups together the note map, note paths, backlinks and similar notes.
 
 The previous iteration of the sidebar would appear contextually, depending on whether there are any items to be displayed. This caused occasional content shifts when moving between two panes in a split view. In the new layout, the sidebar acts more like the <a class="reference-link" href="Note%20Tree.md">Note Tree</a> pane, remaining visible even if there is nothing to display.

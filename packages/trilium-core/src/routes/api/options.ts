@@ -134,11 +134,11 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "textNoteEmojiCompletionEnabled",
     "textNoteCompletionEnabled",
     "textNoteSlashCommandsEnabled",
+    "mathFieldEnabled",
     "textNoteContentHintsEnabled",
     "textNoteAutoLinkPreviewsEnabled",
     "textNoteHtmlSupportEnabled",
     "clipboardImageEmbedEnabled",
-    "includeNoteDefaultBoxSize",
     "layoutOrientation",
     "backgroundEffects",
     "allowedHtmlTags",
@@ -157,6 +157,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     // LLM options
     "aiEnabled",
     "llmProviders",
+    "llmWebSearchProvider",
     "aiAssistantModel",
     "mcpEnabled",
     // OCR options

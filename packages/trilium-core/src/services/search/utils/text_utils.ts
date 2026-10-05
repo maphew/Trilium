@@ -280,16 +280,19 @@ function escapeRegExp(string: string): string {
 }
 
 /**
- * Maximum edit distance allowed for a fuzzy match, scaled by token length the way
- * Elasticsearch's `fuzziness: AUTO` does: 0 for 1-2 characters, 1 for 3-5, and
- * `FUZZY_SEARCH_CONFIG.MAX_EDIT_DISTANCE` beyond that. A flat distance of 2 is loose
- * enough to match "sync" against "send".
+ * Maximum edit distance allowed for a fuzzy match, scaled by token length: 0 for 1-3 characters,
+ * 1 for 4-6, and `FUZZY_SEARCH_CONFIG.MAX_EDIT_DISTANCE` beyond that. A flat distance of 2 is
+ * loose enough to match "sync" against "send".
+ *
+ * The thresholds are the ones Typesense and Algolia use for search-as-you-type. One edit spans
+ * too much of a three-letter word to correct a typo rather than reach a different word: "for"
+ * would match "fox", "not" would match "now" and "got".
  */
 export function getAutoMaxEditDistance(tokenLength: number): number {
-    if (tokenLength <= 2) {
+    if (tokenLength <= 3) {
         return 0;
     }
-    if (tokenLength <= 5) {
+    if (tokenLength <= 6) {
         return 1;
     }
     return FUZZY_SEARCH_CONFIG.MAX_EDIT_DISTANCE;
@@ -323,38 +326,92 @@ export function fuzzyMatchWordWithResult(token: string, text: string, maxDistanc
         // A substring is not a fuzzy match, so there is no whole-text shortcut here. Callers that
         // want substring semantics run their own `includes()` check first.
 
-        // For fuzzy matching, split into words and check each against the token
-        const words = normalizedText.split(/\s+/).filter(word => word.length > 0);
-        const originalWords = text.split(/\s+/).filter(word => word.length > 0);
-
-        for (let i = 0; i < words.length; i++) {
-            const word = words[i];
-            const originalWord = originalWords[i];
-
-            // A word containing the token is a substring relationship, not a typo, so "sync"
-            // must not fuzzy-match "async".
-            if (word.length > normalizedToken.length && word.includes(normalizedToken)) {
-                continue;
-            }
-
-            // Skip if word is too different in length for fuzzy matching
-            if (Math.abs(word.length - normalizedToken.length) > maxDistance) {
-                continue;
-            }
-
-            // Use optimized edit distance calculation
-            const distance = calculateOptimizedEditDistance(normalizedToken, word, maxDistance);
-            if (distance <= maxDistance) {
-                return originalWord; // Return the original word with case preserved
-            }
+        if (!containsAnyChunk(normalizedText, normalizedToken, maxDistance)) {
+            return null;
         }
 
-        return null;
+        // For fuzzy matching, split into words and check each against the token
+        const words = splitIntoWords(normalizedText);
+        const matched = matchingWordIndex(normalizedToken, words, maxDistance);
+
+        if (matched === -1) {
+            return null;
+        }
+
+        // Return the original word with case preserved. Lowercasing neither adds nor removes
+        // whitespace, so the two splits agree position for position.
+        return splitIntoWords(text)[matched];
     } catch (error) {
         // Log error and return null for safety
         console.warn('Error in fuzzy word matching:', error);
         return null;
     }
+}
+
+/**
+ * Splits a normalized text into its words.
+ *
+ * Callers that test many tokens against the same text split it once and pass the result to
+ * {@link fuzzyMatchInWords}, rather than paying for the split per token.
+ */
+export function splitIntoWords(text: string): string[] {
+    return text.split(/\s+/).filter(word => word.length > 0);
+}
+
+/**
+ * The word within `maxDistance` edits of `token`, or null. Both the token and the words are
+ * expected to be normalized; the word is returned as it appears in `words`.
+ */
+export function fuzzyMatchInWords(token: string, words: string[], maxDistance: number): string | null {
+    const matched = matchingWordIndex(token, words, maxDistance);
+    return matched === -1 ? null : words[matched];
+}
+
+/** Index of the first word within `maxDistance` edits of `token`, or -1. */
+function matchingWordIndex(token: string, words: string[], maxDistance: number): number {
+    for (const [index, word] of words.entries()) {
+        // A word containing the token is a substring relationship, not a typo, so "sync"
+        // must not fuzzy-match "async".
+        if (word.length > token.length && word.includes(token)) {
+            continue;
+        }
+
+        // Skip if word is too different in length for fuzzy matching
+        if (Math.abs(word.length - token.length) > maxDistance) {
+            continue;
+        }
+
+        if (calculateOptimizedEditDistance(token, word, maxDistance) <= maxDistance) {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
+/**
+ * Whether `text` can hold a word within `maxDistance` edits of `token`.
+ *
+ * Splitting the token into `maxDistance + 1` contiguous chunks means that many edits can touch at
+ * most `maxDistance` of them, so a word within the distance keeps at least one chunk verbatim —
+ * and so does any text containing that word. Each chunk costs one native substring scan, and the
+ * check never rejects a text the per-word scan would have matched, so it can front that scan.
+ */
+export function containsAnyChunk(text: string, token: string, maxDistance: number): boolean {
+    const chunkCount = maxDistance + 1;
+    const chunkLength = Math.floor(token.length / chunkCount);
+
+    for (let i = 0; i < chunkCount; i++) {
+        const start = i * chunkLength;
+        // The last chunk takes the remainder, so no character of the token goes unexamined.
+        const end = i === chunkCount - 1 ? token.length : start + chunkLength;
+
+        if (text.includes(token.slice(start, end))) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -398,7 +455,12 @@ export function stripWordPunctuation(word: string): string {
  * tokenize through this, so punctuation in the content cannot prevent a word from matching.
  */
 export function tokenizeIntoWords(text: string): string[] {
-    return normalizeSearchText(text)
+    return tokenizeNormalizedText(normalizeSearchText(text));
+}
+
+/** Splits already-normalized text into the same words {@link tokenizeIntoWords} would produce. */
+export function tokenizeNormalizedText(normalized: string): string[] {
+    return normalized
         .split(/\s+/)
         .map(stripWordPunctuation)
         .filter((word) => word.length > 0);

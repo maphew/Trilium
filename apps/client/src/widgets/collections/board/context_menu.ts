@@ -12,6 +12,7 @@ import { copyReferenceWithToast } from "../../../services/clipboard_ext";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import { shared } from "../../../services/note_set";
+import { escapeHtml } from "../../../services/utils";
 import ColorPicker from "../../react/ColorPicker";
 import { buildAttributeMenuItems } from "../attribute_menu";
 import { buildSortMenuItems, type SortMenuOptions } from "../sort_menu";
@@ -53,6 +54,8 @@ interface ColumnMenuTarget {
     onCollapse: (collapsed: boolean) => void;
     /** Sets whether the column collapses again once it has been opened. */
     onKeepCollapsed: (keepCollapsed: boolean) => void;
+    /** Picks out every card the column draws, as Ctrl+A does. */
+    onSelectAll: () => void;
 }
 
 export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column: ColumnMenuTarget) {
@@ -73,8 +76,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         ...(isInbox ? [ {
             title: t("board_view.inbox-nested"),
             uiIcon: "bx bx-subdirectory-right",
-            // At the trailing edge, so the entry keeps its own icon in front.
-            trailingIcon: column.nested ? "bx bx-check" : undefined,
+            checked: column.nested,
             handler: () => api.setInboxNested(!column.nested)
         } ] : []),
         {
@@ -135,8 +137,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
             ...(column.canKeepCollapsed ? [ {
                 title: t("board_view.keep-column-collapsed"),
                 uiIcon: "bx bx-lock-alt",
-                // At the trailing edge, so the entry keeps its own icon in front.
-                trailingIcon: column.keepCollapsed ? "bx bx-check" : undefined,
+                checked: column.keepCollapsed,
                 handler: () => column.onKeepCollapsed(!column.keepCollapsed)
             } ] : []),
             {
@@ -144,11 +145,11 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                 uiIcon: "bx bx-sort-alt-2",
                 items: buildSortMenuItems<string>(sortMenuOptions(api, column.value))
             },
-            {
+            ...(isInbox ? [] : [ {
                 title: t("board_view.set-limit"),
                 uiIcon: "bx bx-tachometer",
                 handler: column.onSetLimit
-            },
+            } ]),
             { kind: "separator" },
             // The inbox leads the board and `moveColumn` refuses to move it, so it is not offered.
             ...(isInbox ? [] : [ {
@@ -181,6 +182,14 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
                     shortcut: "Delete",
                     handler: () => api.confirmAndRemoveColumn(column.value)
                 },
+            { kind: "separator" },
+            {
+                title: t("board_view.select-all-cards"),
+                uiIcon: "bx bx-selection",
+                shortcut: "Ctrl+A",
+                enabled: api.getColumnNoteIds(column.value).length > 0,
+                handler: column.onSelectAll
+            },
             { kind: "separator" },
             {
                 kind: "custom",
@@ -236,7 +245,7 @@ export function openBoardContextMenu(event: ContextMenuEvent, board: BoardMenuTa
             {
                 title: t("board_view.show-archived-notes"),
                 uiIcon: "bx bx-archive",
-                trailingIcon: board.archivedShown ? "bx bx-check" : undefined,
+                checked: board.archivedShown,
                 handler: () => board.onShowArchived(!board.archivedShown)
             },
             { kind: "separator" },
@@ -357,9 +366,9 @@ function buildMoveColumnItems(api: Api, column: ColumnMenuTarget): MenuItem<stri
         const title = api.getColumnTitle(name);
 
         return [ {
-            // `t()` escapes what it interpolates, so the sentence it builds is boxed as it stands.
+            // `Menu` renders the title as HTML, and a column title is user text.
             title: `<span class="tn-menu-name">`
-                + `${t("board_view.move-column-after", { column: title })}</span>`,
+                + `${t("board_view.move-column-after", { column: escapeHtml(title) })}</span>`,
             uiIcon: api.getColumnIcon(name),
             iconColorClass: api.getColumnColorClass(name),
             badges: api.isColumnArchived(name)
@@ -436,7 +445,7 @@ function buildColumnItems(api: Api, target: NoteMenuTarget): MenuItem<CommandNam
         iconColorClass: api.getColumnColorClass(name),
         // The one they are already under is shown rather than hidden, so the list reads as the
         // whole set of columns and says which of them the cards belong to.
-        trailingIcon: name === current ? "bx bx-check" : undefined,
+        checked: name === current,
         className: name === current ? "board-current-column" : undefined,
         badges: api.isColumnArchived(name)
             ? [ { title: t("board_view.archived-badge") } ]

@@ -242,6 +242,9 @@ class FrocaImpl implements Froca {
         froca.notes[note.noteId].highlightedTokenInfos = highlightedTokenInfos
             ?? highlightedTokens.map((token) => ({ token, type: "plain" as const }));
 
+        // The tree and embedded collections also load search notes, so `SearchResult` needs telling.
+        appContext.triggerEvent("notesReloaded", { noteIds: [ note.noteId ] });
+
         return { error };
     }
 
@@ -355,12 +358,22 @@ class FrocaImpl implements Froca {
         }
 
         const attachments = this.processAttachmentRows(attachmentRows);
-
-        if (attachments.length) {
-            attachments[0].getNote().attachments = attachments;
+        const owner = attachments.length ? attachments[0].getNote() : undefined;
+        if (owner) {
+            owner.attachments = attachments;
         }
 
         return this.attachments[attachmentId];
+    }
+
+    /** The attachment if `noteId` owns it, otherwise `null`. Loads the note first. */
+    async getAttachmentOfNote(noteId: string, attachmentId: string) {
+        if (!await this.getNote(noteId, true)) {
+            return null;
+        }
+
+        const attachment = await this.getAttachment(attachmentId, true);
+        return attachment?.ownerId === noteId ? attachment : null;
     }
 
     async getAttachmentsForNote(noteId: string) {

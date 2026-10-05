@@ -198,6 +198,20 @@ function branchDeleted(branchId: string) {
     if (branch.branchId) {
         delete becca.branches[branch.branchId];
     }
+
+    dropOrphanedSkeleton(childNote);
+    dropOrphanedSkeleton(parentNote);
+}
+
+/**
+ * Removes a skeleton note (see `BBranch.childNote`) once no branch or attribute refers to it. Its
+ * row can no longer arrive when the note was erased before becca was loaded.
+ */
+function dropOrphanedSkeleton(note: BNote | undefined) {
+    if (note && note.title === undefined && !note.parentBranches.length && !note.children.length
+        && !note.ownedAttributes.length) {
+        noteDeleted(note.noteId);
+    }
 }
 
 function noteUpdated(entityRow: NoteRow) {
@@ -207,6 +221,9 @@ function noteUpdated(entityRow: NoteRow) {
         // TODO, this wouldn't have worked in the original implementation since the variable was named __flatTextCache.
         // type / mime could have been changed, and they are present in flatTextCache
         note.__flatTextCache = null;
+        // A local rename assigns `title` and saves without going through `updateFromRow`, so this
+        // is the only point where the caches derived from the title are dropped for it.
+        note.__searchableTitleCache = null;
     }
 }
 
@@ -262,6 +279,8 @@ function attributeDeleted(attributeId: string) {
     if (key in becca.attributeIndex) {
         becca.attributeIndex[key] = becca.attributeIndex[key].filter((attr) => attr.attributeId !== attribute.attributeId);
     }
+
+    dropOrphanedSkeleton(note);
 }
 
 function attributeUpdated(attributeRow: BAttribute) {

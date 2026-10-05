@@ -45,12 +45,12 @@
         # Don't refresh these by hand — `pnpm chore:update-flake-electron` rewrites both
         # bindings from the release's SHASUMS256.txt, and the update-nix-flake workflow
         # opens a PR whenever apps/desktop/package.json moves ahead of the pin.
-        pinnedElectronVersion = "44.3.0";
+        pinnedElectronVersion = "44.5.1";
         pinnedElectronHashes = {
-          x86_64-linux = "8b49b9efdd73c0f467edc3c1cd5678392c384ccf224f34ff54179f736e2f384b";
-          aarch64-linux = "c11fde221c08e9bffdb3336579f09bd934a009862f509af5033616876741be24";
-          aarch64-darwin = "49b91ef265c603c8888500f807484b63816069c30f87ba2b403e7c87f0f45035";
-          headers = "0pns4rylzr1a330cjmmcgyvdh19glhrgp2723gpi08xq027anrh8";
+          x86_64-linux = "5bcd217611d6843ececd6c9e9c1fcd1da3ab066c43d8b1a9e4b44689a1fba6f5";
+          aarch64-linux = "ee1790d743af1abd6a7e3971589dcd8635b58dab51ca1359123ba5216ce3a453";
+          aarch64-darwin = "1d75703019bb16461ae65f3081d7e6f5c0b11e901d0ccb5c343bcf7bcdd6435c";
+          headers = "07qjxn071d21rcadjsawdvq3dj8ypsbkkq0nhr8bj0k4vzxigya0";
         };
         mkElectronBin = pkgs.callPackage (
           pkgs.path + "/pkgs/development/tools/electron/binary/generic.nix"
@@ -61,14 +61,15 @@
         # and ships no libEGL.so/libGLESv2.so, so the glob expands to nothing and patchelf
         # exits with "missing filename". Let that one command tolerate an empty match; it
         # still patches the libraries on releases that do ship them.
+        #
+        # NixOS/nixpkgs@b3041dc18a skips that patchelf for Electron >= 44, so against a
+        # newer nixpkgs (e.g. via `inputs.nixpkgs.follows`) the replacement is a no-op.
+        # Drop this override once flake.lock's nixpkgs includes that commit.
         angleLibGlob = "$out/libexec/electron/lib*GL*";
         tolerateMissingAngleLibs =
           drv:
           drv.overrideAttrs (prev: {
-            postFixup = lib.throwIf (!lib.hasInfix angleLibGlob prev.postFixup) ''
-              The nixpkgs Electron builder no longer runs patchelf over ${angleLibGlob};
-              drop tolerateMissingAngleLibs from flake.nix.
-            '' (builtins.replaceStrings [ angleLibGlob ] [ "${angleLibGlob} || true" ] prev.postFixup);
+            postFixup = builtins.replaceStrings [ angleLibGlob ] [ "${angleLibGlob} || true" ] prev.postFixup;
           });
 
         # Guarded on Linux because only that branch of the builder defines postFixup.

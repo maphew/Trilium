@@ -5,7 +5,7 @@ import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import Chip from "../react/Chip";
 import Icon from "../react/Icon";
-import NoteAutocomplete from "../react/NoteAutocomplete";
+import NoteAutocomplete, { type NoteAutocompleteHandle } from "../react/NoteAutocomplete";
 
 interface RelationValuesInputProps {
     /** The targets' noteIds, in the order they are shown. */
@@ -29,26 +29,14 @@ interface RelationValuesInputProps {
  * already held is not taken a second time — the chips are a set.
  */
 export default function RelationValuesInput({ values, onCommit, inputId, tabIndex, disabled }: RelationValuesInputProps) {
-    const inputRef = useRef<HTMLInputElement>(null);
+    const autocompleteRef = useRef<NoteAutocompleteHandle>(null);
+    const fieldRef = useRef<HTMLDivElement>(null);
     const notes = useNotes(values);
-
-    // Set by hand because {@link NoteAutocomplete} does not carry the attribute through to the box
-    // it builds, which is the element the focus actually lands on.
-    useEffect(() => {
-        if (tabIndex !== undefined) {
-            inputRef.current?.setAttribute("tabindex", String(tabIndex));
-        }
-    }, [ tabIndex ]);
 
     function take(noteId: string) {
         // The box is emptied either way — what was in it is spent on the choice made — but a target
         // already held is not taken twice, and clearing an empty pick has nothing to add.
-        const picker = inputRef.current;
-        if (picker) {
-            // Through the plugin rather than the element: the plugin holds text of its own, and would
-            // write the picked title right back over a cleared box.
-            $(picker).autocomplete("val", "").setSelectedNotePath("");
-        }
+        autocompleteRef.current?.clear();
         if (!noteId || values.includes(noteId)) return;
         onCommit([ ...values, noteId ]);
     }
@@ -58,7 +46,7 @@ export default function RelationValuesInput({ values, onCommit, inputId, tabInde
     }
 
     return (
-        <div className="tn-field relation-values-input">
+        <div ref={fieldRef} className="tn-field relation-values-input">
             {values.map((noteId) => (
                 <Chip
                     key={noteId}
@@ -71,7 +59,9 @@ export default function RelationValuesInput({ values, onCommit, inputId, tabInde
             ))}
             <NoteAutocomplete
                 id={inputId}
-                inputRef={inputRef}
+                handleRef={autocompleteRef}
+                anchorRef={fieldRef}
+                tabIndex={tabIndex}
                 opts={{ allowCreatingNotes: true, hideAllButtons: true }}
                 noteIdChanged={take}
             />
