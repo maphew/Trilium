@@ -416,8 +416,7 @@
     "search_placeholder": "search path by name (default if empty)",
     "modal_title": "Choose note type",
     "modal_body": "Choose note type / template of the new note:",
-    "templates": "Templates",
-    "builtin_templates": "Built-in Templates"
+    "templates": "Templates"
   },
   "password_not_set": {
     "title": "Password is not set",
@@ -2578,7 +2577,6 @@
     "llm-chat": "AI Chat",
     "task-list": "Task List",
     "new-feature": "New",
-    "collections": "Collections",
     "spreadsheet": "Spreadsheet",
     "note-types": "Note types",
     "built-in-templates": "Built-in templates",
