@@ -370,7 +370,7 @@ describe("contextMenu", () => {
                     { kind: "header", title: "Colour" },
                     { kind: "custom", componentFn: () => null },
                     { kind: "separator" },
-                    { title: "Insert child note", columns: 2, items: [
+                    { title: "Insert child note", items: [
                         { title: "Text" }, { kind: "separator" }, { title: "Code" }, { title: "Weekly" }
                     ] }
                 ]
@@ -385,13 +385,10 @@ describe("contextMenu", () => {
 
             const parent = menuRows().at(-1);
             parent?.dispatchEvent(new PointerEvent("pointerenter"));
-            await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).not.toBeNull());
-            const columns = menuElement()?.querySelector(".tn-menu-columns");
-            expect([ columns?.tagName, columns?.getAttribute("role") ]).toEqual([ "MENU", "none" ]);
-            // A group a column must not break is a list item holding a list of its own.
-            const group = columns?.querySelector(":scope > .dropdown-no-break");
-            expect([ group?.tagName, group?.getAttribute("role") ]).toEqual([ "LI", "none" ]);
-            expect(group?.querySelector(":scope > menu")?.getAttribute("role")).toBe("none");
+            const submenuList = () => menuElement()?.querySelector("div.dropdown-submenu .tn-menu-scroll");
+            await vi.waitFor(() => expect(submenuList()).not.toBeNull());
+            expect([ submenuList()?.tagName, submenuList()?.getAttribute("role") ]).toEqual([ "MENU", "none" ]);
+            expect(submenuList()?.children).toHaveLength(4);
             for (const element of menuElement()?.querySelectorAll("menu") ?? []) {
                 expect([ ...element.children ].every((child) => child.tagName === "LI")).toBe(true);
             }
@@ -652,57 +649,6 @@ describe("contextMenu", () => {
             press(row("Insert child note"));
             expect(picked.at(-1)).toBe("Insert child note");
             expect(again.isShown).toBe(false);
-        });
-
-        it("lays a submenu with columns out on an element of its own, so a capped layer scrolls them", async () => {
-            buildPage();
-            const contextMenu = await buildContextMenu();
-            await contextMenu.show({
-                x: 10, y: 10, selectMenuItemHandler: () => {},
-                items: [ { title: "Insert child note", items: noteTypes, columns: 2 } ]
-            });
-
-            hover(row("Insert child note"));
-            await vi.waitFor(() => expect(menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu > .tn-menu-scroll > .tn-menu-columns")).not.toBeNull());
-            const columns = menuElement()?.querySelector<HTMLElement>(".tn-menu-columns");
-            expect(columns?.style.columnCount).toBe("2");
-            expect(columns?.textContent).toBe("TextCode");
-        });
-
-        it("keeps a header with the row after it, and a separator with the rows around it, in one column", async () => {
-            buildPage();
-            const contextMenu = await buildContextMenu();
-            const columnItems = [
-                { title: "Text" }, { title: "Code" },
-                { kind: "separator" as const },
-                { title: "Templates", kind: "header" as const },
-                { title: "Meeting" }, { title: "Weekly" }
-            ];
-            await contextMenu.show({
-                x: 10, y: 10, selectMenuItemHandler: () => {},
-                items: [
-                    { title: "Insert child note", items: columnItems, columns: 2 },
-                    { title: "Insert note after", items: columnItems }
-                ]
-            });
-            /** The layer's rows, a group of rows that must not break as the list of its rows. */
-            const layout = (list: Element | null | undefined) => [ ...list?.children ?? [] ].map((child) =>
-                child.classList.contains("dropdown-no-break")
-                    ? [ ...child.querySelector(":scope > menu")?.children ?? [] ].map((grouped) => grouped.textContent || "---")
-                    : child.textContent || "---");
-
-            hover(row("Insert child note"));
-            await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).not.toBeNull());
-            expect(layout(menuElement()?.querySelector(".tn-menu-columns"))).toEqual([
-                "Text", [ "Code", "---", "Templates", "Meeting" ], "Weekly"
-            ]);
-
-            // A single column has no breaks to avoid, so nothing is grouped.
-            hover(row("Insert note after"));
-            await vi.waitFor(() => expect(menuElement()?.querySelector(".tn-menu-columns")).toBeNull());
-            expect(layout(menuElement()?.querySelector("div.dropdown-submenu > .dropdown-menu > .tn-menu-scroll"))).toEqual([
-                "Text", "Code", "---", "Templates", "Meeting", "Weekly"
-            ]);
         });
 
         it("unfolds a submenu under its row on a phone", async () => {
@@ -978,44 +924,6 @@ describe("contextMenu", () => {
 
             expect(picked).toEqual([ "Paste" ]);
             expect(contextMenu.isShown).toBe(false);
-        });
-
-        it("moves across a submenu's columns, and leaves it from its first", async () => {
-            buildPage();
-            const contextMenu = await buildContextMenu();
-            await contextMenu.show({
-                x: 10, y: 10, selectMenuItemHandler: () => {},
-                items: [ {
-                    title: "Insert child note", columns: 2,
-                    items: [ { title: "Text" }, { title: "Code" }, { title: "Meeting" }, { title: "Weekly" } ]
-                } ]
-            });
-            await vi.waitFor(() => expect(document.activeElement).toBe(menuElement()));
-
-            key("ArrowDown");
-            await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
-            key("ArrowRight");
-            await vi.waitFor(() => expect(activeRow()).toBe("Text"));
-            // Where the browser broke the columns: happy-dom lays out nothing.
-            const boxes: Record<string, [number, number]> = { Text: [ 0, 0 ], Code: [ 0, 24 ], Meeting: [ 150, 0 ], Weekly: [ 150, 24 ] };
-            for (const layerRow of menuElement()?.querySelectorAll<HTMLElement>("div.dropdown-submenu li") ?? []) {
-                const [ left, top ] = boxes[layerRow.textContent ?? ""] ?? [ 0, 0 ];
-                vi.spyOn(layerRow, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ x: left, y: top, width: 140, height: 24 }));
-            }
-
-            key("ArrowDown");
-            await vi.waitFor(() => expect(activeRow()).toBe("Code"));
-            key("ArrowRight");
-            await vi.waitFor(() => expect(activeRow()).toBe("Weekly"));
-            // Nothing further right, so it stays.
-            key("ArrowRight");
-            key("ArrowLeft");
-            await vi.waitFor(() => expect(activeRow()).toBe("Code"));
-            // From the first column, Left closes the submenu as before.
-            key("ArrowLeft");
-            await vi.waitFor(() => expect(activeRow()).toBe("Insert child note"));
-            expect(menuElement()?.querySelector("div.dropdown-submenu")).toBeNull();
-            vi.restoreAllMocks();
         });
 
         it("steps into a custom row that has something to focus, and leaves it the keys it answers", async () => {

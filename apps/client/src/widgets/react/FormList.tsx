@@ -379,8 +379,6 @@ export interface FormDropdownSubmenuProps {
     children: ComponentChildren;
     /** Called when the row is clicked, or run from the keyboard, on the desktop. */
     onDropdownToggleClicked?: (e: MouseEvent) => void;
-    /** Inside a menu, lays the submenu's rows out in this many columns. */
-    columns?: number;
     disabled?: boolean;
     className?: string;
 }
@@ -396,7 +394,7 @@ export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
     return <MenuSubmenu {...props} menu={menu} />;
 }
 
-function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, columns, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
+function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
     const level = useContext(MenuLevelContext);
     const id = useUniqueName("menu-row");
     const openSubmenu = menu.open[level];
@@ -471,7 +469,7 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                     </ul>
                 )
                 : open && openSubmenu && menu.layerHost && createPortal((
-                    <SubmenuLayer level={level + 1} submenu={openSubmenu} columns={columns}>{children}</SubmenuLayer>
+                    <SubmenuLayer level={level + 1} submenu={openSubmenu}>{children}</SubmenuLayer>
                 ), menu.layerHost)}
         </li>
     );
@@ -481,14 +479,12 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
  * A submenu opened on the desktop, placed beside the row it opened from rather than nested in it,
  * so a scrolling menu neither clips it nor scrolls it away.
  */
-function SubmenuLayer({ level, submenu, columns, children }: {
+function SubmenuLayer({ level, submenu, children }: {
     level: number,
     submenu: OpenSubmenu,
-    columns?: number,
     children: ComponentChildren
 }) {
     const layerRef = useRef<HTMLDivElement>(null);
-    const columnCount = (columns ?? 1) > 1 ? columns : undefined;
     const { dropStart: dropStartLevels, setDropStart } = useMenu();
     const dropStart = !!dropStartLevels[level - 1];
 
@@ -531,17 +527,7 @@ function SubmenuLayer({ level, submenu, columns, children }: {
                     className={clsx("dropdown-menu show tn-menu", submenu.immediate && "tn-menu-immediate")}
                 >
                     {/* Like the top level, so the blur on the layer's `::before` stays behind its rows. */}
-                    {columnCount
-                        // The columns go on an inner list of their full height, so a capped menu
-                        // scrolls them rather than growing more columns to the side.
-                        ? (
-                            <div className="tn-menu-scroll">
-                                <menu className="tn-menu-columns" role="none" style={{ columnCount }}>
-                                    {children}
-                                </menu>
-                            </div>
-                        )
-                        : <menu className="tn-menu-scroll" role="none">{children}</menu>}
+                    <menu className="tn-menu-scroll" role="none">{children}</menu>
                 </div>
             </div>
         </MenuLevelContext.Provider>

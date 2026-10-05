@@ -5,7 +5,6 @@ import type { ComponentChildren } from "preact";
 import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MenuCommandItem, MenuItem } from "../../menus/context_menu";
-import { isMobile } from "../../services/utils";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListCustomItem, FormListHeader, FormListItem } from "./FormList";
 import { type ActiveRow, isRightToLeft, MenuContext, type MenuContextValue, type OpenSubmenu, pointerMoved, type RowEntry, shouldDropStart } from "./menu_context";
 import Popup, { type PopupProps } from "./Popup";
@@ -206,28 +205,19 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
             setActive(closing - 1, parent.id);
         };
         const rtl = isRightToLeft();
-        /** Moves to the row beside the active one in a menu laid out in columns, if there is one. */
-        const moveAcross = (towards: "left" | "right") => {
-            const boxes = levelRows.map((rowId) => rows.get(rowId)?.element.getBoundingClientRect());
-            const target = rowInNextColumn(boxes, index, towards);
-            const rowId = target !== undefined ? levelRows[target] : undefined;
-            if (rowId) moveTo(rowId);
-            return !!rowId;
-        };
 
         switch (e.key) {
             case "ArrowDown": goTo(index + 1); break;
             case "ArrowUp": goTo(index < 0 ? -1 : index - 1); break;
             case "Home": goTo(0); break;
             case "End": goTo(-1); break;
-            // Into the active row's submenu, or else across to the next column.
+            // Into the active row's submenu.
             case rtl ? "ArrowLeft" : "ArrowRight":
-                if (activeRow && !activeRow.custom && activeRow.hasSubmenu) openActive();
-                else moveAcross(e.key === "ArrowRight" ? "right" : "left");
+                openActive();
                 break;
-            // Back across a column, or else out of the submenu.
+            // Out of the submenu.
             case rtl ? "ArrowRight" : "ArrowLeft":
-                if (!moveAcross(e.key === "ArrowRight" ? "right" : "left") && level > 0) closeLevel(level);
+                if (level > 0) closeLevel(level);
                 break;
             case "Enter":
             case " ":
@@ -320,30 +310,12 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
     );
 }
 
-/**
- * `items` drawn as the rows that stand for them, with a run of separators reduced to one. In
- * `columns`, the rows a column must not break between are wrapped in `.dropdown-no-break`.
- */
-function MenuItems<T>({ items, onSelect, columns }: {
+/** `items` drawn as the rows that stand for them, with a run of separators reduced to one. */
+function MenuItems<T>({ items, onSelect }: {
     items: MenuItem<T>[],
-    onSelect: MenuProps<T>["onSelect"],
-    columns?: boolean
+    onSelect: MenuProps<T>["onSelect"]
 }) {
-    const rows = menuRows(items);
-    if (!columns) return <>{rows.map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />)}</>;
-
-    return <>
-        {unbreakableGroups(rows).map((group, groupIndex) => (group.length > 1
-            ? (
-                <li key={groupIndex} className="dropdown-no-break" role="none">
-                    <menu role="none">
-                        {group.map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />)}
-                    </menu>
-                </li>
-            )
-            : <MenuItemRow key={groupIndex} row={group[0]} onSelect={onSelect} />
-        ))}
-    </>;
+    return <>{menuRows(items).map((row, index) => <MenuItemRow key={index} row={row} onSelect={onSelect} />)}</>;
 }
 
 function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuProps<T>["onSelect"] }) {
@@ -363,11 +335,10 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
     if (items) {
         return (
             <FormDropdownSubmenu
-                icon={uiIcon ?? "bx bx-empty"} title={label} columns={row.columns} disabled={enabled === false}
+                icon={uiIcon ?? "bx bx-empty"} title={label} disabled={enabled === false}
                 className={className} onDropdownToggleClicked={select}
             >
-                {/* A phone unfolds a submenu in a single column. */}
-                <MenuItems items={items} onSelect={onSelect} columns={(row.columns ?? 1) > 1 && !isMobile()} />
+                <MenuItems items={items} onSelect={onSelect} />
             </FormDropdownSubmenu>
         );
     }
@@ -386,44 +357,6 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
     );
 }
 
-/** How far apart, in pixels, two rows' left edges can be and still stand in one column. */
-const COLUMN_TOLERANCE = 1;
-
-/**
- * In a menu laid out in columns, the index of the row beside `boxes[index]` in the nearest column
- * towards `towards`: the one whose middle is nearest its middle. The browser decides where CSS
- * columns break, so the rows' boxes are all there is to go by. Rows without a box are passed over.
- */
-export function rowInNextColumn(
-    boxes: (Pick<DOMRect, "left" | "top" | "bottom"> | undefined)[],
-    index: number,
-    towards: "left" | "right"
-): number | undefined {
-    const from = boxes[index];
-    if (!from) return undefined;
-
-    const middle = (box: Pick<DOMRect, "top" | "bottom">) => (box.top + box.bottom) / 2;
-    const beyond: { box: Pick<DOMRect, "left" | "top" | "bottom">, index: number }[] = [];
-    for (const [ candidateIndex, box ] of boxes.entries()) {
-        if (!box) continue;
-        const offset = box.left - from.left;
-        if (towards === "right" ? offset > COLUMN_TOLERANCE : offset < -COLUMN_TOLERANCE) {
-            beyond.push({ box, index: candidateIndex });
-        }
-    }
-    if (!beyond.length) return undefined;
-
-    const lefts = beyond.map(({ box }) => box.left);
-    const columnLeft = towards === "right" ? Math.min(...lefts) : Math.max(...lefts);
-    let nearest: { box: Pick<DOMRect, "left" | "top" | "bottom">, index: number } | undefined;
-    for (const candidate of beyond) {
-        if (Math.abs(candidate.box.left - columnLeft) > COLUMN_TOLERANCE) continue;
-        const distance = Math.abs(middle(candidate.box) - middle(from));
-        if (!nearest || distance < Math.abs(middle(nearest.box) - middle(from))) nearest = candidate;
-    }
-    return nearest?.index;
-}
-
 /** Where a custom row takes focus: the element its content marks as its way in with `tabindex="0"`. */
 function focusTarget(row: HTMLElement | undefined) {
     return row?.querySelector<HTMLElement>("[tabindex='0']") ?? null;
@@ -440,29 +373,6 @@ function menuRows<T>(items: MenuItem<T>[]) {
     return rows;
 }
 
-/**
- * The rows split where a column can break: a row stays with the one before it when that one is a
- * header or a separator, or when it is a separator itself. Firefox ignores `break-before` and
- * `break-after: avoid` in columns, so a group is kept whole with `break-inside: avoid` instead.
- */
-function unbreakableGroups<T>(rows: MenuItem<T>[]) {
-    const groups: MenuItem<T>[][] = [];
-    for (const [ index, row ] of rows.entries()) {
-        const previous = rows[index - 1];
-        const lastGroup = groups.at(-1);
-        if (previous && lastGroup && (isHeader(previous) || isSeparator(previous) || isSeparator(row))) {
-            lastGroup.push(row);
-        } else {
-            groups.push([ row ]);
-        }
-    }
-    return groups;
-}
-
 function isSeparator<T>(item: MenuItem<T>) {
     return "kind" in item && item.kind === "separator";
-}
-
-function isHeader<T>(item: MenuItem<T>) {
-    return "kind" in item && item.kind === "header";
 }

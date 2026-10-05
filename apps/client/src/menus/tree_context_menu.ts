@@ -166,8 +166,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             keyboardShortcut: "createNoteAfter",
             uiIcon: "bx bx-plus",
             items: insertNoteAfterItems,
-            enabled: insertNoteAfterEnabled && noSelectedNotes && notOptionsOrHelp,
-            columns: 2
+            enabled: insertNoteAfterEnabled && noSelectedNotes && notOptionsOrHelp
         },
 
         {
@@ -176,8 +175,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             keyboardShortcut: "createNoteInto",
             uiIcon: "bx bx-subdirectory-right",
             items: insertChildNoteItems,
-            enabled: notSearch && noSelectedNotes && notOptionsOrHelp && !hasSubtreeHidden && !isSpotlighted,
-            columns: 2
+            enabled: notSearch && noSelectedNotes && notOptionsOrHelp && !hasSubtreeHidden && !isSpotlighted
         },
 
         { kind: "separator" },

@@ -73,7 +73,6 @@ export interface MenuCommandItem<T> {
      * icon standing — for a list where that icon is what tells one entry from another.
      */
     trailingIcon?: string;
-    columns?: number;
 }
 
 export type MenuItem<T> = MenuCommandItem<T> | CustomMenuItem | MenuSeparatorItem | MenuHeader;
