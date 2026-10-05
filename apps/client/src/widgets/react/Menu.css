@@ -119,11 +119,12 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
     font-style: italic;
 }
 
+/* Marked as the quick search marks its terms, in the theme's highlight colour. */
 .tn-menu-filter-title mark {
     padding: 0;
-    color: inherit;
     background-color: transparent;
-    font-weight: bold;
+    color: var(--quick-search-result-highlight-color, var(--admonition-warning-accent-color));
+    text-decoration: underline;
 }
 
 /* The submenus a match stands in, after its title. */
