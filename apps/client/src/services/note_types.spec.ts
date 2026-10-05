@@ -480,6 +480,44 @@ describe("new template badges", () => {
         }
     });
 
+    it("groups the note types of the menu by kind, common ones first, and offers each exactly once", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([ fakeTemplate("tpl-ai", [ "template", "aiQuickAction" ], "AI quick action") ]);
+        const key = (i: any) => i.kind ?? (i.mime === "text/x-markdown" ? "markdown" : i.type) ?? i.title;
+        try {
+            llmFlag.mockReturnValue(true);
+            const data = await noteTypesService.loadNoteTypeData();
+            const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
+            expect(menu.map(key)).toEqual([
+                "text", "markdown", "code", "spreadsheet",
+                "separator",
+                "canvas", "mermaid", "mindMap", "relationMap",
+                "separator",
+                "llmChat", "text",
+                "separator",
+                "note_types.more"
+            ]);
+            expect(menu[11].templateNoteId).toBe("tpl-ai");
+
+            // No creatable type is left out or offered twice, at the top level and under More.
+            const offered = [ ...menu, ...menu.at(-1).items ].filter((i) => i.command && !i.templateNoteId).map(key);
+            const creatable = selectableNoteTypes(false).filter((nt) => nt.type !== "book")
+                .map((nt) => (nt.mime === "text/x-markdown" ? "markdown" : nt.type));
+            expect([ ...offered ].sort()).toEqual([ ...creatable, "noteMap", "search" ].sort());
+
+            // Without AI, its group leaves no separator behind.
+            llmFlag.mockReturnValue(false);
+            const withoutAi = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never).map(key);
+            expect(withoutAi.slice(-3)).toEqual([ "relationMap", "separator", "note_types.more" ]);
+
+            // The chooser's flat list keeps the order of `NOTE_TYPES`, which the note type switcher shares.
+            const list = (await noteTypesService.getNoteTypeItems()).map(key);
+            expect(list.slice(0, 3)).toEqual([ "text", "spreadsheet", "canvas" ]);
+        } finally {
+            restore();
+        }
+    });
+
     it("puts the rarely created note types in a More submenu of the menu, after the snippets and collections", async () => {
         withTemplates();
         const restore = withTemplatesRoot([

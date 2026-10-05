@@ -222,55 +222,82 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
 type NoteTypeLayout = "menu" | "list";
 
 /**
- * The note type items. In a `"menu"` the snippets, the collections and the rarely created note
- * types ({@link MORE_NOTE_TYPES}) each form a submenu; a `"list"`, such as the note type chooser
- * draws, cannot open one, so there they stay inline. The AI
- * quick action template stands beside the AI chat note type, and is offered only alongside it.
+ * The note type items. A `"menu"` groups the note types by kind ({@link MENU_GROUPS}) and opens the
+ * snippets, the collections and the rarely created note types from submenus; a `"list"`, such as
+ * the note type chooser draws, cannot open one, so it lists them inline in the order of
+ * {@link NOTE_TYPES}. The AI quick action template stands beside the AI chat note type, and is
+ * offered only alongside it.
  */
 function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: NoteTypeLayout = "menu") {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
     const builtIn = (group: BuiltInTemplateGroup) =>
         getBuiltInTemplates(command, builtInTemplateNotes, group, newTemplates, layout);
-    const snippets = builtIn("snippet");
-    const collections = builtIn("collection");
+    const blankTypes = getBlankNoteTypes(command);
 
-    const items: MenuItem<TreeCommandNames>[] = [];
-    const more: MenuItem<TreeCommandNames>[] = [];
-    for (const blankType of getBlankNoteTypes(command)) {
-        if (layout === "menu" && "type" in blankType && blankType.type && MORE_NOTE_TYPES.has(blankType.type)) {
-            more.push(blankType);
-            continue;
-        }
-        if (layout === "menu" && "mime" in blankType && blankType.type === "code" && blankType.mime === "text/plain") {
-            blankType.items = getCodeLanguageItems(command);
-        }
-        items.push(blankType);
-        if ("type" in blankType && blankType.type === "llmChat") items.push(...builtIn("aiQuickAction"));
-    }
-
-    if (layout === "list") {
-        items.push(...withLeading(SEPARATOR, [ ...snippets, ...builtIn("other") ]));
-        items.push(...withLeading({ title: t("note_types.collections"), kind: "header" }, collections));
-    } else {
-        items.push(...withLeading(SEPARATOR, builtIn("other")), SEPARATOR);
-        if (snippets.length > 0) items.push({ title: t("note_types.snippet"), uiIcon: "bx bx-align-left", items: snippets });
-        if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
-        items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: more });
-    }
-
+    const items = layout === "menu"
+        ? buildMenuItems(blankTypes, builtIn, command)
+        : buildListItems(blankTypes, builtIn);
     items.push(...getUserTemplates(command, userTemplateNotes, newTemplates, layout));
     return items;
 }
 
-/** The note types created rarely enough that the menus offer them from a "More" submenu. */
-const MORE_NOTE_TYPES = new Set<string>([ "noteMap", "render", "search", "webView" ]);
+/**
+ * How the menus order and group the blank note types, each group set apart by a separator. The
+ * last group opens from the "More" submenu. A note type in none of them is not offered.
+ */
+const MENU_GROUPS: Pick<NoteTypeMapping, "type" | "mime">[][] = [
+    [ { type: "text" }, { type: "code", mime: MARKDOWN_NOTE_TYPE_MIME }, { type: "code", mime: "text/plain" }, { type: "spreadsheet" } ],
+    [ { type: "canvas" }, { type: "mermaid" }, { type: "mindMap" }, { type: "relationMap" } ],
+    [ { type: "llmChat" } ]
+];
+const MORE_GROUP: Pick<NoteTypeMapping, "type" | "mime">[] = [
+    { type: "noteMap" }, { type: "render" }, { type: "search" }, { type: "webView" }
+];
+
+type BuiltInTemplates = (group: BuiltInTemplateGroup) => MenuItem<TreeCommandNames>[];
+
+function buildMenuItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn: BuiltInTemplates, command?: TreeCommandNames) {
+    const inGroup = (group: Pick<NoteTypeMapping, "type" | "mime">[]) => group.flatMap(({ type, mime }) => {
+        const item = blankTypes.find((blankType) => blankType.type === type && (mime === undefined || blankType.mime === mime));
+        if (!item) return [];
+        if (type === "code" && mime === "text/plain") item.items = getCodeLanguageItems(command);
+        return type === "llmChat" ? [ item, ...builtIn("aiQuickAction") ] : [ item ];
+    });
+
+    const items: MenuItem<TreeCommandNames>[] = [];
+    for (const group of MENU_GROUPS) {
+        const groupItems = inGroup(group);
+        if (groupItems.length === 0) continue;
+        if (items.length > 0) items.push(SEPARATOR);
+        items.push(...groupItems);
+    }
+
+    const snippets = builtIn("snippet");
+    const collections = builtIn("collection");
+    items.push(...withLeading(SEPARATOR, builtIn("other")), SEPARATOR);
+    if (snippets.length > 0) items.push({ title: t("note_types.snippet"), uiIcon: "bx bx-align-left", items: snippets });
+    if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
+    items.push({ title: t("note_types.more"), uiIcon: "bx bx-dots-horizontal-rounded", items: inGroup(MORE_GROUP) });
+    return items;
+}
+
+function buildListItems(blankTypes: MenuCommandItem<TreeCommandNames>[], builtIn: BuiltInTemplates) {
+    const items: MenuItem<TreeCommandNames>[] = [];
+    for (const blankType of blankTypes) {
+        items.push(blankType);
+        if (blankType.type === "llmChat") items.push(...builtIn("aiQuickAction"));
+    }
+    items.push(...withLeading(SEPARATOR, [ ...builtIn("snippet"), ...builtIn("other") ]));
+    items.push(...withLeading({ title: t("note_types.collections"), kind: "header" }, builtIn("collection")));
+    return items;
+}
 
 /** Builds the note type list of the note type chooser. Use {@link loadNoteTypeData} directly to build several. */
 async function getNoteTypeItems(command?: TreeCommandNames) {
     return buildNoteTypeItems(await loadNoteTypeData(), command, "list");
 }
 
-function getBlankNoteTypes(command?: TreeCommandNames): MenuItem<TreeCommandNames>[] {
+function getBlankNoteTypes(command?: TreeCommandNames): MenuCommandItem<TreeCommandNames>[] {
     return NOTE_TYPES
         .filter((nt) => !nt.reserved && nt.type !== "book")
         .filter((nt) => nt.type !== "llmChat" || isExperimentalFeatureEnabled("llm"))
