@@ -151,7 +151,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
                     uiIcon: "bx bx-cut",
                     enabled: isNotRoot && !isHoisted && parentNotSearch
                 },
-                { title: t("tree-context-menu.copy-clone"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
+                { title: t("tree-context-menu.clone"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
                 {
                     title: t("tree-context-menu.paste-into"),
                     command: "pasteNotesFromClipboard",

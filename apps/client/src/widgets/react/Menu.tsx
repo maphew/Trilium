@@ -576,7 +576,7 @@ function MenuAction<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect:
                     ? { level, element, custom: false, disabled, hasSubmenu: false, inline: true, select }
                     : undefined);
             }}
-            id={menu ? id : undefined} type="button" role="menuitem"
+            id={menu ? id : undefined} type="button" role="menuitem" title={textOf(item.title)}
             className={clsx("tn-menu-action", menu?.active?.id === id && "tn-menu-active")}
             disabled={disabled} tabIndex={menu ? -1 : undefined}
             // The keyboard goes on from the action the pointer last pointed at, as from a row.
