@@ -81,24 +81,35 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
 
 /* The input at the top of a filterable submenu, above its rows or its matches. */
 .tn-menu-filter-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    margin: 0 0.25rem 0.25rem;
-    padding: 0 0.5rem 0.25rem;
-    border-bottom: 1px solid var(--dropdown-border-color);
-    color: var(--muted-text-color);
+    padding-bottom: 4px;
 
-    /* Bootstrap draws `.form-control` and its focus as a field; in a menu the row is the field. */
+    /* As wide as a row's highlight, the text where a row's icon starts, and the icon inside the
+       field at its end, as in the quick search. */
+    .tn-menu-filter-box {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        margin: 0;
+        padding-inline: var(--menu-item-start-padding, 8px);
+        border-radius: 6px;
+        color: var(--muted-text-color);
+        cursor: text;
+    }
+
+    /* The box is the field; the input inside takes none of the field styling the theme gives
+       every text input, `.form-control` and focus included. */
     .tn-menu-filter-input,
+    .tn-menu-filter-input:hover,
     .tn-menu-filter-input:focus {
         flex: 1;
         min-width: 10em;
-        padding: 0.125rem 0;
+        padding: 4px 0;
         border: none;
+        outline: none;
         background: transparent;
         box-shadow: none;
         color: var(--menu-text-color);
+        font: inherit;
     }
 }
 

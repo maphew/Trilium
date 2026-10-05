@@ -429,13 +429,15 @@ function MenuFilterInput({ filter }: { filter: MenuFilter }) {
 
     return (
         <li className="tn-menu-filter-row" role="none">
-            <span className="bx bx-search" aria-hidden="true" />
-            <FormTextBox
-                inputRef={inputRef} className="tn-menu-filter-input" data-level={filter.level + 1}
-                currentValue={filter.text} placeholder={t("menu.filter_placeholder")} aria-label={t("menu.filter")}
-                autoComplete="off" spellcheck={false}
-                onChange={(text) => menu.setFilter(text ? { rowId: filter.rowId, level: filter.level, text } : undefined)}
-            />
+            <label className="tn-menu-filter-box tn-input-field">
+                <FormTextBox
+                    inputRef={inputRef} className="tn-menu-filter-input" data-level={filter.level + 1}
+                    currentValue={filter.text} placeholder={t("menu.filter_placeholder")} aria-label={t("menu.filter")}
+                    autoComplete="off" spellcheck={false}
+                    onChange={(text) => menu.setFilter(text ? { rowId: filter.rowId, level: filter.level, text } : undefined)}
+                />
+                <span className="bx bx-search" aria-hidden="true" />
+            </label>
         </li>
     );
 }
