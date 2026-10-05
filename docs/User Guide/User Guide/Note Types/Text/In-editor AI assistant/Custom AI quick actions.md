@@ -7,7 +7,7 @@ In the <a class="reference-link" href="../../../Basic%20Concepts%20and%20Featur
 
 1.  Right click a note where to place the text snippet.
 2.  Select _Insert child note_.
-3.  Select _AI Quick Action_.
+3.  Select _AI Quick Action_, next to _AI Chat_. Both appear only when AI is enabled.
 
 Afterwards, simply type in the content of the note the desired prompt. The text can be formatted in the same manner as a normal text note and it will be passed to the LLM as Markdown.
 

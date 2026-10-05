@@ -217,22 +217,31 @@ async function loadNoteTypeData(): Promise<NoteTypeData> {
 }
 
 /**
- * The note type items. In a `"menu"` the collections form a submenu; a `"list"`, such as the note
- * type chooser draws, cannot open one, so there they follow a header instead.
+ * The note type items. In a `"menu"` the snippets and the collections each form a submenu; a
+ * `"list"`, such as the note type chooser draws, cannot open one, so there they stay inline. The AI
+ * quick action template stands beside the AI chat note type, and is offered only alongside it.
  */
 function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames, layout: "menu" | "list" = "menu") {
     const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
-    const collections = getBuiltInTemplates(command, builtInTemplateNotes, true, newTemplates);
+    const builtIn = (group: BuiltInTemplateGroup) =>
+        getBuiltInTemplates(command, builtInTemplateNotes, group, newTemplates);
+    const snippets = builtIn("snippet");
+    const collections = builtIn("collection");
 
-    const items: MenuItem<TreeCommandNames>[] = [
-        ...getBlankNoteTypes(command),
-        ...withLeading(SEPARATOR, getBuiltInTemplates(command, builtInTemplateNotes, false, newTemplates))
-    ];
+    const items: MenuItem<TreeCommandNames>[] = [];
+    for (const blankType of getBlankNoteTypes(command)) {
+        items.push(blankType);
+        if ("type" in blankType && blankType.type === "llmChat") items.push(...builtIn("aiQuickAction"));
+    }
 
     if (layout === "list") {
+        items.push(...withLeading(SEPARATOR, [ ...snippets, ...builtIn("other") ]));
         items.push(...withLeading({ title: t("note_types.collections"), kind: "header" }, collections));
-    } else if (collections.length > 0) {
-        items.push(SEPARATOR, { title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
+    } else {
+        items.push(...withLeading(SEPARATOR, builtIn("other")));
+        if (snippets.length > 0 || collections.length > 0) items.push(SEPARATOR);
+        if (snippets.length > 0) items.push({ title: t("note_types.snippet"), uiIcon: "bx bx-align-left", items: snippets });
+        if (collections.length > 0) items.push({ title: t("note_types.book"), uiIcon: "bx bx-book", items: collections });
     }
 
     items.push(...getUserTemplates(command, userTemplateNotes, newTemplates));
@@ -310,12 +319,21 @@ async function getBuiltInTemplateNotes() {
     return await templatesRoot.getChildNotes();
 }
 
-function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], filterCollections: boolean, newTemplates: Set<string>) {
+type BuiltInTemplateGroup = "collection" | "snippet" | "aiQuickAction" | "other";
+
+/** The group of the note type menus a built-in template stands in, told by the labels it carries. */
+function builtInTemplateGroup(templateNote: FNote): BuiltInTemplateGroup {
+    if (templateNote.hasLabel("collection")) return "collection";
+    if (templateNote.hasLabel("snippet") || templateNote.hasLabel("textSnippet")) return "snippet";
+    if (templateNote.hasLabel("aiQuickAction")) return "aiQuickAction";
+    return "other";
+}
+
+function getBuiltInTemplates(command: TreeCommandNames | undefined, childNotes: FNote[], group: BuiltInTemplateGroup, newTemplates: Set<string>) {
     const items: MenuItem<TreeCommandNames>[] = [];
 
     for (const templateNote of childNotes) {
-        if (templateNote.hasLabel("collection") !== filterCollections ||
-            !templateNote.hasLabel("template")) {
+        if (!templateNote.hasLabel("template") || builtInTemplateGroup(templateNote) !== group) {
             continue;
         }
 

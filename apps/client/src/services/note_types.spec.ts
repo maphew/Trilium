@@ -436,6 +436,47 @@ describe("new template badges", () => {
             restore();
         }
     });
+
+    it("puts the snippets in a submenu of the menu, and the AI quick action beside the AI chat", async () => {
+        withTemplates();
+        const restore = withTemplatesRoot([
+            fakeTemplate("tpl-text-snippet", [ "template", "textSnippet" ], "Text snippet"),
+            fakeTemplate("tpl-code-snippet", [ "template", "snippet" ], "Code snippet"),
+            fakeTemplate("tpl-ai", [ "template", "aiQuickAction" ], "AI quick action")
+        ]);
+        const titles = (items: any[]) => items.map((i) => i.templateNoteId ?? i.type ?? i.kind);
+        try {
+            llmFlag.mockReturnValue(true);
+            const data = await noteTypesService.loadNoteTypeData();
+            const menu: any[] = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
+
+            const submenu = menu.find((i) => i.title === "note_types.snippet");
+            expect(submenu).toBeDefined();
+            expect(submenu.command).toBeUndefined();
+            expect(titles(submenu.items)).toEqual([ "tpl-text-snippet", "tpl-code-snippet" ]);
+            expect(submenu.items.every((i: any) => i.command === "insertChildNote")).toBe(true);
+            // Only in the submenu, and followed by no other group of built-in templates.
+            expect(menu.some((i) => i.templateNoteId === "tpl-code-snippet")).toBe(false);
+            const types = titles(menu);
+            expect(types.indexOf("tpl-ai")).toBe(types.indexOf("llmChat") + 1);
+
+            // The chooser's flat list keeps the snippets inline, after a separator.
+            const list: any[] = await noteTypesService.getNoteTypeItems();
+            expect(list.some((i) => i.items)).toBe(false);
+            const listed = titles(list);
+            expect(listed.slice(listed.indexOf("tpl-text-snippet") - 1, listed.indexOf("tpl-text-snippet") + 2))
+                .toEqual([ "separator", "tpl-text-snippet", "tpl-code-snippet" ]);
+            expect(listed.indexOf("tpl-ai")).toBe(listed.indexOf("llmChat") + 1);
+
+            // Without the AI features, neither the chat nor the quick action is offered.
+            llmFlag.mockReturnValue(false);
+            const withoutAi = titles(noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never));
+            expect(withoutAi).not.toContain("llmChat");
+            expect(withoutAi).not.toContain("tpl-ai");
+        } finally {
+            restore();
+        }
+    });
 });
 
 describe("isCurrentNoteType", () => {

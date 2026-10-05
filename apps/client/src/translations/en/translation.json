@@ -2581,7 +2581,8 @@
     "collections": "Collections",
     "spreadsheet": "Spreadsheet",
     "note-types": "Note types",
-    "built-in-templates": "Built-in templates"
+    "built-in-templates": "Built-in templates",
+    "snippet": "Snippet"
   },
   "template_selection": {
     "add-existing": "Add existing template",
