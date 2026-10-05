@@ -3,52 +3,54 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import FNote from "../../../entities/fnote";
+import { buildNote } from "../../../test/easy-froca";
+import { renderInto } from "../../../test/render";
 import { ParentComponent } from "../../react/react_utils";
 import { EditableCode } from "./Code";
 
-function fakeNote(noteId: string, content: string) {
-    return {
-        noteId,
-        type: "code",
-        mime: "text/x-markdown",
-        getLabelValue: () => null,
-        isLabelTruthy: () => false,
-        isMarkdown: () => true,
-        getBlob: async () => ({ content })
-    } as any;
-}
-
 describe("EditableCode", () => {
-    let container: HTMLElement | undefined;
+    const parent = { registerHandler() {}, removeHandler() {}, componentId: "c" } as any;
+    const markdown = { type: "code", mime: "text/x-markdown" } as const;
+    const noteA = buildNote({ ...markdown, title: "A", content: "# Note A" });
+    const noteB = buildNote({ ...markdown, title: "B", content: "# Note B" });
+
+    function show(note: FNote, onContentChanged: (content: string) => void) {
+        return (
+            <ParentComponent.Provider value={parent}>
+                <EditableCode
+                    note={note} ntxId="ntx" parentComponent={parent}
+                    noteContext={undefined} viewScope={undefined}
+                    onContentChanged={onContentChanged}
+                />
+            </ParentComponent.Provider>
+        );
+    }
 
     afterEach(() => {
-        if (container) {
-            act(() => { render(null, container as HTMLElement); });
-            container.remove();
-            container = undefined;
-        }
+        vi.restoreAllMocks();
     });
 
-    // A preview-only Markdown note keeps its (hidden) editor mounted and relies on this callback to
-    // feed the preview, so it has to fire when a different note's content is loaded.
-    it("reports the content of the new note after a note switch", async () => {
+    // jsdom has no layout, so every editor has a null `offsetParent` and counts as hidden.
+    it("reports each note loaded into a hidden editor", async () => {
         const onContentChanged = vi.fn();
-        const parent = { registerHandler() {}, removeHandler() {}, componentId: "c" } as any;
-        const mountPoint = document.createElement("div");
-        document.body.appendChild(mountPoint);
-        container = mountPoint;
 
-        const show = (note: any) => render(
-            <ParentComponent.Provider value={parent}>
-                <EditableCode note={note} ntxId="ntx" parentComponent={parent} noteContext={undefined} viewScope={undefined} onContentChanged={onContentChanged} />
-            </ParentComponent.Provider>,
-            mountPoint
-        );
+        let container: HTMLElement | undefined;
+        await act(async () => { container = renderInto(show(noteA, onContentChanged)); });
+        await vi.waitFor(() => expect(onContentChanged).toHaveBeenLastCalledWith("# Note A"));
 
-        await act(async () => { show(fakeNote("a", "# Note A")); });
+        await act(async () => {
+            if (container) render(show(noteB, onContentChanged), container);
+        });
+        await vi.waitFor(() => expect(onContentChanged).toHaveBeenLastCalledWith("# Note B"));
+    });
+
+    it("reports a load into a visible editor once", async () => {
+        vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockReturnValue(document.body);
+        const onContentChanged = vi.fn();
+
+        await act(async () => { renderInto(show(noteA, onContentChanged)); });
         await vi.waitFor(() => expect(onContentChanged).toHaveBeenCalledWith("# Note A"));
-
-        await act(async () => { show(fakeNote("b", "# Note B")); });
-        await vi.waitFor(() => expect(onContentChanged).toHaveBeenCalledWith("# Note B"));
+        expect(onContentChanged).toHaveBeenCalledTimes(1);
     });
 });
