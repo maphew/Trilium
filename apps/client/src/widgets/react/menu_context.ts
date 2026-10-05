@@ -56,8 +56,8 @@ export interface MenuContextValue {
     /** Whether the keys moved the menu since the pointer last did. */
     keyboardDriven: boolean;
     /**
-     * Whether the submenus of each level's rows open towards the start, indexed by level. The rows
-     * of a level that does carry `.dropstart`, which points their arrow that way.
+     * Whether the submenus of each level's rows open towards the start, indexed by level. Only the
+     * placement follows it; a row's arrow points to the end, as in the operating system's menus.
      */
     dropStart: boolean[];
     /** Records the side the submenus of `level`'s rows open on. */

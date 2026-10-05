@@ -422,7 +422,7 @@ function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleCli
                 menu.registerRow(id, element ? { level, element, custom: false, disabled: !!disabled, hasSubmenu: true, select } : undefined);
             }}
             className={clsx("dropdown-item dropdown-submenu", open && "submenu-open", isActive && "tn-menu-active",
-                menu.dropStart[level] && "dropstart", disabled && "disabled", className)}
+                disabled && "disabled", className)}
             role="menuitem"
             aria-disabled={disabled || undefined}
             aria-haspopup="menu"

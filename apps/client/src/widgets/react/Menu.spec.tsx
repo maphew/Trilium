@@ -239,7 +239,7 @@ describe("Menu with declared rows", () => {
         expect(activeTitle(menu)).toBe("Copy");
     });
 
-    it("opens submenus towards the start, arrows too, when the end has no room", async () => {
+    it("opens submenus towards the start when the end has no room, arrows still at the end", async () => {
         // The menus and their rows are 120px wide, at the right edge of a 1024px viewport.
         vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1024);
         vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(768);
@@ -252,7 +252,6 @@ describe("Menu with declared rows", () => {
         try {
             const { menu } = renderMenu();
             const advanced = rowTitled("Advanced");
-            await vi.waitFor(() => expect(advanced.classList).toContain("dropstart"));
 
             advanced.dispatchEvent(new PointerEvent("pointerenter"));
             await vi.waitFor(() => expect(layers(menu)).toHaveLength(1));
@@ -260,7 +259,8 @@ describe("Menu with declared rows", () => {
             // Next to the row's left edge (900px), not its right edge (1020px). happy-dom gives the
             // layer no width.
             await vi.waitFor(() => expect(parseFloat(layer?.style.left ?? "")).toBeLessThan(910));
-            expect(advanced.classList).toContain("dropstart");
+            // The arrow marks a submenu, as in the operating system's menus, wherever it opens.
+            expect(advanced.classList).not.toContain("dropstart");
         } finally {
             vi.restoreAllMocks();
         }
