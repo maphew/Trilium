@@ -246,7 +246,7 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
 .tn-menu-action {
     position: relative;
     display: flex;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     flex-direction: column;
     align-items: center;
     gap: 2px;
