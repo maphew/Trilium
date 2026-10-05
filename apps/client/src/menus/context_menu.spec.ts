@@ -1033,6 +1033,34 @@ describe("contextMenu", () => {
                 expect(document.activeElement).toBe(menuElement());
             });
 
+            it("scrolls back to the input when the keys come round to the first row", async () => {
+                await openFilterable();
+                await openSubmenuByKeys();
+                const list = menuElement()?.querySelector<HTMLElement>("div.dropdown-submenu .tn-menu-scroll");
+                if (!list) throw new Error("no submenu");
+                const scrollTo = vi.spyOn(list, "scrollTo");
+
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Code"));
+                expect(scrollTo).not.toHaveBeenCalled();
+                key("End");
+                await vi.waitFor(() => expect(activeRow()).toBe("Meeting & notes"));
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Text"));
+                // As far up as the list goes, so the input above the first row shows again.
+                expect(scrollTo).toHaveBeenLastCalledWith({ top: 0 });
+
+                // From the input, as Up and Down go through the rows from there too.
+                filterInput()?.focus();
+                key("ArrowUp");
+                await vi.waitFor(() => expect(activeRow()).toBe("Meeting & notes"));
+                scrollTo.mockClear();
+                key("ArrowDown");
+                await vi.waitFor(() => expect(activeRow()).toBe("Text"));
+                expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+                vi.restoreAllMocks();
+            });
+
             it("takes a press into the input, as a phone needs to bring up its keyboard", async () => {
                 await openFilterable();
                 const parent = [ ...menuElement()?.querySelectorAll<HTMLElement>("li.dropdown-submenu") ?? [] ]

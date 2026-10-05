@@ -110,7 +110,12 @@ export default function Menu<T>({ id, className, anchor, placement, bottomSheet,
 
     const setActive = useCallback((level: number, rowId: string) => {
         setActiveRow({ level, id: rowId });
-        rows.get(rowId)?.element.scrollIntoView?.({ block: "nearest" });
+        const element = rows.get(rowId)?.element;
+        // The first row of a scrolling list brings what stands above it back into view, such as a
+        // filter input or a header, which scrolling only as far as the row would leave hidden.
+        const list = element?.parentElement;
+        if (list?.classList.contains("tn-menu-scroll") && !hasRowBefore(element)) list.scrollTo?.({ top: 0 });
+        else element?.scrollIntoView?.({ block: "nearest" });
     }, [ rows ]);
     const registerRow = useCallback((rowId: string, row: RowEntry | undefined) => {
         if (!row) {
@@ -574,6 +579,14 @@ function isFilterKey(input: HTMLInputElement, key: string) {
         return input.selectionStart === input.selectionEnd && input.selectionEnd === input.value.length;
     }
     return key === (rtl ? "ArrowRight" : "ArrowLeft") && input.value === "";
+}
+
+/** Whether a row, enabled or not, stands before `row` in its list. */
+function hasRowBefore(row: Element | undefined) {
+    for (let sibling = row?.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+        if (sibling.classList.contains("dropdown-item")) return true;
+    }
+    return false;
 }
 
 /** The filter input of the submenu open in `menu`, if one is. */
