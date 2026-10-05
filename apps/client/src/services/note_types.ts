@@ -322,35 +322,31 @@ function getCodeLanguageItems(command?: TreeCommandNames): MenuItem<TreeCommandN
     ];
 }
 
+/**
+ * The rows of the built-in templates of `group`, or of the user's own templates for `"user"`, as
+ * the note type menu lists them.
+ */
+function getTemplateItems(data: NoteTypeData, group: BuiltInTemplateGroup | "user", command?: TreeCommandNames) {
+    return group === "user"
+        ? getUserTemplateRows(command, data.userTemplateNotes, data.newTemplates)
+        : getBuiltInTemplates(command, data.builtInTemplateNotes, group, data.newTemplates);
+}
+
 function getUserTemplates(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>) {
-    if (templateNotes.length === 0) {
-        return [];
-    }
+    const header: MenuItem<TreeCommandNames> = { title: t("note_type_chooser.templates"), kind: "header" };
+    return withLeading(header, getUserTemplateRows(command, templateNotes, newTemplates));
+}
 
-    const items: MenuItem<TreeCommandNames>[] = [
-        {
-            title: t("note_type_chooser.templates"),
-            kind: "header"
-        }
-    ];
-
-    for (const templateNote of templateNotes) {
-        const item: MenuItem<TreeCommandNames> = {
-            // A menu renders titles as HTML.
-            title: escapeHtml(templateNote.title),
-            uiIcon: templateNote.getIcon(),
-            command,
-            type: templateNote.type,
-            templateNoteId: templateNote.noteId
-        };
-
-        if (newTemplates.has(templateNote.noteId)) {
-            item.badges = [NEW_BADGE];
-        }
-
-        items.push(item);
-    }
-    return items;
+function getUserTemplateRows(command: TreeCommandNames | undefined, templateNotes: FNote[], newTemplates: Set<string>) {
+    return templateNotes.map<MenuItem<TreeCommandNames>>((templateNote) => ({
+        // A menu renders titles as HTML.
+        title: escapeHtml(templateNote.title),
+        uiIcon: templateNote.getIcon(),
+        command,
+        type: templateNote.type,
+        templateNoteId: templateNote.noteId,
+        ...(newTemplates.has(templateNote.noteId) && { badges: [ NEW_BADGE ] })
+    }));
 }
 
 async function getBuiltInTemplateNotes() {
@@ -363,7 +359,7 @@ async function getBuiltInTemplateNotes() {
     return await templatesRoot.getChildNotes();
 }
 
-type BuiltInTemplateGroup = "collection" | "snippet" | "aiQuickAction" | "other";
+export type BuiltInTemplateGroup = "collection" | "snippet" | "aiQuickAction" | "other";
 
 /** The group of the note type menus a built-in template stands in, told by the labels it carries. */
 function builtInTemplateGroup(templateNote: FNote): BuiltInTemplateGroup {
@@ -415,6 +411,8 @@ export default {
     loadNoteTypeData,
     buildNoteTypeItems,
     getNoteTypeItems,
+    getCodeLanguageItems,
+    getTemplateItems,
     getNoteTypeOptions,
     resolveNoteTypeOptions
 };

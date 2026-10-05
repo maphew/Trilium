@@ -2855,11 +2855,11 @@
     "created_on": "Created on <Value />",
     "last_modified": "Modified on <Value />",
     "note_type_switcher_label": "Switch from {{type}} to:",
-    "note_type_switcher_others": "Other note type",
     "note_type_switcher_templates": "Template",
     "note_type_switcher_collection": "Collection",
     "edited_notes": "Notes edited on this day",
-    "promoted_attributes": "Promoted attributes"
+    "promoted_attributes": "Promoted attributes",
+    "note_type_switcher_all": "All types"
   },
   "search_result": {
     "no_notes_found": "No notes have been found for given search parameters.",
