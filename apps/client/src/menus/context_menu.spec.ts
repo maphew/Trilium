@@ -1089,8 +1089,8 @@ describe("contextMenu", () => {
             });
 
             it("keeps its top while filtered, as its height follows the matches", async () => {
-                // A browser's layout, which happy-dom has none of: a submenu taller than the room
-                // beside its row, low in the viewport, which moves it up to fit.
+                // A submenu taller than the room beside its row, low in the viewport, which moves it
+                // up to fit.
                 let height = 400;
                 vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1000);
                 vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);

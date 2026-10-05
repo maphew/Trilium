@@ -250,7 +250,7 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    min-width: 4.5em;
+    min-width: min(4.5em, 18%);
     padding: 4px 6px;
     border: 0;
     border-radius: 6px;
@@ -295,7 +295,6 @@ body.desktop .dropdown-item.dropdown-submenu.submenu-open,
     font-size: 1.5em;
 }
 
-/* The circle must stay centered on `.tn-menu-action-badge`, whose offset and size place it. */
 .tn-menu-action-badged {
     mask-image: radial-gradient(circle at 80% 80%, transparent 0.36em, #000 0.37em);
 }

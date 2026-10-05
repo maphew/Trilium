@@ -468,8 +468,6 @@ body.mobile .dropdown-menu:where(:not(.note-autocomplete-menu)) {
     backdrop-filter: var(--dropdown-backdrop-filter);
     position: relative;
 
-    /* A submenu opens as a page in the menu's place, so its arrow points to the end, as on the
-       desktop, and stands in the row's end padding. */
     .dropdown-submenu .dropdown-toggle::after {
         bottom: 0;
         inset-inline-end: calc(var(--dropdown-menu-padding-horizontal) / 2);
