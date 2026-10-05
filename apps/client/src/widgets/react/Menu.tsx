@@ -571,8 +571,11 @@ function MenuAction<T>({ item, onSelect }: { item: MenuCommandItem<T>, onSelect:
     const disabled = item.enabled === false;
     const select = (e: MouseEvent | KeyboardEvent) => onSelect?.(item, e);
     const buttonRef = useRef<HTMLButtonElement | null>(null);
-    // The full title, which a narrow menu can cut short, and the shortcut a row would show.
-    useStaticTooltipWithKeyboardShortcut(buttonRef, item.tooltip ?? textOf(item.title), item.keyboardShortcut, ACTION_TOOLTIP);
+    // The full title, which a narrow menu can cut short, and the shortcut a row would show. A phone
+    // has no pointer to hover with and no keyboard, so it gets neither; an empty title shows none.
+    const mobile = isMobile();
+    useStaticTooltipWithKeyboardShortcut(buttonRef, mobile ? "" : item.tooltip ?? textOf(item.title),
+        mobile ? undefined : item.keyboardShortcut, ACTION_TOOLTIP);
 
     return (
         <button

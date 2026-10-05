@@ -283,6 +283,7 @@ describe("Menu with an action row", () => {
     afterEach(() => {
         render(null, host);
         window.glob.isRtl = false;
+        window.glob.device = "desktop";
     });
 
     function renderMenu() {
@@ -359,6 +360,17 @@ describe("Menu with an action row", () => {
         await vi.waitFor(() => expect(tooltipText(cut)).toBe(`Cut (${shortcut})`));
         expect(shortcut).not.toContain("CommandOrControl");
         expect(tooltipText(remove)).toBe("Delete, asking first");
+    });
+
+    it("gives the actions no tooltip on a phone, which has no pointer to hover with", async () => {
+        window.glob.device = "mobile";
+        const { menu } = renderMenu();
+        const [ cut, , remove ] = menu.querySelectorAll<HTMLElement>(".tn-menu-action");
+        if (!cut || !remove) throw new Error("expected the actions to render");
+
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(Tooltip.getInstance(cut)).toBeNull();
+        expect(Tooltip.getInstance(remove)).toBeNull();
     });
 
     it("keeps Right and Left for the submenus on the other rows, mirrored right to left", async () => {
