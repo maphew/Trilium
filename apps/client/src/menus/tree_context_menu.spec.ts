@@ -46,6 +46,19 @@ describe("buildTreeContextMenuItems", () => {
         ]);
     });
 
+    it("folds the places to open the note in into one split row, quick edit standing on its own", async () => {
+        const { build } = setUp();
+        const items = await build();
+        const separator = items.findIndex((item) => "kind" in item && item.kind === "separator");
+        const [ open, quickEdit ] = items.slice(separator + 1);
+        if (!open || "kind" in open || !quickEdit || "kind" in quickEdit) throw new Error("expected two rows after the actions");
+
+        expect(open.command).toBe("openInTab");
+        expect(open.items?.map((item) => "command" in item && item.command))
+            .toStrictEqual([ "openInTab", "openNoteInSplit", "openNoteInWindow" ]);
+        expect(quickEdit.command).toBe("openNoteInPopup");
+    });
+
     it("protects or unprotects the subtree after Archive, as the note stands, with both in its submenu", async () => {
         const { child, build } = setUp();
 

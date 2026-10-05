@@ -185,9 +185,18 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
 
         { kind: "separator" },
 
-        { title: t("tree-context-menu.open-in-a-new-tab"), command: "openInTab", shortcut: "Ctrl+Click", uiIcon: "bx bx-link-external", enabled: noSelectedNotes },
-        { title: t("tree-context-menu.open-in-a-new-split"), command: "openNoteInSplit", uiIcon: "bx bx-dock-right", enabled: noSelectedNotes },
-        { title: t("tree-context-menu.open-in-a-new-window"), command: "openNoteInWindow", uiIcon: "bx bx-window-open", enabled: noSelectedNotes },
+        // As the link context menu has it: the row opens a new tab, its arrow the other places.
+        {
+            title: t("link_context_menu.open_note"),
+            command: "openInTab",
+            uiIcon: "bx bx-link-external",
+            enabled: noSelectedNotes,
+            items: [
+                { title: t("tree-context-menu.open-in-a-new-tab"), command: "openInTab", shortcut: "Ctrl+Click", uiIcon: "bx bx-link-external" },
+                { title: t("tree-context-menu.open-in-a-new-split"), command: "openNoteInSplit", uiIcon: "bx bx-dock-right" },
+                { title: t("tree-context-menu.open-in-a-new-window"), command: "openNoteInWindow", uiIcon: "bx bx-window-open" }
+            ]
+        },
         { title: t("tree-context-menu.open-in-popup"), command: "openNoteInPopup", uiIcon: "bx bx-edit", enabled: noSelectedNotes },
 
         isHoisted
