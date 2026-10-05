@@ -483,9 +483,18 @@ describe("duplicateSubtree", () => {
 
         await noteCreateService.duplicateSubtree(NOTE_ID, "root");
 
-        expect(server.post).toHaveBeenCalledWith(`notes/${NOTE_ID}/duplicate/root`);
+        expect(server.post).toHaveBeenCalledWith(`notes/${NOTE_ID}/duplicate/root`, { withChildren: true });
         expect(setNote).toHaveBeenCalledWith(`root/${NOTE_ID}`);
         expect(showMessage).toHaveBeenCalledWith(expect.stringContaining("note_create.duplicated"));
+    });
+
+    it("asks the server to leave the children out when told to", async () => {
+        setActiveContext(true);
+        server.post = vi.fn(async () => ({ note: { noteId: NOTE_ID } })) as typeof server.post;
+
+        await noteCreateService.duplicateSubtree(NOTE_ID, "root", { withChildren: false });
+
+        expect(server.post).toHaveBeenCalledWith(`notes/${NOTE_ID}/duplicate/root`, { withChildren: false });
     });
 
     it("does not throw when there is no active context", async () => {

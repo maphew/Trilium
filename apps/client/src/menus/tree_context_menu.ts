@@ -289,7 +289,8 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             command: "duplicateSubtree",
             keyboardShortcut: "duplicateSubtree",
             uiIcon: "bx bx-outline",
-            enabled: parentNotSearch && isNotRoot && !isHoisted && notOptionsOrHelp
+            enabled: parentNotSearch && isNotRoot && !isHoisted && notOptionsOrHelp,
+            items: getDuplicateItems(selectedNotes)
         },
 
         {
@@ -440,6 +441,20 @@ export async function handleTreeContextMenuSelect(
             selectedOrActiveNoteIds
         });
     }
+}
+
+/**
+ * The choice between copying the children or not, offered only when a note to copy has children.
+ */
+export function getDuplicateItems(notes: FNote[]): MenuItem<TreeCommandNames>[] | null {
+    if (!notes.some((n) => n.hasChildren())) {
+        return null;
+    }
+
+    return [
+        { title: t("tree-context-menu.duplicate-with-children"), command: "duplicateSubtree", keyboardShortcut: "duplicateSubtree", uiIcon: "bx bx-sitemap" },
+        { title: t("tree-context-menu.duplicate-note-only"), command: "duplicateNote", keyboardShortcut: "duplicateNote", uiIcon: "bx bx-file" }
+    ];
 }
 
 function parentNotePathOf(notePath: string): string {

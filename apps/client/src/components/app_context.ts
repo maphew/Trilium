@@ -215,6 +215,7 @@ export type CommandMappings = {
     editBranchPrefix: ContextMenuCommandData;
     convertNoteToAttachment: ContextMenuCommandData;
     duplicateSubtree: ContextMenuCommandData;
+    duplicateNote: ContextMenuCommandData;
     expandSubtree: ContextMenuCommandData;
     collapseSubtree: ContextMenuCommandData;
     toggleArchivedNotes: CommandData;

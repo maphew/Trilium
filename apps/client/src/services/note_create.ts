@@ -230,9 +230,13 @@ function parseSelectedHtml(selectedHtml: string) {
     return [null, selectedHtml];
 }
 
-async function duplicateSubtree(noteId: string, parentNotePath: string) {
+/**
+ * Duplicates a note next to the original and opens the copy. With `withChildren: false`, the copy
+ * leaves out the note's children.
+ */
+async function duplicateSubtree(noteId: string, parentNotePath: string, { withChildren = true }: { withChildren?: boolean } = {}) {
     const parentNoteId = treeService.getNoteIdFromUrl(parentNotePath);
-    const { note } = await server.post<DuplicateResponse>(`notes/${noteId}/duplicate/${parentNoteId}`);
+    const { note } = await server.post<DuplicateResponse>(`notes/${noteId}/duplicate/${parentNoteId}`, { withChildren });
 
     await ws.waitForMaxKnownEntityChangeId();
 

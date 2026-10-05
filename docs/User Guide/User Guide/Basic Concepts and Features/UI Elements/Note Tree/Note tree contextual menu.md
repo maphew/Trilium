@@ -42,7 +42,7 @@ The contextual menu can operate:
     *   Will place the given notes in clipboard.
     *   Use one of the two paste functions (or the keyboard shortcuts) to copy them to the desired location.
     *   Note that the copy function here works according to the <a class="reference-link" href="../../Notes/Cloning%20Notes.md">Cloning Notes</a> functionality (i.e. the note itself will be present in two locations at once, and editing it in one place will edit it everywhere).
-    *   To simply create a duplicate note that can be modified independently, look for _Duplicate subtree_.
+    *   To simply create a duplicate note that can be modified independently, look for _Duplicate_.
 *   **Paste into**
     *   If there are any notes in clipboard, they will be pasted as child notes to the right-clicked one.
 *   **Paste after**
@@ -52,7 +52,10 @@ The contextual menu can operate:
 *   **Clone to…**
     *   Will display a modal to specify where to [clone](../../Notes/Cloning%20Notes.md) the desired notes.
 *   **Duplicate**
-    *   Creates a copy of the note and its descendants.
+    *   Creates a copy of the note and its descendants, placed right after the original.
+    *   When the note has child notes, hovering the item opens a submenu:
+        *   _Note and its children_ does the same as clicking _Duplicate_.
+        *   _This note only_ copies the note with its content and attributes, but without any of its child notes. Links and relations to the original children keep pointing at them.
     *   This process is different from <a class="reference-link" href="../../Notes/Cloning%20Notes.md">Cloning Notes</a> since the duplicated note can be edited independently from the original.
     *   An alternative to this, if done regularly, would be <a class="reference-link" href="../../../Advanced%20Usage/Templates.md">Templates</a>.
 *   **Archive/Unarchive**
