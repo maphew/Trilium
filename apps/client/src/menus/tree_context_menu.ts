@@ -141,6 +141,42 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
         : null;
 
     const items: (MenuItem<TreeCommandNames> | null)[] = [
+        {
+            kind: "actions",
+            items: [
+                {
+                    title: t("tree-context-menu.cut"),
+                    command: "cutNotesToClipboard",
+                    keyboardShortcut: "cutNotesToClipboard",
+                    uiIcon: "bx bx-cut",
+                    enabled: isNotRoot && !isHoisted && parentNotSearch
+                },
+                { title: t("tree-context-menu.copy-clone"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
+                {
+                    title: t("tree-context-menu.paste-into"),
+                    command: "pasteNotesFromClipboard",
+                    keyboardShortcut: "pasteNotesFromClipboard",
+                    uiIcon: "bx bx-paste",
+                    enabled: !clipboard.isClipboardEmpty() && notSearch && noSelectedNotes
+                },
+                {
+                    title: t("tree-context-menu.paste-after"),
+                    command: "pasteNotesAfterFromClipboard",
+                    uiIcon: "bx bx-paste",
+                    enabled: !clipboard.isClipboardEmpty() && isNotRoot && !isHoisted && parentNotSearch && noSelectedNotes
+                },
+                {
+                    title: t("tree-context-menu.delete"),
+                    command: "deleteNotes",
+                    keyboardShortcut: "deleteNotes",
+                    uiIcon: "bx bx-trash destructive-action-icon",
+                    enabled: isNotRoot && !isHoisted && parentNotSearch && notOptionsOrHelp
+                }
+            ]
+        },
+
+        { kind: "separator" },
+
         { title: t("tree-context-menu.open-in-a-new-tab"), command: "openInTab", shortcut: "Ctrl+Click", uiIcon: "bx bx-link-external", enabled: noSelectedNotes },
         { title: t("tree-context-menu.open-in-a-new-split"), command: "openNoteInSplit", uiIcon: "bx bx-dock-right", enabled: noSelectedNotes },
         { title: t("tree-context-menu.open-in-a-new-window"), command: "openNoteInWindow", uiIcon: "bx bx-window-open", enabled: noSelectedNotes },
@@ -250,31 +286,6 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
         { kind: "separator" },
 
         {
-            title: t("tree-context-menu.cut"),
-            command: "cutNotesToClipboard",
-            keyboardShortcut: "cutNotesToClipboard",
-            uiIcon: "bx bx-cut",
-            enabled: isNotRoot && !isHoisted && parentNotSearch
-        },
-
-        { title: t("tree-context-menu.copy-clone"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
-
-        {
-            title: t("tree-context-menu.paste-into"),
-            command: "pasteNotesFromClipboard",
-            keyboardShortcut: "pasteNotesFromClipboard",
-            uiIcon: "bx bx-paste",
-            enabled: !clipboard.isClipboardEmpty() && notSearch && noSelectedNotes
-        },
-
-        {
-            title: t("tree-context-menu.paste-after"),
-            command: "pasteNotesAfterFromClipboard",
-            uiIcon: "bx bx-paste",
-            enabled: !clipboard.isClipboardEmpty() && isNotRoot && !isHoisted && parentNotSearch && noSelectedNotes
-        },
-
-        {
             title: t("tree-context-menu.move-to"),
             command: "moveNotesTo",
             keyboardShortcut: "moveNotesTo",
@@ -320,13 +331,6 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
                     }
                 }
             }
-        },
-        {
-            title: t("tree-context-menu.delete"),
-            command: "deleteNotes",
-            keyboardShortcut: "deleteNotes",
-            uiIcon: "bx bx-trash destructive-action-icon",
-            enabled: isNotRoot && !isHoisted && parentNotSearch && notOptionsOrHelp
         },
 
         { kind: "separator" },

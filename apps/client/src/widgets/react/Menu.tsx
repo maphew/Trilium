@@ -511,6 +511,7 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
         if (row.kind === "separator") return <FormDropdownDivider />;
         // Its title is text, as it can be a name the user wrote.
         if (row.kind === "header") return <FormListHeader text={row.title} />;
+        if (row.kind === "actions") return <MenuActions items={row.items} onSelect={onSelect} />;
         return <FormListCustomItem><row.componentFn /></FormListCustomItem>;
     }
 
@@ -546,6 +547,24 @@ function MenuItemRow<T>({ row, onSelect }: { row: MenuItem<T>, onSelect: MenuPro
     );
 }
 
+/** A row of items side by side, each its icon over its title. */
+function MenuActions<T>({ items, onSelect }: { items: MenuCommandItem<T>[], onSelect: MenuProps<T>["onSelect"] }) {
+    return (
+        <li className="tn-menu-actions" role="group">
+            {items.map((item, index) => (
+                <button
+                    key={index} type="button" role="menuitem" className="tn-menu-action"
+                    disabled={item.enabled === false} onClick={(e) => onSelect?.(item, e)}
+                >
+                    <span className={`tn-icon ${item.uiIcon ?? "bx bx-empty"}`} aria-hidden="true" />
+                    {/* Callers pass HTML, as for a row's title. */}
+                    <span className="tn-menu-action-title" dangerouslySetInnerHTML={{ __html: item.title }} />
+                </button>
+            ))}
+        </li>
+    );
+}
+
 interface MenuMatch<T> {
     item: MenuCommandItem<T>;
     /** The title as text. */
@@ -566,7 +585,10 @@ function filterMenuItems<T>(items: MenuItem<T>[], text: string): MenuMatch<T>[] 
 
     function collect(level: MenuItem<T>[], path: string[]) {
         for (const item of level) {
-            if ("kind" in item) continue;
+            if ("kind" in item) {
+                if (item.kind === "actions") collect(item.items, path);
+                continue;
+            }
             const title = textOf(item.title);
             if (item.items) {
                 collect(item.items, [ ...path, title ]);

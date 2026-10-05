@@ -34,6 +34,12 @@ export interface MenuHeader {
     kind: "header";
 }
 
+/** A row of items side by side, each drawn as its icon over its title. */
+export interface MenuActionRow<T> {
+    kind: "actions";
+    items: MenuCommandItem<T>[];
+}
+
 export interface MenuItemBadge {
     title: string;
     className?: string;
@@ -82,7 +88,7 @@ export interface MenuCommandItem<T> {
     filterable?: boolean;
 }
 
-export type MenuItem<T> = MenuCommandItem<T> | CustomMenuItem | MenuSeparatorItem | MenuHeader;
+export type MenuItem<T> = MenuCommandItem<T> | CustomMenuItem | MenuSeparatorItem | MenuHeader | MenuActionRow<T>;
 export type MenuHandler<T> = (item: MenuCommandItem<T>, e: MouseEvent | KeyboardEvent) => void;
 export type ContextMenuEvent = PointerEvent | MouseEvent | JQuery.ContextMenuEvent;
 

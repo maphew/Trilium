@@ -137,7 +137,7 @@ const NOT_SWITCHED_TO = new Set<string>([ "text", "search" ]);
  */
 export function toSwitcherItems(items: MenuItem<TreeCommandNames>[], noteId: string): MenuItem<unknown>[] {
     return items.flatMap((item): MenuItem<unknown>[] => {
-        if ("kind" in item) return [ item ];
+        if ("kind" in item) return item.kind === "actions" ? [] : [ item ];
         const { command, handler, items: subItems, ...rest } = item;
         if (subItems) return [ { ...rest, items: toSwitcherItems(subItems, noteId) } ];
         if (handler) return [ { ...rest, handler: (_, e) => handler(item, e) } ];
