@@ -152,21 +152,24 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
                     enabled: isNotRoot && !isHoisted && parentNotSearch
                 },
                 { title: t("tree-context-menu.clone"), command: "copyNotesToClipboard", keyboardShortcut: "copyNotesToClipboard", uiIcon: "bx bx-copy", enabled: isNotRoot && !isHoisted },
-                {
-                    title: t("tree-context-menu.paste-into"),
-                    command: "pasteNotesFromClipboard",
-                    keyboardShortcut: "pasteNotesFromClipboard",
-                    uiIcon: "bx bx-clipboard",
-                    uiIconBadge: "bx bx-subdirectory-right",
-                    enabled: !clipboard.isClipboardEmpty() && notSearch && noSelectedNotes
-                },
-                {
-                    title: t("tree-context-menu.paste-after"),
-                    command: "pasteNotesAfterFromClipboard",
-                    uiIcon: "bx bx-clipboard",
-                    uiIconBadge: "bx bx-down-arrow-alt",
-                    enabled: !clipboard.isClipboardEmpty() && isNotRoot && !isHoisted && parentNotSearch && noSelectedNotes
-                },
+                // Shown only while something is cut or copied, which is when they are looked for.
+                ...(clipboard.isClipboardEmpty() ? [] : [
+                    {
+                        title: t("tree-context-menu.paste-into"),
+                        command: "pasteNotesFromClipboard",
+                        keyboardShortcut: "pasteNotesFromClipboard",
+                        uiIcon: "bx bx-clipboard",
+                        uiIconBadge: "bx bx-subdirectory-right",
+                        enabled: notSearch && noSelectedNotes
+                    },
+                    {
+                        title: t("tree-context-menu.paste-after"),
+                        command: "pasteNotesAfterFromClipboard",
+                        uiIcon: "bx bx-clipboard",
+                        uiIconBadge: "bx bx-down-arrow-alt",
+                        enabled: isNotRoot && !isHoisted && parentNotSearch && noSelectedNotes
+                    }
+                ] satisfies MenuCommandItem<TreeCommandNames>[]),
                 {
                     title: t("tree-context-menu.delete"),
                     command: "deleteNotes",
