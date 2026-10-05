@@ -12,7 +12,7 @@ import { handleRightToLeftPlacement, isMobile, openInAppHelpFromUrl } from "../.
 import FormToggle from "./FormToggle";
 import HelpTooltipButton from "./HelpTooltipButton";
 import { useStaticTooltip, useSyncedRef, useUniqueName } from "./hooks";
-import Icon from "./Icon";
+import Icon, { SvgIcon } from "./Icon";
 import { isRightToLeft, MenuContext, type MenuContextValue, MenuLevelContext, type OpenSubmenu, pointerMoved, shouldDropStart, useMenu } from "./menu_context";
 import { placeFloating } from "./Popup";
 import { joinElements } from "./react_utils";
@@ -134,6 +134,8 @@ export interface FormListItemOpts {
     children: ComponentChildren;
     /** Without one the row keeps a blank slot, lining it up with the rows that have one; `null` leaves no slot. */
     icon?: string | null;
+    /** The SVG of an icon drawn in place of {@link icon}, such as a CKEditor toolbar item's. */
+    iconSvg?: string;
     /** Extra class for the icon itself, e.g. to hang a marker off its corner. */
     iconClassName?: string;
     value?: string;
@@ -183,7 +185,7 @@ const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
     animation: false
 };
 
-export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, checkable, container, onClick, selected, rtl, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, closeOnSelect, ...contentProps }: FormListItemOpts) {
+export function FormListItem({ className, icon, iconSvg, iconClassName, value, title, active, disabled, checked, checkable, container, onClick, selected, rtl, description, itemRef: externalItemRef, keyboardShortcut, shortcut, trailingIcon, closeOnSelect, ...contentProps }: FormListItemOpts) {
     const itemRef = useSyncedRef<HTMLLIElement>(externalItemRef, null);
     // Inside a `Menu` the row is one of its items; elsewhere, as in a dropdown, it stands alone.
     const menu = useContext(MenuContext);
@@ -264,7 +266,9 @@ export function FormListItem({ className, icon, iconClassName, value, title, act
         >
             {/* One classless span holds the row, as the rows of a menu are laid out. */}
             <span>
-                {icon === null ? <span /> : <Icon icon={icon} className={iconClassName} />}
+                {iconSvg && !checked
+                    ? <SvgIcon svg={iconSvg} className={iconClassName} />
+                    : icon === null ? <span /> : <Icon icon={icon} className={iconClassName} />}
                 {/* An element, not spaces: in a flex row, text merges with a plain title but is
                     trimmed before one boxed by `menuName()`, indenting the two kinds of row apart. */}
                 <span className="tn-menu-gap" />
@@ -368,7 +372,9 @@ export function FormDropdownDivider() {
 }
 
 export interface FormDropdownSubmenuProps {
-    icon: string;
+    icon?: string;
+    /** The SVG of an icon drawn in place of {@link icon}, such as a CKEditor toolbar item's. */
+    iconSvg?: string;
     title: ComponentChildren;
     children: ComponentChildren;
     /** Called when the row is clicked, or run from the keyboard, on the desktop. */
@@ -390,7 +396,7 @@ export function FormDropdownSubmenu(props: FormDropdownSubmenuProps) {
     return <MenuSubmenu {...props} menu={menu} />;
 }
 
-function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, columns, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
+function MenuSubmenu({ menu, icon, iconSvg, title, children, onDropdownToggleClicked, columns, disabled, className }: FormDropdownSubmenuProps & { menu: MenuContextValue }) {
     const level = useContext(MenuLevelContext);
     const id = useUniqueName("menu-row");
     const openSubmenu = menu.open[level];
@@ -453,7 +459,7 @@ function MenuSubmenu({ menu, icon, title, children, onDropdownToggleClicked, col
             }}
         >
             <span className="dropdown-toggle">
-                <Icon icon={icon} />
+                {iconSvg ? <SvgIcon svg={iconSvg} /> : <Icon icon={icon} />}
                 <span className="tn-menu-gap" />
                 <span id={titleId(id)}>{title}</span>
             </span>
